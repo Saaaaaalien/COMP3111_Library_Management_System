@@ -1,0 +1,102 @@
+COURSE PROJECT - Library Management System
+
+In this project, you need to develop a Library Management System for HKUST (E-Library System). The system is useful for students/staff, authors, and librarians.
+
+From this system
+
+Students/Staff can log in/register into the system, see the available books, borrow and return the book, read the book, manage their own profile, and so on...
+Authors can log in/register into the system, view/modify/delete a book published by them, upload a new book, view book stats, manage their own profile, and so on...
+Librarians can log in/register into the system, manage all books, manage all users, manage their own profile, and so on...
+ 
+
+Project Details:
+
+Group of 3 students (max)
+Each student will be responsible for 1 main task. And each main task is divided into sub-tasks.
+Three phases of incremental development
+– Each phase will introduce a set of new features
+– A complete system must be built at the end of each phase
+– Must complete both requirements, modeling and implementation
+– Must be incremental, not a new application
+Crazy customer mode
+– One week before the deadline of each phase, the crazy customer will ask for a new (reasonable) feature to be built
+– Evaluation is the same as regular features
+Important Note:
+
+UI design/style should be consistent across all three main tasks (Task 1, 2, 3)
+All the functionalities should be in working form for each subtask.
+Test the edge cases based on your knowledge from the real world
+For all the tasks, you need to handle exceptional handling (edge cases) by yourself (Means: You need to think about how to implement logically perfect functionality)
+ 
+
+Main Tasks in all Phases:
+
+Task 1:
+
+Handle the student/staff login and registration
+Available book screen (to borrow a book)
+Borrowed book screen
+Read the book as a PDF (add bookmarks and watermarks)
+Return books
+Reading history
+Review/Rate books
+Manage profile screen
+Request for a new book
+Notification board
+Task 2:
+
+Handle the author login and registration
+Published book screen
+Publish new book screen
+LLM model to generate a book summary
+View stats screen
+Review and feedback handling
+Manage profile screen
+Notification board
+Task 3:
+
+Handle the librarian login and registration
+Pending approval, book screen
+Manage all users' screens
+Manage own profile screen
+Borrowed books record screen
+Manage Published Books screen
+Modify the book details published by any author
+Manage new book requests and Download the requested books
+Using a web crawler or ML tools
+Notification board
+
+Tentative Important Dates to Remember:
+
+Group formation starts from 16th February (after add/drop)
+Group formation deadline: 22nd February (1 week)
+Release Phase 1: 23rd February
+Phase 1 deadline: 12th March 06:00 PM 
+Phase 1 project demo: 12th March 06:00-08:00 PM
+Release Phase 2: 13th March
+Phase 2 deadline: 02nd April 06:00 PM
+Phase 2 project demo: 02nd April 06:00-08:00 PM 
+Release Phase 3: 03rd April
+Phase 3 deadline: 07th May 06:00 PM
+Final Project Demo: 07th May 06:00-08:00 PM
+ 
+
+Technical Requirements:
+
+You can use any programming language to build this project. There is no restriction. 
+Attention: As announced by Prof. Charles, you must obtain his approval before using any programming language for your project; Java is exempt.
+There is no skeleton code provided to any group. You need to build your project from scratch (frontend + backend).
+You are allowed to use AI tools, but not recommended. 
+
+Project Discussion Rules:
+
+You should not discuss things between different teams related to project requirements 
+You should not share code with other teams (as there will be a plagiarism check)
+You should not post your code on Canvas discussion or other public resources (e.g., GitHub)
+You should not disscuss project related things in telegram group (except looking for teammates)
+You can ask questions to repective TA assigned to your team if any confusion
+ 
+
+CHANGELOG
+
+Updated information in 'Technical Requirements' @ 23-02-2026
