@@ -1,0 +1,55 @@
+/* main.css */
+
+.root {
+    -fx-font-family: 'Times New Roman';
+}
+
+.button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-padding: 8px 16px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.button:hover {
+    -fx-background-color: #45a049;
+}
+
+.button:danger {
+    -fx-background-color: #f44336;
+}
+
+.button:danger:hover {
+    -fx-background-color: #da190b;
+}
+
+.text-field, .password-field, .text-area {
+    -fx-padding: 8px;
+    -fx-border-color: #ddd;
+    -fx-border-radius: 4px;
+}
+
+.table-view {
+    -fx-border-color: #ddd;
+    -fx-border-radius: 4px;
+}
+
+.table-column {
+    -fx-alignment: CENTER;
+}
+
+.label-header {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.label-error {
+    -fx-text-fill: red;
+    -fx-font-size: 12px;
+}
+
+.label-success {
+    -fx-text-fill: green;
+    -fx-font-size: 12px;
+}
