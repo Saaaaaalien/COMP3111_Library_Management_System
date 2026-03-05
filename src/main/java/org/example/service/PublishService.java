@@ -2,10 +2,8 @@ package org.example.service;
 
 import org.example.domain.PendingBook;
 import org.example.domain.User;
-import org.example.util.Validators;
-import org.example.util.ValidationException;
 import org.example.db.PendingDao;
-import org.example.db.Database;
+
 
 import java.io.File;
 import java.io.IOException;
@@ -62,7 +60,7 @@ public final class PublishService {
 
         // Validate all inputs
         try {
-            // Step 1: Validate required fields
+            // Validate required fields
             if (title == null || title.trim().isEmpty()) {
                 return new PublishResult(false, "Book title is required");
             }
@@ -87,7 +85,7 @@ public final class PublishService {
                 return new PublishResult(false, "Please select a book file to upload");
             }
 
-            // Step 2: Validate file exists and is readable
+            // Validate file exists and is readable
             if (!bookFile.exists()) {
                 return new PublishResult(false, "Selected file does not exist");
             }
@@ -96,14 +94,14 @@ public final class PublishService {
                 return new PublishResult(false, "Cannot read the selected file");
             }
 
-            // Step 3: Validate file extension
+            // Validate file extension
             String extension = getFileExtension(bookFile);
             if (!isValidFileType(extension)) {
                 return new PublishResult(false,
                         "Invalid file type. Please upload PDF, TXT, or DOC/DOCX files. Got: " + extension);
             }
 
-            // Step 4: Validate file size
+            //  Validate file size
             if (bookFile.length() > MAX_FILE_SIZE) {
                 return new PublishResult(false,
                         "File size must be less than 10MB. Your file: " +
@@ -114,13 +112,13 @@ public final class PublishService {
                 return new PublishResult(false, "File is empty");
             }
 
-            // Step 5: Generate unique filename to avoid conflicts
+            // Generate unique filename to avoid conflicts
             String timestamp = String.valueOf(System.currentTimeMillis());
             String safeFileName = sanitizeFilename(bookFile.getName());
             String uniqueFileName = timestamp + "_" + safeFileName;
             Path targetPath = Paths.get(UPLOAD_DIR, uniqueFileName);
 
-            // Step 6: Copy file to upload directory
+            // Copy file to upload directory
             try {
                 Files.copy(bookFile.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -138,7 +136,7 @@ public final class PublishService {
                         "Failed to upload file: " + e.getMessage());
             }
 
-            // Step 7: Create PendingBook object
+            // Create PendingBook object
             PendingBook pendingBook;
             try {
                 pendingBook = new PendingBook(
@@ -163,7 +161,7 @@ public final class PublishService {
                         "Error creating book record: " + e.getMessage());
             }
 
-            // Step 8: Save to database using PendingDao
+            // Save to database using PendingDao
             try {
                 long bookId = PendingDao.insert(pendingBook);
                 return new PublishResult(true,
@@ -199,20 +197,6 @@ public final class PublishService {
             e.printStackTrace();
             return new PublishResult(false, "Unexpected error: " + e.getMessage());
         }
-    }
-
-    /**
-     * Overloaded method with default genre and empty description
-     */
-    public static PublishResult submitBook(User author, String title, File bookFile) {
-        return submitBook(author, title, "Fiction", "", bookFile);
-    }
-
-    /**
-     * Overloaded method with default genre
-     */
-    public static PublishResult submitBook(User author, String title, String description, File bookFile) {
-        return submitBook(author, title, "Fiction", description, bookFile);
     }
 
     private static String getFileExtension(File file) {
