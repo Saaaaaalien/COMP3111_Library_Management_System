@@ -61,8 +61,13 @@ public class Navigator {
         stage.setScene(scene);
     }
 
-    public void showPublishBookScreen(User currentAuthor) {
-        Scene scene = org.example.ui.PublishBookScreen.create(this, currentAuthor);
+    public void showAuthorDashboard(User user) {
+        Scene scene = org.example.ui.AuthorDashboardScreen.create(this, user);
+        stage.setScene(scene);
+    }
+
+    public void showPublishBook(User user) {
+        Scene scene = org.example.ui.PublishBookScreen.create(this, user);
         stage.setScene(scene);
     }
 

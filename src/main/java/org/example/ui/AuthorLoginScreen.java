@@ -47,7 +47,7 @@ public final class AuthorLoginScreen {
                     showLoginError("This portal is for authors only.");
                     return;
                 }
-                navigator.showPublishBookScreen(user);
+                navigator.showAuthorDashboard(user);
             } catch (AuthException ex) {
                 showLoginError(ex.getMessage());
             } catch (SQLException ex) {
