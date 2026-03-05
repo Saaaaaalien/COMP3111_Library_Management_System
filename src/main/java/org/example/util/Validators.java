@@ -57,6 +57,55 @@ public final class Validators {
     }
 
     /**
+     * Validates password strength: min 8 chars, at least one uppercase, one digit, one special character.
+     * Call this in addition to validatePassword for strict validation.
+     *
+     * @throws ValidationException if invalid
+     */
+    public static void validatePasswordStrength(String password) throws ValidationException {
+        validatePassword(password);
+        if (!password.matches(".*[A-Z].*")) {
+            throw new ValidationException("Password must contain at least one uppercase letter.");
+        }
+        if (!password.matches(".*[0-9].*")) {
+            throw new ValidationException("Password must contain at least one number.");
+        }
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
+            throw new ValidationException("Password must contain at least one special character (e.g. !@#$%^&*).");
+        }
+    }
+
+    /**
+     * Returns a strength label for the password strength meter: "Weak", "Medium", or "Strong".
+     */
+    public static String getPasswordStrengthLabel(String password) {
+        if (password == null || password.isEmpty()) return "";
+        int score = 0;
+        if (password.length() >= PASSWORD_MIN_LENGTH) score++;
+        if (password.matches(".*[A-Z].*")) score++;
+        if (password.matches(".*[0-9].*")) score++;
+        if (password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) score++;
+        if (password.length() >= 12) score++;
+        if (score <= 1) return "Weak";
+        if (score <= 3) return "Medium";
+        return "Strong";
+    }
+
+    /**
+     * Validates first name: cannot be empty.
+     */
+    public static void validateFirstName(String firstName) throws ValidationException {
+        validateRequired(firstName, "First name");
+    }
+
+    /**
+     * Validates last name: cannot be empty.
+     */
+    public static void validateLastName(String lastName) throws ValidationException {
+        validateRequired(lastName, "Last name");
+    }
+
+    /**
      * Validates full name: required and non-blank.
      *
      * @throws ValidationException if invalid

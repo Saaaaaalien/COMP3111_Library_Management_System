@@ -29,6 +29,7 @@ public final class AuthorEntryScreen {
         registerBtn.setOnAction(e -> navigator.showAuthorRegister());
 
         Button backBtn = new Button("Back to Welcome");
+        backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
         VBox root = new VBox(20, title, loginBtn, registerBtn, backBtn);

@@ -4,6 +4,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
@@ -151,22 +152,26 @@ public final class PublishBookScreen {
             if (result.isSuccess()) {
                 showSuccess("Success", result.getMessage());
                 clearForm();
-                // Optional: Navigate back to author dashboard
-                // navigator.showAuthorDashboard(currentAuthor);
             } else {
                 showError("Error", result.getMessage());
             }
         });
 
-        // Cancel action
-        cancelBtn.setOnAction(e -> {
-            navigator.showAuthorDashboard(currentAuthor);
-        });
+        // Cancel action: go back to Author portal entry
+        cancelBtn.setOnAction(e -> navigator.showAuthorPortal());
 
-        // Main layout
-        VBox root = new VBox(20, title, form, buttonBox, statusLabel);
-        root.setAlignment(Pos.TOP_CENTER);
+        // Main content card with white background, centered like other screens
+        VBox content = new VBox(20, title, form, buttonBox, statusLabel);
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(20));
+        content.setMaxWidth(600);
+        content.getStyleClass().add("content-card");
+
+        BorderPane root = new BorderPane();
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(40));
+        root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
 

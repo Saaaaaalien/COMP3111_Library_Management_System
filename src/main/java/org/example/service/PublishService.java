@@ -1,13 +1,15 @@
-package org.example.services;
+package org.example.service;
 
 import org.example.domain.User;
-import org.example.domain.PendingBook;
-import org.example.db.PendingDao;
 import org.example.util.Validators;
 import org.example.util.ValidationException;
 
 import java.io.File;
 
+/**
+ * Service for validating and submitting book publish requests (author flow).
+ * Phase 2/3 placeholder: persistence wiring to PendingBook/PendingDao will be added later.
+ */
 public final class PublishService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -55,53 +57,16 @@ public final class PublishService {
                         "File size must be less than 10MB");
             }
 
-            // Create book object
-            PendingBook book = new PendingBook();
-            book.setTitle(title);
-            book.setAuthorId(author.getId());
-            book.setAuthorName(author.getFullName());
-            book.setGenre(genre);
-            book.setDescription(description);
-            book.setFileName(bookFile.getName());
-            book.setFileSize(bookFile.length());
-            book.setFileType(extension);
-            book.setStatus("PENDING");
-
-            // Save to database
-            if (PendingDao.saveBookRequest(book, bookFile)) {
-                return new PublishResult(true,
-                        "Book submitted successfully! Waiting for librarian approval.");
-            } else {
-                return new PublishResult(false,
-                        "Failed to submit book. Please try again.");
-            }
-
+            // TODO: Wire up real PendingBook + PendingDao in Phase 2/3
+            // For now we accept the submission logically without persistence.
+            return new PublishResult(true,
+                    "Book submitted successfully! (Storage for author submissions will be implemented in Phase 2/3.)");
         } catch (ValidationException e) {
             return new PublishResult(false, e.getMessage());
         }
     }
 
-    /**
-     * Get all books pending approval
-     */
-    public static List<PeningBook> getPendingBooks() {
-        return PeningDao.getPendingBooks();
-    }
-
-    /**
-     * Get books by author
-     */
-    public static List<PendingBook> getBooksByAuthor(int authorId) {
-        return PendingDao.getBooksByAuthor(authorId);
-    }
-
-    /**
-     * Approve or reject a book
-     */
-    public static boolean reviewBook(int bookId, boolean approve, String reviewNotes) {
-        String status = approve ? "APPROVED" : "REJECTED";
-        return PendingDao.updateBookStatus(bookId, status, reviewNotes);
-    }
+    // Phase 2/3: methods for pending lists and reviews will be added here.
 
     private static String getFileExtension(File file) {
         String name = file.getName();

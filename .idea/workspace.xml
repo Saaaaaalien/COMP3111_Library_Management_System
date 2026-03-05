@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-    </list>
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated for task 1" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -21,6 +18,24 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <excluded-from-favorite>
+      <branch-storage>
+        <map>
+          <entry type="LOCAL">
+            <value>
+              <list>
+                <branch-info repo="$PROJECT_DIR$" source="master" />
+              </list>
+            </value>
+          </entry>
+        </map>
+      </branch-storage>
+    </excluded-from-favorite>
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory"><![CDATA[{
@@ -35,6 +50,9 @@
     "accountId": "6a5d010c-ccd6-4592-8731-c473a22f5646"
   }
 }]]></component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo"><![CDATA[{
   "associatedIndex": 1
 }]]></component>
@@ -45,15 +63,38 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Application.ResetDatabase.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "master",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "task1",
     "kotlin-language-version-configured": "true",
+    "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RunManager">
+    <configuration name="ResetDatabase" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="org.example.db.ResetDatabase" />
+      <module name="COMP3111_Library_Management_System" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.db.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.ResetDatabase" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -69,11 +110,85 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1772680850993</updated>
-      <workItem from="1772680852089" duration="2889000" />
+      <workItem from="1772680852089" duration="12936000" />
     </task>
+    <task id="LOCAL-00001" summary="phase 1 basic">
+      <option name="closed" value="true" />
+      <created>1772683783910</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1772683783911</updated>
+    </task>
+    <task id="LOCAL-00002" summary="phase 1 basic workflow">
+      <option name="closed" value="true" />
+      <created>1772683800113</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1772683800113</updated>
+    </task>
+    <task id="LOCAL-00003" summary="phase 1 basic workflow">
+      <option name="closed" value="true" />
+      <created>1772683806307</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1772683806307</updated>
+    </task>
+    <task id="LOCAL-00004" summary="updated phase 1 basic workflow">
+      <option name="closed" value="true" />
+      <created>1772684132617</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1772684132617</updated>
+    </task>
+    <task id="LOCAL-00005" summary="updated for task 1">
+      <option name="closed" value="true" />
+      <created>1772697666902</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1772697666902</updated>
+    </task>
+    <task id="LOCAL-00006" summary="updated for task 1">
+      <option name="closed" value="true" />
+      <created>1772697708010</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1772697708010</updated>
+    </task>
+    <task id="LOCAL-00007" summary="updated the css to be consistent">
+      <option name="closed" value="true" />
+      <created>1772701809675</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1772701809676</updated>
+    </task>
+    <task id="LOCAL-00008" summary="updated for task 1">
+      <option name="closed" value="true" />
+      <created>1772702032022</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1772702032022</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="phase 1 basic" />
+    <MESSAGE value="phase 1 basic workflow" />
+    <MESSAGE value="updated phase 1 basic workflow" />
+    <MESSAGE value="updated the css of task 2 to be consistent" />
+    <MESSAGE value="updated the css to be consistent" />
+    <MESSAGE value="updated for task 1" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated for task 1" />
   </component>
 </project>
