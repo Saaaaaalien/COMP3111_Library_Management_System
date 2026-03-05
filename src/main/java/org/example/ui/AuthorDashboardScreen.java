@@ -33,12 +33,19 @@ public final class AuthorDashboardScreen {
         // Top: Welcome header
         mainPane.setTop(createHeader());
 
-        // Center: Main content with publish book card
-        mainPane.setCenter(createMainContent());
+        // Center: Scrollable content
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(createMainContent());
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER); // Horizontal scroll never needed
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: #f5f5f5; -fx-background-color: #f5f5f5;");
+
+        mainPane.setCenter(scrollPane);
 
         Scene scene = new Scene(mainPane, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
-
-        // Add CSS if available
+        // CSS
         java.net.URL cssResource = AuthorDashboardScreen.class.getResource("/app.css");
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
@@ -125,10 +132,14 @@ public final class AuthorDashboardScreen {
         // Welcome message card
         VBox welcomeCard = createInfoCard();
 
-        // Publish Book Card (large and prominent)
+        // Publish Book Card
         VBox publishCard = createPublishBookCard();
 
-        content.getChildren().addAll(welcomeCard, publishCard);
+        // Add some extra space at the bottom to ensure scrolling works well
+        Label bottomSpacer = new Label("");
+        bottomSpacer.setPrefHeight(50);
+
+        content.getChildren().addAll(welcomeCard, publishCard, bottomSpacer);
 
         return content;
     }
@@ -136,7 +147,6 @@ public final class AuthorDashboardScreen {
     private static VBox createInfoCard() {
         VBox card = new VBox(15);
         card.setPadding(new Insets(25));
-        card.setMaxWidth(600);
         card.setStyle(
                 "-fx-background-color: white;" +
                         "-fx-background-radius: 15;" +
@@ -155,9 +165,12 @@ public final class AuthorDashboardScreen {
                         "that will be reviewed by librarians before being added to the library."
         );
         message.setWrapText(true);
+        message.setPrefWidth(Double.MAX_VALUE);
         message.setStyle("-fx-text-fill: #34495e; -fx-font-size: 14px;");
 
         Label instruction = new Label("Click the button below to publish a new book.");
+        instruction.setWrapText(true);
+        instruction.setPrefWidth(Double.MAX_VALUE);
         instruction.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 13px; -fx-font-style: italic;");
 
         card.getChildren().addAll(title, message, instruction);
@@ -210,6 +223,7 @@ public final class AuthorDashboardScreen {
                         "Submit a new book for librarian review."
         );
         descriptionLabel.setWrapText(true);
+        descriptionLabel.setPrefWidth(Double.MAX_VALUE);
         descriptionLabel.setAlignment(Pos.CENTER);
         descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
 
