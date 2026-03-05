@@ -19,7 +19,6 @@ public final class PublishBookScreen {
 
     private static File selectedBookFile;
     private static Label fileNameLabel;
-    private static Label statusLabel;
     private static TextField titleField;
     private static ComboBox<String> genreCombo;
     private static TextArea descriptionArea;
@@ -136,7 +135,7 @@ public final class PublishBookScreen {
         buttonBox.getChildren().addAll(submitBtn, cancelBtn);
 
         // Status label
-        statusLabel = new Label();
+        Label statusLabel = new Label();
         statusLabel.getStyleClass().add("status-label");
 
         // Submit action - now calls the service
@@ -157,8 +156,8 @@ public final class PublishBookScreen {
             }
         });
 
-        // Cancel action: go back to Author portal entry
-        cancelBtn.setOnAction(e -> navigator.showAuthorPortal());
+        // Cancel action: go back to Author dashboard
+        cancelBtn.setOnAction(e -> navigator.showAuthorDashboard(currentAuthor));
 
         // Main content card with white background, centered like other screens
         VBox content = new VBox(20, title, form, buttonBox, statusLabel);
