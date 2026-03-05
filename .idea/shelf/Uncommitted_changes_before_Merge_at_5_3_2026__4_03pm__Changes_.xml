@@ -1,0 +1,12 @@
+<changelist name="Uncommitted_changes_before_Merge_at_5_3_2026,_4_03 pm_[Changes]" date="1772697818997" recycled="true" deleted="true">
+  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Merge_at_5_3_2026,_4_03 pm_[Changes]/shelved.patch" />
+  <option name="DESCRIPTION" value="Uncommitted changes before Merge at 5/3/2026, 4:03 pm [Changes]" />
+  <binary>
+    <option name="BEFORE_PATH" value="target/classes/org/example/db/UserDao.class" />
+    <option name="AFTER_PATH" value="target/classes/org/example/db/UserDao.class" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Merge_at_5_3_2026,_4_03 pm_[Changes]/UserDao.class" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="data/library.db" />
+  </binary>
+</changelist>

@@ -4,26 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated for task 1">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/library.db" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/PublishService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/PublishService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorDashboard.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorRegisterScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/org/example/app/Navigator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/org/example/app/Navigator.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/org/example/db/UserDao.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/org/example/db/UserDao.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/org/example/service/AuthService.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/org/example/service/AuthService.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/org/example/ui/AuthorEntryScreen.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/org/example/ui/AuthorEntryScreen.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/org/example/ui/StudentStaffRegisterScreen.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/org/example/ui/StudentStaffRegisterScreen.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
-    </list>
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated the css to be consistent" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -129,7 +110,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1772680850993</updated>
-      <workItem from="1772680852089" duration="12082000" />
+      <workItem from="1772680852089" duration="12434000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />
@@ -179,7 +160,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772697708010</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="updated the css to be consistent">
+      <option name="closed" value="true" />
+      <created>1772701809675</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1772701809676</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -190,6 +179,8 @@
     <MESSAGE value="phase 1 basic workflow" />
     <MESSAGE value="updated phase 1 basic workflow" />
     <MESSAGE value="updated for task 1" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated for task 1" />
+    <MESSAGE value="updated the css of task 2 to be consistent" />
+    <MESSAGE value="updated the css to be consistent" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated the css to be consistent" />
   </component>
 </project>
