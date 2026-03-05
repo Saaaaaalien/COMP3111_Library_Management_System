@@ -20,11 +20,17 @@ public final class AuthorEntryScreen {
         title.getStyleClass().add("screen-title");
 
         Button backBtn = new Button("Back to Welcome");
+        backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
-        VBox root = new VBox(20, title, backBtn);
+        VBox content = new VBox(20, title, backBtn);
+        content.setAlignment(Pos.CENTER);
+        content.getStyleClass().add("content-card");
+
+        VBox root = new VBox(content);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(40));
+        root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         java.net.URL cssResource = AuthorEntryScreen.class.getResource("/app.css");

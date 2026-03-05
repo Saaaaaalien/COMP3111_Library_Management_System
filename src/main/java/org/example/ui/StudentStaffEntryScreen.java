@@ -20,19 +20,24 @@ public final class StudentStaffEntryScreen {
         title.getStyleClass().add("screen-title");
 
         Button loginBtn = new Button("Login");
-        loginBtn.getStyleClass().add("portal-button");
+        loginBtn.getStyleClass().addAll("portal-button", "primary-button");
         loginBtn.setOnAction(e -> navigator.showStudentStaffLogin());
 
         Button registerBtn = new Button("Register");
-        registerBtn.getStyleClass().add("portal-button");
+        registerBtn.getStyleClass().addAll("portal-button", "primary-button");
         registerBtn.setOnAction(e -> navigator.showStudentStaffRegister());
 
         Button backBtn = new Button("Back to Welcome");
+        backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
-        VBox root = new VBox(20, title, loginBtn, registerBtn, backBtn);
+        VBox content = new VBox(20, title, loginBtn, registerBtn, backBtn);
+        content.setAlignment(Pos.CENTER);
+
+        VBox root = new VBox(content);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(40));
+        root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         java.net.URL cssResource = StudentStaffEntryScreen.class.getResource("/app.css");

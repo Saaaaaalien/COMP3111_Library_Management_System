@@ -3,6 +3,7 @@ org/example/app/Main.class
 org/example/service/BorrowService.class
 org/example/domain/Role.class
 org/example/db/BookSubmissionDao.class
+org/example/db/ResetDatabase.class
 org/example/util/ValidationException.class
 org/example/domain/BookSubmission.class
 org/example/ui/WelcomeScreen.class
