@@ -75,20 +75,7 @@ public final class Database {
                 )
                 """);
             migrateUsersTable(conn);
-            st.execute("""
-                CREATE TABLE IF NOT EXISTS book_submissions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    author_user_id INTEGER NOT NULL,
-                    genre TEXT NOT NULL,
-                    description TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    submitted_at TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'PENDING',
-                    decision_at TEXT,
-                    FOREIGN KEY (author_user_id) REFERENCES users(id)
-                )
-                """);
+
             //pending books table
             st.execute("""
             CREATE TABLE IF NOT EXISTS pending_books (
