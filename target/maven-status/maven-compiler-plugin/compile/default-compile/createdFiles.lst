@@ -1,5 +1,7 @@
 org/example/ui/AuthorEntryScreen.class
+org/example/domain/PendingBook.class
 org/example/app/Main.class
+org/example/service/PublishService$PublishResult.class
 org/example/service/BorrowService.class
 org/example/domain/Role.class
 org/example/db/BookSubmissionDao.class
@@ -7,9 +9,12 @@ org/example/db/ResetDatabase.class
 org/example/util/ValidationException.class
 org/example/domain/BookSubmission.class
 org/example/ui/WelcomeScreen.class
+org/example/service/PublishService.class
 org/example/db/Database.class
 org/example/util/Validators.class
+org/example/ui/PublishBook.class
 org/example/ui/StudentStaffEntryScreen.class
+org/example/ui/AuthorRegisterScreen.class
 org/example/app/Navigator.class
 org/example/service/BorrowService$BorrowException.class
 org/example/ui/LibrarianEntryScreen.class
@@ -22,9 +27,12 @@ org/example/ui/StudentStaffRegisterScreen.class
 org/example/security/PasswordHasher.class
 org/example/ui/StudentStaffLoginScreen.class
 org/example/service/AuthService.class
+org/example/ui/PublishBookScreen.class
 org/example/ui/AvailableBooksScreen$BookRow.class
+org/example/db/PendingDao.class
 org/example/domain/Borrow.class
 org/example/domain/SubmissionStatus.class
 org/example/db/BorrowDao.class
 org/example/db/UserDao.class
 org/example/service/AuthException.class
+org/example/ui/AuthorLoginScreen.class

@@ -15,30 +15,26 @@
     </properties>
 
     <dependencies>
-        <!-- JavaFX with Windows classifier -->
+        <!-- JavaFX (platform-independent coordinates; natives resolved by plugin/runtime) -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
-            <version>21.0.5</version>
-            <classifier>win</classifier>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
-            <version>21.0.5</version>
-            <classifier>win</classifier>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-base</artifactId>
-            <version>21.0.5</version>
-            <classifier>win</classifier>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-graphics</artifactId>
-            <version>21.0.5</version>
-            <classifier>win</classifier>
+            <version>${javafx.version}</version>
         </dependency>
 
         <!-- SQLite JDBC driver -->
@@ -85,6 +81,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Run ResetDatabase to clear DB: mvn exec:java -Dexec.mainClass="org.example.db.ResetDatabase" -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>org.example.app.Main</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -66,6 +66,7 @@ public final class StudentStaffRegisterScreen {
         RadioButton staffRadio = new RadioButton("Staff");
         staffRadio.setToggleGroup(roleGroup);
         HBox roleBox = new HBox(10, studentRadio, staffRadio);
+        roleBox.setAlignment(Pos.CENTER);
 
         Button registerBtn = new Button("Register");
         registerBtn.getStyleClass().add("primary-button");
