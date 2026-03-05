@@ -94,27 +94,6 @@ public final class PendingDao {
     }
 
     /**
-     * Find all books by a specific author (including approved/rejected)
-     */
-    public static List<PendingBook> findByAuthor(long authorUserId) throws SQLException {
-        String sql = "SELECT * FROM pending_books WHERE author_user_id = ? ORDER BY submitted_date DESC";
-
-        List<PendingBook> books = new ArrayList<>();
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setLong(1, authorUserId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    books.add(mapRow(rs));
-                }
-            }
-        }
-        return books;
-    }
-
-    /**
      * Find a specific pending book by ID
      */
     public static Optional<PendingBook> findById(long id) throws SQLException {
@@ -134,78 +113,6 @@ public final class PendingDao {
         return Optional.empty();
     }
 
-    /**
-     * Approve a pending book (moves it to books table and deletes from pending)
-     */
-    public static boolean approveBook(long pendingBookId) throws SQLException {
-        // Start transaction
-        Connection conn = Database.getConnection();
-        conn.setAutoCommit(false);
-
-        try {
-            // Get the pending book
-            Optional<PendingBook> optBook = findById(pendingBookId);
-            if (!optBook.isPresent()) {
-                return false;
-            }
-
-            PendingBook pending = optBook.get();
-
-            // Insert into books table (published books)
-            String insertSql = """
-                INSERT INTO books (
-                    title, author_user_id, author_full_name_snapshot, genre, 
-                    summary, file_path, publish_date, availability
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'AVAILABLE')
-                """;
-
-            try (PreparedStatement insertPs = conn.prepareStatement(insertSql)) {
-                insertPs.setString(1, pending.getTitle());
-                insertPs.setLong(2, pending.getAuthorUserId());
-                insertPs.setString(3, pending.getAuthorFullName());
-                insertPs.setString(4, pending.getGenre());
-                insertPs.setString(5, pending.getSummary());
-                insertPs.setString(6, pending.getFilePath());
-                insertPs.setString(7, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
-                insertPs.executeUpdate();
-            }
-
-            // Update pending book status
-            String updateSql = "UPDATE pending_books SET status = 'APPROVED', reviewed_date = ? WHERE id = ?";
-            try (PreparedStatement updatePs = conn.prepareStatement(updateSql)) {
-                updatePs.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
-                updatePs.setLong(2, pendingBookId);
-                updatePs.executeUpdate();
-            }
-
-            conn.commit();
-            return true;
-
-        } catch (SQLException e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(true);
-        }
-    }
-
-    /**
-     * Reject a pending book
-     */
-    public static boolean rejectBook(long pendingBookId, String reviewNotes) throws SQLException {
-        String sql = "UPDATE pending_books SET status = 'REJECTED', review_notes = ?, reviewed_date = ? WHERE id = ?";
-
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, reviewNotes);
-            ps.setString(2, LocalDateTime.now().format(DATE_FORMATTER));
-            ps.setLong(3, pendingBookId);
-
-            int affected = ps.executeUpdate();
-            return affected > 0;
-        }
-    }
 
     /**
      * Helper method to execute SQL queries and map results
