@@ -7,9 +7,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
+import org.example.util.*;
 
 /**
- * Author portal entry: placeholder for Login and Register (to be implemented).
+ * Task2: Author portal entry: placeholder for Login and Register (to be implemented).
  */
 public final class AuthorEntryScreen {
 
@@ -19,10 +20,18 @@ public final class AuthorEntryScreen {
         Label title = new Label("Author Portal");
         title.getStyleClass().add("screen-title");
 
+        Button loginBtn = new Button("Login");
+        loginBtn.getStyleClass().add("portal-button");
+        loginBtn.setOnAction(e -> navigator.showAuthorLogin());
+
+        Button registerBtn = new Button("Register");
+        registerBtn.getStyleClass().add("portal-button");
+        registerBtn.setOnAction(e -> navigator.showAuthorRegister());
+
         Button backBtn = new Button("Back to Welcome");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
-        VBox root = new VBox(20, title, backBtn);
+        VBox root = new VBox(20, title, loginBtn, registerBtn, backBtn);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(40));
 

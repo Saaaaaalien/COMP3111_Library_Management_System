@@ -45,8 +45,24 @@ public class Navigator {
         stage.setScene(scene);
     }
 
+    //Tasks2
     public void showAuthorPortal() {
         Scene scene = org.example.ui.AuthorEntryScreen.create(this);
+        stage.setScene(scene);
+    }
+
+    public void showAuthorLogin() {
+        Scene scene = org.example.ui.AuthorLoginScreen.create(this);
+        stage.setScene(scene);
+    }
+
+    public void showAuthorRegister() {
+        Scene scene = org.example.ui.AuthorRegisterScreen.create(this);
+        stage.setScene(scene);
+    }
+
+    public void showPublishBook() {
+        Scene scene = org.example.ui.PublishBook.create(this);
         stage.setScene(scene);
     }
 
