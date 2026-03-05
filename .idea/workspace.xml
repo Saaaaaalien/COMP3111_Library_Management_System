@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated the css to be consistent" />
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated for task 1" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -110,7 +110,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1772680850993</updated>
-      <workItem from="1772680852089" duration="12434000" />
+      <workItem from="1772680852089" duration="12936000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />
@@ -168,7 +168,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772701809676</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="updated for task 1">
+      <option name="closed" value="true" />
+      <created>1772702032022</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1772702032022</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -178,9 +186,9 @@
     <MESSAGE value="phase 1 basic" />
     <MESSAGE value="phase 1 basic workflow" />
     <MESSAGE value="updated phase 1 basic workflow" />
-    <MESSAGE value="updated for task 1" />
     <MESSAGE value="updated the css of task 2 to be consistent" />
     <MESSAGE value="updated the css to be consistent" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated the css to be consistent" />
+    <MESSAGE value="updated for task 1" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated for task 1" />
   </component>
 </project>
