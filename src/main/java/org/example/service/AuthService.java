@@ -39,13 +39,11 @@ public final class AuthService {
 
     /**
      * Registers an author.
-     *
      * Role is always AUTHOR. First/last name and password rules match Student/Staff.
      *
-     * @return the new user's id
      * @throws ValidationException if validation fails or username already exists
      */
-    public static long registerAuthor(String username, String firstName, String lastName, String password, String bio)
+    public static void registerAuthor(String username, String firstName, String lastName, String password, String bio)
             throws ValidationException, SQLException {
         if (username == null) {
             throw new ValidationException("Username is required.");
@@ -56,7 +54,7 @@ public final class AuthService {
         Validators.validatePasswordStrength(password);
         ensureUsernameAvailable(username.trim());
         String fullName = firstName.trim() + " " + lastName.trim();
-        return insertUser(username.trim(), fullName, password, Role.AUTHOR, bio, null);
+        insertUser(username.trim(), fullName, password, Role.AUTHOR, bio, null);
     }
 
     /**
