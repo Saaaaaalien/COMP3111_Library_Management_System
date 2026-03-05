@@ -89,21 +89,6 @@ Use this checklist to verify all Task 2 features. **Reset the database first** s
 
 ---
 
-## Edge Cases & Security
-
-| Test Case | Expected behavior |
-|-----------|-------------------|
-| ✅ SQL injection in username field | Should be blocked by parameterized queries |
-| ✅ XSS in bio/description | Should be escaped or stored safely |
-| ✅ Duplicate submission (click Submit twice quickly) | Should prevent duplicate records |
-| ✅ Submit while offline | Graceful error message |
-| ✅ Very long bio (10,000+ chars) | Truncate or show error |
-| ✅ Unicode characters in fields (中文, español) | Should store and display correctly |
-| ✅ Session timeout on publish form | Redirect to login, preserve form data? |
-| ✅ Back button after submission | Should not resubmit form |
-
----
-
 ## Quick Smoke Test (Minimal Path)
 
 1. **ResetDatabase** (app closed).
