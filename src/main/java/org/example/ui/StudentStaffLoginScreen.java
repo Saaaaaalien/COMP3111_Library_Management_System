@@ -8,6 +8,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
@@ -37,6 +38,7 @@ public final class StudentStaffLoginScreen {
         passwordField.setMaxWidth(280);
 
         Button loginBtn = new Button("Login");
+        loginBtn.getStyleClass().add("primary-button");
         loginBtn.setOnAction(e -> {
             String username = usernameField.getText();
             String password = passwordField.getText();
@@ -55,19 +57,33 @@ public final class StudentStaffLoginScreen {
         });
 
         Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showStudentStaffPortal());
 
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
-        form.add(usernameLbl, 0, 0);
-        form.add(usernameField, 1, 0);
-        form.add(passwordLbl, 0, 1);
-        form.add(passwordField, 1, 1);
+        VBox usernameBox = new VBox(5, usernameLbl, usernameField);
+        usernameBox.setAlignment(Pos.CENTER);
 
-        VBox root = new VBox(20, title, form, loginBtn, backBtn);
-        root.setAlignment(Pos.CENTER);
+        VBox passwordBox = new VBox(5, passwordLbl, passwordField);
+        passwordBox.setAlignment(Pos.CENTER);
+
+        VBox form = new VBox(12, usernameBox, passwordBox);
+        form.setAlignment(Pos.CENTER);
+
+        Label hintLbl = new Label("Use the same username and password from registration. Username is case-sensitive (e.g. staff1 ≠ Staff1).");
+        hintLbl.setWrapText(true);
+        hintLbl.setMaxWidth(280);
+        hintLbl.getStyleClass().add("login-hint");
+
+        VBox content = new VBox(18, title, form, hintLbl, loginBtn, backBtn);
+        content.setAlignment(Pos.CENTER);
+        content.setMaxWidth(440);
+        content.getStyleClass().add("content-card");
+
+        BorderPane root = new BorderPane();
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(40));
+        root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         java.net.URL cssResource = StudentStaffLoginScreen.class.getResource("/app.css");

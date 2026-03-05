@@ -14,10 +14,12 @@ public class User {
     private final String createdAt;
     private final String bio;
     private final String employeeId;
+    private final int failedLoginAttempts;
+    private final String lockedUntil;
 
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
-                String bio, String employeeId) {
+                String bio, String employeeId, int failedLoginAttempts, String lockedUntil) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -27,6 +29,8 @@ public class User {
         this.createdAt = createdAt;
         this.bio = bio;
         this.employeeId = employeeId;
+        this.failedLoginAttempts = failedLoginAttempts;
+        this.lockedUntil = lockedUntil;
     }
 
     public long getId() { return id; }
@@ -38,4 +42,6 @@ public class User {
     public String getCreatedAt() { return createdAt; }
     public String getBio() { return bio; }
     public String getEmployeeId() { return employeeId; }
+    public int getFailedLoginAttempts() { return failedLoginAttempts; }
+    public String getLockedUntil() { return lockedUntil; }
 }

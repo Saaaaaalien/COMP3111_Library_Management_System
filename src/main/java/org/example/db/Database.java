@@ -68,9 +68,12 @@ public final class Database {
                     password_salt TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     bio TEXT,
-                    employee_id TEXT
+                    employee_id TEXT,
+                    failed_login_attempts INTEGER DEFAULT 0,
+                    locked_until TEXT
                 )
                 """);
+            migrateUsersTable(conn);
             st.execute("""
                 CREATE TABLE IF NOT EXISTS book_submissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,6 +114,29 @@ public final class Database {
                 )
                 """);
         }
+    }
+
+    private static void migrateUsersTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN locked_until TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+    }
+
+    /**
+     * Returns the absolute path to the database file (same path used by getConnection()).
+     * Used by ResetDatabase so it deletes the correct file.
+     */
+    public static java.nio.file.Path getDatabasePath() {
+        return Paths.get(DB_DIR).resolve(DB_FILE).toAbsolutePath();
     }
 
     /** For tests or shutdown: close the connection. */

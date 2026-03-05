@@ -47,7 +47,7 @@ public final class UserDao {
      * Finds a user by username.
      */
     public static Optional<User> findByUsername(String username) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id FROM users WHERE username = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, failed_login_attempts, locked_until FROM users WHERE username = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
@@ -64,7 +64,7 @@ public final class UserDao {
      * Finds a user by id.
      */
     public static Optional<User> findById(long id) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id FROM users WHERE id = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, failed_login_attempts, locked_until FROM users WHERE id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
@@ -78,6 +78,14 @@ public final class UserDao {
     }
 
     private static User mapRow(ResultSet rs) throws SQLException {
+        int failed = 0;
+        String locked = null;
+        try {
+            failed = rs.getInt("failed_login_attempts");
+        } catch (SQLException ignored) { }
+        try {
+            locked = rs.getString("locked_until");
+        } catch (SQLException ignored) { }
         return new User(
             rs.getLong("id"),
             rs.getString("username"),
@@ -87,7 +95,48 @@ public final class UserDao {
             rs.getString("password_salt"),
             rs.getString("created_at"),
             rs.getString("bio"),
-            rs.getString("employee_id")
+            rs.getString("employee_id"),
+            failed,
+            locked
         );
+    }
+
+    /**
+     * Increments failed login attempts and optionally sets locked_until (ISO instant).
+     */
+    public static void recordLoginFailure(long userId, String lockedUntil) throws SQLException {
+        String sql = lockedUntil != null
+            ? "UPDATE users SET failed_login_attempts = failed_login_attempts + 1, locked_until = ? WHERE id = ?"
+            : "UPDATE users SET failed_login_attempts = failed_login_attempts + 1 WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (lockedUntil != null) {
+                ps.setString(1, lockedUntil);
+                ps.setLong(2, userId);
+            } else {
+                ps.setLong(1, userId);
+            }
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Clears lockout when it has expired so the user gets a fresh set of attempts.
+     */
+    public static void clearExpiredLockout(long userId) throws SQLException {
+        String sql = "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Resets failed_login_attempts and locked_until on successful login.
+     * Delegates to clearExpiredLockout for shared behavior.
+     */
+    public static void recordLoginSuccess(long userId) throws SQLException {
+        clearExpiredLockout(userId);
     }
 }

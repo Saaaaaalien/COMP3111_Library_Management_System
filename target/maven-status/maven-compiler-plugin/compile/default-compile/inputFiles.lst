@@ -4,6 +4,7 @@
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/db/BookSubmissionDao.java
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/db/BorrowDao.java
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/db/Database.java
+/Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/db/ResetDatabase.java
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/db/UserDao.java
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/domain/Availability.java
 /Users/rungtaanjali/IdeaProjects/COMP3111_Library_Management_System/src/main/java/org/example/domain/Book.java
