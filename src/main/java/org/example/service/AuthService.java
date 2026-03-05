@@ -45,7 +45,7 @@ public final class AuthService {
      * @return the new user's id
      * @throws ValidationException if validation fails or username already exists
      */
-    public static long registerAuthor(String username, String firstName, String lastName, String password)
+    public static long registerAuthor(String username, String firstName, String lastName, String password, String bio)
             throws ValidationException, SQLException {
         if (username == null) {
             throw new ValidationException("Username is required.");
@@ -56,7 +56,7 @@ public final class AuthService {
         Validators.validatePasswordStrength(password);
         ensureUsernameAvailable(username.trim());
         String fullName = firstName.trim() + " " + lastName.trim();
-        return insertUser(username.trim(), fullName, password, Role.AUTHOR, null, null);
+        return insertUser(username.trim(), fullName, password, Role.AUTHOR, bio, null);
     }
 
     /**

@@ -65,7 +65,7 @@ public final class AuthorDashboardScreen {
         welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
         welcomeLabel.setStyle("-fx-text-fill: #2c3e50;");
 
-        Label userInfo = new Label(" | @" + currentUser.getUsername());
+        Label userInfo = new Label(" | @" + currentUser.getUsername() + ": " + currentUser.getBio());
         userInfo.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 14px;");
 
         welcomeBox.getChildren().addAll(welcomeLabel, userInfo);

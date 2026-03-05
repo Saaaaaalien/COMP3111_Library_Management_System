@@ -17,8 +17,8 @@ import org.example.util.ValidationException;
 import java.sql.SQLException;
 
 /**
- * Author registration: username, full name, password.
- * Role is implicitly AUTHOR; no role/bio fields are shown.
+ * Author registration: username, full name, bio, password.
+ * Role is implicitly AUTHOR;
  */
 public final class AuthorRegisterScreen {
     private AuthorRegisterScreen() {}
@@ -40,6 +40,10 @@ public final class AuthorRegisterScreen {
         TextField lastNameField = new TextField();
         lastNameField.setMaxWidth(280);
 
+        Label bioLabel = new Label("Bio(optional):");
+        TextField bioField = new TextField();
+        bioField.setMaxWidth(280);
+
         Label passwordLabel = new Label("Password:");
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Min 8 chars, 1 uppercase, 1 number, 1 special character");
@@ -58,9 +62,10 @@ public final class AuthorRegisterScreen {
             String username = usernameField.getText();
             String firstName = firstNameField.getText();
             String lastName = lastNameField.getText();
+            String bio = bioField.getText();
             String password = passwordField.getText();
             try {
-                AuthService.registerAuthor(username, firstName, lastName, password);
+                AuthService.registerAuthor(username, firstName, lastName, password, bio);
                 showAlert(Alert.AlertType.INFORMATION, "Registration successful",
                         "You can now log in with your author username and password.");
                 navigator.showAuthorLogin();
@@ -84,10 +89,13 @@ public final class AuthorRegisterScreen {
         VBox lastNameBox = new VBox(5, lastNameLabel, lastNameField);
         lastNameBox.setAlignment(Pos.CENTER);
 
+        VBox bioBox = new VBox(5, bioLabel, bioField);
+        bioBox.setAlignment(Pos.CENTER);
+
         VBox passwordBox = new VBox(5, passwordLabel, passwordField, strengthLbl);
         passwordBox.setAlignment(Pos.CENTER);
 
-        VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, passwordBox);
+        VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, bioBox, passwordBox);
         form.setAlignment(Pos.CENTER);
 
         VBox content = new VBox(18, title, form, registerBtn, backBtn);
