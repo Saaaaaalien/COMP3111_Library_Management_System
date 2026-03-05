@@ -60,8 +60,8 @@ public final class AvailableBooksScreen {
         colSummary.setCellValueFactory(new PropertyValueFactory<>("summary"));
         colSummary.setPrefWidth(SUMMARY_PREF_WIDTH);
 
-        table.getColumns().addAll(colTitle, colAuthor, colPublishDate, colAvailability, colSummary);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.getColumns().addAll(List.of(colTitle, colAuthor, colPublishDate, colAvailability, colSummary));
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         Runnable refresh = () -> {
             items.clear();

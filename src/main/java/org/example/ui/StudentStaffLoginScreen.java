@@ -43,14 +43,14 @@ public final class StudentStaffLoginScreen {
             try {
                 User user = AuthService.login(username, password);
                 if (user.getRole() != org.example.domain.Role.STUDENT && user.getRole() != org.example.domain.Role.STAFF) {
-                    showAlert(Alert.AlertType.ERROR, "Login failed", "This portal is for students and staff only.");
+                    showLoginError("This portal is for students and staff only.");
                     return;
                 }
                 navigator.showAvailableBooks(user);
             } catch (AuthException ex) {
-                showAlert(Alert.AlertType.ERROR, "Login failed", ex.getMessage());
+                showLoginError(ex.getMessage());
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Login failed", "A database error occurred. Please try again.");
+                showLoginError("A database error occurred. Please try again.");
             }
         });
 
@@ -77,9 +77,9 @@ public final class StudentStaffLoginScreen {
         return scene;
     }
 
-    private static void showAlert(Alert.AlertType type, String title, String message) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
+    private static void showLoginError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Login failed");
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();

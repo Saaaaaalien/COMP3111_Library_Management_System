@@ -38,10 +38,7 @@ public final class BorrowService {
             BookDao.updateAvailability(bookId, Availability.BORROWED);
             BorrowDao.insert(bookId, borrowerUserId, Instant.now().toString());
             conn.commit();
-        } catch (BorrowException e) {
-            rollback(conn);
-            throw e;
-        } catch (SQLException e) {
+        } catch (BorrowException | SQLException e) {
             rollback(conn);
             throw e;
         } finally {

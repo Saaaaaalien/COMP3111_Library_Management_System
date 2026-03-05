@@ -29,7 +29,9 @@ public final class Database {
                 if (connection == null) {
                     Path dataDir = Paths.get(DB_DIR);
                     if (!dataDir.toFile().exists()) {
-                        dataDir.toFile().mkdirs();
+                        if (!dataDir.toFile().mkdirs()) {
+                            throw new SQLException("Could not create data directory: " + dataDir.toAbsolutePath());
+                        }
                     }
                     String url = "jdbc:sqlite:" + dataDir.resolve(DB_FILE).toAbsolutePath();
                     Connection newConnection = DriverManager.getConnection(url);
