@@ -59,6 +59,7 @@ public final class Database {
     private static void initSchema(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
             st.execute("""
+                
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
@@ -88,6 +89,27 @@ public final class Database {
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
+            //pending books table
+            st.execute("""
+            CREATE TABLE IF NOT EXISTS pending_books (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                author_user_id INTEGER NOT NULL,
+                author_full_name TEXT NOT NULL,
+                genre TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                file_type TEXT NOT NULL,
+                submitted_date TEXT NOT NULL,
+                status TEXT NOT NULL,
+                review_notes TEXT,
+                reviewed_date TEXT,
+                FOREIGN KEY (author_user_id) REFERENCES users(id)
+            )
+            """);
+
             st.execute("""
                 CREATE TABLE IF NOT EXISTS books (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
