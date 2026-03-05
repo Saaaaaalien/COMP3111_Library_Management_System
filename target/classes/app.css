@@ -1,0 +1,20 @@
+/* E-Book Library System – shared styles */
+
+.welcome-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.screen-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.portal-button {
+    -fx-min-width: 220px;
+    -fx-padding: 10 20;
+}
+
+.welcome-root {
+    -fx-spacing: 20;
+}
