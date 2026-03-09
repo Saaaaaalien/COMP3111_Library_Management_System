@@ -113,6 +113,48 @@ public final class PendingDao {
         return Optional.empty();
     }
 
+    /**
+     * Approve a pending book submission
+     */
+    public static void approvePendingBook(long bookId, String reviewNotes) throws SQLException {
+        String sql = """
+            UPDATE pending_books
+            SET status = 'APPROVED', reviewed_date = ?, review_notes = ?
+            WHERE id = ?
+            """;
+
+        try (Connection conn = Database.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
+            ps.setString(2, reviewNotes != null ? reviewNotes : "");
+            ps.setLong(3, bookId);
+
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Reject a pending book submission
+     */
+    public static void rejectPendingBook(long bookId, String reviewNotes) throws SQLException {
+        String sql = """
+            UPDATE pending_books
+            SET status = 'REJECTED', reviewed_date = ?, review_notes = ?
+            WHERE id = ?
+            """;
+
+        try (Connection conn = Database.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
+            ps.setString(2, reviewNotes != null ? reviewNotes : "");
+            ps.setLong(3, bookId);
+
+            ps.executeUpdate();
+        }
+    }
+
 
     /**
      * Helper method to execute SQL queries and map results

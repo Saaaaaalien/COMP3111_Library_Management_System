@@ -76,6 +76,22 @@ public class Navigator {
         stage.setScene(scene);
     }
 
+    public void showLibrarianLogin() {
+        Scene scene = org.example.ui.LibrarianLoginScreen.create(this);
+        stage.setScene(scene);
+    }
+
+    public void showLibrarianRegister() {
+        Scene scene = org.example.ui.LibrarianRegisterScreen.create(this);
+        stage.setScene(scene);
+    }
+
+    public void showLibrarianApproval(User librarian) {
+        Scene scene = org.example.ui.LibrarianApprovalScreen.create(this, librarian);
+        scene.setUserData(librarian);
+        stage.setScene(scene);
+    }
+
     public Stage getStage() {
         return stage;
     }
