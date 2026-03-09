@@ -5,124 +5,64 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import org.example.app.Navigator;
 import org.example.domain.User;
 import org.example.service.PublishService;
 
 import java.io.File;
+import java.util.List;
 
 public final class PublishBookScreen {
 
     private static File selectedBookFile;
     private static Label fileNameLabel;
     private static TextField titleField;
-    private static ComboBox<String> genreCombo;
+    private static ListView<String> genreListView;
     private static TextArea descriptionArea;
+    private static User currentUser;
+    private static Navigator navigator;
+
+    // Display components for selections
+    private static Label selectedGenresLabel;
+    private static Label fileDisplayLabel;
+
+    private static final List<String> AVAILABLE_GENRES = List.of(
+            "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
+            "Mystery", "Thriller", "Romance", "Biography",
+            "History", "Self-Help", "Technical", "Textbook",
+            "Children's", "Poetry", "Horror", "Adventure",
+            "Young Adult", "Classic", "Philosophy", "Religion",
+            "Science", "Art", "Music", "Travel", "Cooking"
+    );
 
     private PublishBookScreen() {}
 
-    public static Scene create(Navigator navigator, User currentAuthor) {
+    public static Scene create(Navigator nav, User user) {
+        navigator = nav;
+        currentUser = user;
+
         // Title
         Label title = new Label("Publish New Book");
         title.getStyleClass().add("screen-title");
+        title.setFont(Font.font("System", FontWeight.BOLD, 24));
 
-        // Create form grid
-        GridPane form = new GridPane();
-        form.setHgap(15);
-        form.setVgap(15);
-        form.setAlignment(Pos.CENTER);
-        form.setPadding(new Insets(30));
-
-        // Form fields
-        Label titleLabel = new Label("Book Title:");
-        titleLabel.getStyleClass().add("form-label");
-        titleField = new TextField();
-        titleField.setPromptText("Enter book title");
-        titleField.setPrefWidth(300);
-
-        Label authorLabel = new Label("Author:");
-        authorLabel.getStyleClass().add("form-label");
-        TextField authorField = new TextField(currentAuthor.getFullName());
-        authorField.setEditable(false);
-        authorField.setStyle("-fx-background-color: #f0f0f0;");
-
-        Label genreLabel = new Label("Genre:");
-        genreLabel.getStyleClass().add("form-label");
-        genreCombo = new ComboBox<>();
-        genreCombo.getItems().addAll(
-                "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
-                "Mystery", "Thriller", "Romance", "Biography",
-                "History", "Self-Help", "Technical", "Textbook",
-                "Children's", "Poetry", "Other"
-        );
-        genreCombo.setPromptText("Select genre");
-        genreCombo.setPrefWidth(300);
-        genreCombo.setEditable(true);
-
-        Label descriptionLabel = new Label("Description/Abstract:");
-        descriptionLabel.getStyleClass().add("form-label");
-        descriptionArea = new TextArea();
-        descriptionArea.setPromptText("Enter book description, abstract, or summary...");
-        descriptionArea.setPrefRowCount(6);
-        descriptionArea.setPrefWidth(300);
-        descriptionArea.setWrapText(true);
-
-        Label fileLabel = new Label("Book File:");
-        fileLabel.getStyleClass().add("form-label");
-
-        HBox fileBox = new HBox(10);
-        fileBox.setAlignment(Pos.CENTER_LEFT);
-
-        Button chooseFileBtn = new Button("Choose File");
-        chooseFileBtn.getStyleClass().add("secondary-button");
-
-        fileNameLabel = new Label("No file selected");
-        fileNameLabel.setStyle("-fx-text-fill: #666;");
-
-        fileBox.getChildren().addAll(chooseFileBtn, fileNameLabel);
-
-        // File chooser action
-        chooseFileBtn.setOnAction(e -> {
-            FileChooser fileChooser = new FileChooser();
-            fileChooser.setTitle("Select Book File");
-
-            FileChooser.ExtensionFilter pdfFilter =
-                    new FileChooser.ExtensionFilter("PDF Files (*.pdf)", "*.pdf");
-            FileChooser.ExtensionFilter txtFilter =
-                    new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
-            FileChooser.ExtensionFilter docFilter =
-                    new FileChooser.ExtensionFilter("Word Documents (*.doc, *.docx)", "*.doc", "*.docx");
-
-            fileChooser.getExtensionFilters().addAll(pdfFilter, txtFilter, docFilter);
-
-            File selectedFile = fileChooser.showOpenDialog(null);
-            if (selectedFile != null) {
-                selectedBookFile = selectedFile;
-                fileNameLabel.setText(selectedFile.getName());
-                fileNameLabel.setStyle("-fx-text-fill: green;");
-            }
-        });
-
-        // Add all to grid
-        form.add(titleLabel, 0, 0);
-        form.add(titleField, 1, 0);
-        form.add(authorLabel, 0, 1);
-        form.add(authorField, 1, 1);
-        form.add(genreLabel, 0, 2);
-        form.add(genreCombo, 1, 2);
-        form.add(descriptionLabel, 0, 3);
-        form.add(descriptionArea, 1, 3);
-        form.add(fileLabel, 0, 4);
-        form.add(fileBox, 1, 4);
+        // Main form
+        VBox formBox = createForm();
 
         // Buttons
         HBox buttonBox = new HBox(20);
         buttonBox.setAlignment(Pos.CENTER);
-        buttonBox.setPadding(new Insets(20, 0, 0, 0));
+        buttonBox.setPadding(new Insets(20, 0, 30, 0));
+        buttonBox.getStyleClass().add("button-bar");
 
         Button submitBtn = new Button("Submit for Approval");
         submitBtn.getStyleClass().add("primary-button");
@@ -131,48 +71,79 @@ public final class PublishBookScreen {
         Button cancelBtn = new Button("Cancel");
         cancelBtn.getStyleClass().add("secondary-button");
         cancelBtn.setPrefWidth(150);
+        cancelBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
 
         buttonBox.getChildren().addAll(submitBtn, cancelBtn);
 
-        // Status label
-        Label statusLabel = new Label();
-        statusLabel.getStyleClass().add("status-label");
-
-        // Submit action - now calls the service
+        // Submit action
         submitBtn.setOnAction(e -> {
+            if (!validateForm()) {
+                return;
+            }
+
+            // Show confirmation dialog with full preview
+            boolean confirmed = showPreviewDialog();
+            if (!confirmed) {
+                return;
+            }
+
+            // Convert selected genres to comma-separated string
+            String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+
             PublishService.PublishResult result = PublishService.submitBook(
-                    currentAuthor,
+                    currentUser,
                     titleField.getText().trim(),
-                    genreCombo.getValue(),
+                    genres,
                     descriptionArea.getText().trim(),
                     selectedBookFile
             );
 
             if (result.isSuccess()) {
-                showSuccess("Success", result.getMessage());
+                showSuccess(result.getMessage());
                 clearForm();
             } else {
                 showError("Error", result.getMessage());
             }
         });
 
-        // Cancel action: go back to Author dashboard
-        cancelBtn.setOnAction(e -> navigator.showAuthorDashboard(currentAuthor));
+        // Main content container
+        VBox mainContent = new VBox(20, title, formBox, buttonBox);
+        mainContent.setAlignment(Pos.TOP_CENTER);
+        mainContent.setPadding(new Insets(30));
+        mainContent.setMaxWidth(800);
+        mainContent.getStyleClass().add("content-card");
 
-        // Main content card with white background, centered like other screens
-        VBox content = new VBox(20, title, form, buttonBox, statusLabel);
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPadding(new Insets(20));
-        content.setMaxWidth(600);
-        content.getStyleClass().add("content-card");
+        // Wrap in ScrollPane to make it scrollable
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(mainContent);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: #f5f5f5; -fx-background-color: #f5f5f5;");
 
         BorderPane root = new BorderPane();
-        root.setCenter(content);
-        BorderPane.setAlignment(content, Pos.CENTER);
-        root.setPadding(new Insets(40));
+        root.setCenter(scrollPane);
+        root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 
-        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
+        // Create scene with default size - let the stage handle fullscreen
+        Scene scene = new Scene(root, 900, 700);
+
+        // Add listener to handle full-screen properly
+        scene.windowProperty().addListener((obs, oldWindow, newWindow) -> {
+            if (newWindow != null) {
+                newWindow.widthProperty().addListener((wObs, oldW, newW) -> {
+                    // Adjust content if needed when window resizes
+                    double width = newW.doubleValue();
+                    if (width > 1000) {
+                        mainContent.setMaxWidth(800);
+                    } else {
+                        mainContent.setMaxWidth(width - 100);
+                    }
+                });
+            }
+        });
 
         // Add CSS
         java.net.URL cssResource = PublishBookScreen.class.getResource("/app.css");
@@ -183,18 +154,411 @@ public final class PublishBookScreen {
         return scene;
     }
 
+    private static VBox createForm() {
+        VBox formBox = new VBox(20);
+        formBox.setPadding(new Insets(20));
+        formBox.setPrefWidth(600);
+        formBox.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
+                "-fx-border-radius: 10; -fx-border-color: #d0d7e2; -fx-border-width: 1;");
+
+        Label formTitle = new Label("Book Details");
+        formTitle.setFont(Font.font("System", FontWeight.BOLD, 18));
+        formTitle.setStyle("-fx-text-fill: #2c3e50;");
+        formTitle.setPadding(new Insets(0, 0, 10, 0));
+        formTitle.setStyle(formTitle.getStyle() + "-fx-border-width: 0 0 1 0; -fx-border-color: #e0e4ec;");
+
+        // Title field
+        Label titleLabel = new Label("Title *");
+        titleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        titleField = new TextField();
+        titleField.setPromptText("Enter book title");
+        titleField.setPrefWidth(550);
+        titleField.getStyleClass().add("text-field");
+
+        // Author field (read-only)
+        Label authorLabel = new Label("Author");
+        authorLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        TextField authorField = new TextField(currentUser.getFullName());
+        authorField.setEditable(false);
+        authorField.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #d0d7e2; -fx-border-radius: 5;");
+        authorField.setPrefWidth(550);
+
+        // Multi-genre selection - FIXED LIST VISIBILITY
+        Label genreLabel = new Label("Genres * (to select multiple: Ctrl + Click)");
+        genreLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+
+        // Create ListView with explicit size and ensure it's visible
+        genreListView = new ListView<>();
+        genreListView.getItems().addAll(AVAILABLE_GENRES);
+        genreListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        genreListView.setPrefHeight(200);
+        genreListView.setMinHeight(200);
+        genreListView.setMaxHeight(200);
+        genreListView.setPrefWidth(550);
+        genreListView.setMinWidth(550);
+        genreListView.setVisible(true);
+        genreListView.setManaged(true);
+        genreListView.getStyleClass().add("list-view");
+
+        // Add a border to make it visible (for debugging, can remove later)
+        genreListView.setStyle("-fx-border-color: #3498db; -fx-border-width: 1;");
+
+        // Selection info and clear button
+        HBox genreControls = new HBox(15);
+        genreControls.setAlignment(Pos.CENTER_LEFT);
+        genreControls.setPadding(new Insets(5, 0, 5, 0));
+
+        Label selectedGenresHeader = new Label("Selected genres:");
+        selectedGenresHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-font-size: 12px;");
+
+        // Clear selection button
+        Button clearGenreSelectionBtn = new Button("Clear All");
+        clearGenreSelectionBtn.getStyleClass().add("secondary-button");
+        clearGenreSelectionBtn.setPrefWidth(100);
+        clearGenreSelectionBtn.setPrefHeight(30);
+        clearGenreSelectionBtn.setOnAction(e -> {
+            genreListView.getSelectionModel().clearSelection();
+            updateSelectedGenresDisplay();
+        });
+
+        // Spacer to push button to the right
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        genreControls.getChildren().addAll(selectedGenresHeader, spacer, clearGenreSelectionBtn);
+
+        // Selected genres display
+        selectedGenresLabel = new Label("None selected");
+        selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        selectedGenresLabel.setWrapText(true);
+        selectedGenresLabel.setPadding(new Insets(5, 0, 10, 0));
+
+        // Add listeners to update display when selection changes
+        genreListView.getSelectionModel().selectedItemProperty().addListener((obs, old, newVal) -> {
+            updateSelectedGenresDisplay();
+        });
+
+        // Also update on mouse click to ensure display updates
+        genreListView.setOnMouseClicked(e -> {
+            updateSelectedGenresDisplay();
+        });
+
+        // Create a dedicated VBox for the genre section with proper spacing
+        VBox genreBox = new VBox(10);
+        genreBox.setPadding(new Insets(0, 0, 10, 0));
+        genreBox.setFillWidth(true);
+        genreBox.getChildren().addAll(genreListView, genreControls, selectedGenresLabel);
+
+        // Description field
+        Label descriptionLabel = new Label("Description/Abstract *");
+        descriptionLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        descriptionArea = new TextArea();
+        descriptionArea.setPromptText("Enter book description, abstract, or summary...");
+        descriptionArea.setPrefRowCount(6);
+        descriptionArea.setPrefWidth(550);
+        descriptionArea.setWrapText(true);
+        descriptionArea.getStyleClass().add("text-area");
+
+        // File selection - FIXED BUTTON
+        Label fileLabel = new Label("Book File *");
+        fileLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+
+        HBox fileBox = new HBox(10);
+        fileBox.setAlignment(Pos.CENTER_LEFT);
+
+        Button chooseFileBtn = new Button("Choose File");
+        chooseFileBtn.getStyleClass().add("secondary-button");
+        chooseFileBtn.setPrefWidth(120);
+
+        fileNameLabel = new Label("No file selected");
+        fileNameLabel.setStyle("-fx-text-fill: #666;");
+        fileNameLabel.setPadding(new Insets(0, 0, 0, 5));
+
+        fileBox.getChildren().addAll(chooseFileBtn, fileNameLabel);
+
+// File display with clear button
+        HBox fileDisplayBox = new HBox(15);
+        fileDisplayBox.setAlignment(Pos.CENTER_LEFT);
+        fileDisplayBox.setPadding(new Insets(5, 0, 5, 0));
+
+        Label selectedFileHeader = new Label("Selected file:");
+        selectedFileHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-font-size: 12px;");
+
+        fileDisplayLabel = new Label("None");
+        fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        fileDisplayLabel.setWrapText(true);
+        HBox.setHgrow(fileDisplayLabel, Priority.ALWAYS);
+
+        Button clearFileBtn = new Button("Clear");
+        clearFileBtn.getStyleClass().add("secondary-button");
+        clearFileBtn.setPrefWidth(80);
+        clearFileBtn.setPrefHeight(30);
+        clearFileBtn.setOnAction(e -> {
+            selectedBookFile = null;
+            fileNameLabel.setText("No file selected");
+            fileNameLabel.setStyle("-fx-text-fill: #666;");
+            fileDisplayLabel.setText("None");
+            fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        });
+
+        fileDisplayBox.getChildren().addAll(selectedFileHeader, fileDisplayLabel, clearFileBtn);
+
+// FIXED: File chooser action with proper owner window
+        chooseFileBtn.setOnAction(e -> {
+            try {
+                // Get the current stage/window to use as owner
+                Stage ownerStage = (Stage) chooseFileBtn.getScene().getWindow();
+
+                FileChooser fileChooser = new FileChooser();
+                fileChooser.setTitle("Select Book File");
+
+                // Set initial directory to user's home
+                String userHome = System.getProperty("user.home");
+                File initialDir = new File(userHome);
+                if (initialDir.exists() && initialDir.canRead()) {
+                    fileChooser.setInitialDirectory(initialDir);
+                }
+
+                // Add extension filters
+                FileChooser.ExtensionFilter pdfFilter =
+                        new FileChooser.ExtensionFilter("PDF Files (*.pdf)", "*.pdf");
+                FileChooser.ExtensionFilter txtFilter =
+                        new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
+                FileChooser.ExtensionFilter docFilter =
+                        new FileChooser.ExtensionFilter("Word Documents (*.doc, *.docx)", "*.doc", "*.docx");
+                FileChooser.ExtensionFilter allFilter =
+                        new FileChooser.ExtensionFilter("All Supported Files", "*.pdf", "*.txt", "*.doc", "*.docx");
+
+                fileChooser.getExtensionFilters().addAll(pdfFilter, txtFilter, docFilter, allFilter);
+
+                // Show the file chooser dialog with owner
+                File selectedFile = fileChooser.showOpenDialog(ownerStage);
+
+                if (selectedFile != null) {
+                    // Validate file size
+                    if (selectedFile.length() > 10 * 1024 * 1024) { // 10MB
+                        showError("File Too Large", "File size must be less than 10MB. Your file: " +
+                                formatFileSize(selectedFile.length()));
+                        return;
+                    }
+
+                    // Validate file extension
+                    String extension = getFileExtension(selectedFile);
+                    if (!isValidFileType(extension)) {
+                        showError("Invalid File Type",
+                                "Please upload PDF, TXT, or DOC/DOCX files. Got: " + extension);
+                        return;
+                    }
+
+                    selectedBookFile = selectedFile;
+                    fileNameLabel.setText(selectedFile.getName());
+                    fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+
+                    // Update file display with size
+                    fileDisplayLabel.setText(selectedFile.getName() + " (" +
+                            formatFileSize(selectedFile.length()) + ")");
+                    fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showError("Error", "Could not open file chooser: " + ex.getMessage());
+            }
+        });
+
+        VBox fileSelectionBox = new VBox(8, fileBox, fileDisplayBox);
+
+        // Required fields note
+        Label requiredNote = new Label("* Required fields");
+        requiredNote.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11px;");
+        requiredNote.setPadding(new Insets(10, 0, 0, 0));
+
+        formBox.getChildren().addAll(
+                formTitle,
+                titleLabel, titleField,
+                authorLabel, authorField,
+                genreLabel, genreBox,
+                descriptionLabel, descriptionArea,
+                fileLabel, fileSelectionBox,
+                requiredNote
+        );
+
+        return formBox;
+    }
+
+    private static void updateSelectedGenresDisplay() {
+        var selectedGenres = genreListView.getSelectionModel().getSelectedItems();
+        if (selectedGenres == null || selectedGenres.isEmpty()) {
+            selectedGenresLabel.setText("None selected");
+            selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        } else {
+            int count = selectedGenres.size();
+            if (count == 1) {
+                selectedGenresLabel.setText("1 genre selected: " + selectedGenres.getFirst());
+            } else {
+                String genresText = String.join(", ", selectedGenres);
+                selectedGenresLabel.setText(count + " genres selected: " + genresText);
+            }
+            selectedGenresLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: normal;");
+        }
+    }
+
+    private static boolean validateForm() {
+        if (titleField.getText().trim().isEmpty()) {
+            showError("Validation Error", "Book title is required");
+            return false;
+        }
+
+        if (genreListView.getSelectionModel().getSelectedItems().isEmpty()) {
+            showError("Validation Error", "Please select at least one genre");
+            return false;
+        }
+
+        if (descriptionArea.getText().trim().isEmpty()) {
+            showError("Validation Error", "Description is required");
+            return false;
+        }
+
+        if (selectedBookFile == null) {
+            showError("Validation Error", "Please select a book file");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean showPreviewDialog() {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Confirm Book Submission");
+
+        VBox dialogContent = new VBox(20);
+        dialogContent.setPadding(new Insets(25));
+        dialogContent.setStyle("-fx-background-color: #f5f7fa;");
+
+        Label header = new Label("📖 Review Your Book");
+        header.setFont(Font.font("System", FontWeight.BOLD, 20));
+        header.setStyle("-fx-text-fill: #2c3e50;");
+
+        VBox previewBox = new VBox(15);
+        previewBox.setPadding(new Insets(20));
+        previewBox.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
+                "-fx-border-color: #d0d7e2; -fx-border-width: 1;");
+
+        // Title row
+        HBox titleRow = new HBox(10);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        Label titleLbl = new Label("Title:");
+        titleLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-min-width: 70;");
+        Label titleVal = new Label(titleField.getText().trim());
+        titleVal.setStyle("-fx-text-fill: #2c3e50; -fx-font-weight: bold;");
+        titleVal.setWrapText(true);
+        titleRow.getChildren().addAll(titleLbl, titleVal);
+
+        // Author row
+        HBox authorRow = new HBox(10);
+        authorRow.setAlignment(Pos.CENTER_LEFT);
+        Label authorLbl = new Label("Author:");
+        authorLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-min-width: 70;");
+        Label authorVal = new Label(currentUser.getFullName());
+        authorVal.setStyle("-fx-text-fill: #2c3e50;");
+        authorVal.setWrapText(true);
+        authorRow.getChildren().addAll(authorLbl, authorVal);
+
+        // Genres row - use VBox for better multi-line display
+        VBox genresBox = new VBox(5);
+        Label genresLbl = new Label("Genres:");
+        genresLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d;");
+        String genresText = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+        Label genresVal = new Label(genresText);
+        genresVal.setStyle("-fx-text-fill: #2c3e50;");
+        genresVal.setWrapText(true);
+        genresBox.getChildren().addAll(genresLbl, genresVal);
+
+        // File row
+        HBox fileRow = new HBox(10);
+        fileRow.setAlignment(Pos.CENTER_LEFT);
+        Label fileLbl = new Label("File:");
+        fileLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-min-width: 70;");
+        Label fileVal = new Label(selectedBookFile.getName() + " (" +
+                formatFileSize(selectedBookFile.length()) + ")");
+        fileVal.setStyle("-fx-text-fill: #2c3e50;");
+        fileVal.setWrapText(true);
+        fileRow.getChildren().addAll(fileLbl, fileVal);
+
+        // Description
+        Label descHeader = new Label("Description:");
+        descHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d;");
+
+        TextArea descPreview = new TextArea(descriptionArea.getText().trim());
+        descPreview.setEditable(false);
+        descPreview.setWrapText(true);
+        descPreview.setPrefRowCount(5);
+        descPreview.setStyle("-fx-background-color: #f8fafc; -fx-border-color: #d0d7e2;");
+
+        previewBox.getChildren().addAll(titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+
+        Label confirmMsg = new Label("Are you sure you want to submit this book for approval?");
+        confirmMsg.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 14px;");
+        confirmMsg.setAlignment(Pos.CENTER);
+        confirmMsg.setWrapText(true);
+
+        HBox buttonBox = new HBox(15);
+        buttonBox.setAlignment(Pos.CENTER);
+
+        Button submitBtn = new Button("✅ Yes, Submit");
+        submitBtn.getStyleClass().add("primary-button");
+        submitBtn.setOnAction(e -> {
+            dialog.setUserData(true);
+            dialog.close();
+        });
+
+        Button cancelBtn = new Button("❌ Cancel");
+        cancelBtn.getStyleClass().add("secondary-button");
+        cancelBtn.setOnAction(e -> {
+            dialog.setUserData(false);
+            dialog.close();
+        });
+
+        buttonBox.getChildren().addAll(submitBtn, cancelBtn);
+
+        dialogContent.getChildren().addAll(header, previewBox, confirmMsg, buttonBox);
+
+        // Make dialog scrollable
+        ScrollPane dialogScrollPane = new ScrollPane();
+        dialogScrollPane.setContent(dialogContent);
+        dialogScrollPane.setFitToWidth(true);
+        dialogScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        dialogScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Scene dialogScene = new Scene(dialogScrollPane, 600, 700);
+        dialog.setScene(dialogScene);
+        dialog.showAndWait();
+
+        return dialog.getUserData() != null && (boolean) dialog.getUserData();
+    }
+
     private static void clearForm() {
         titleField.clear();
-        genreCombo.setValue(null);
+        genreListView.getSelectionModel().clearSelection();
         descriptionArea.clear();
         selectedBookFile = null;
         fileNameLabel.setText("No file selected");
         fileNameLabel.setStyle("-fx-text-fill: #666;");
+        fileDisplayLabel.setText("None");
+        fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        selectedGenresLabel.setText("None selected");
+        selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
     }
 
-    private static void showSuccess(String title, String message) {
+    private static String formatFileSize(long size) {
+        if (size < 1024) return size + " B";
+        if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
+        return String.format("%.1f MB", size / (1024.0 * 1024.0));
+    }
+
+    private static void showSuccess(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
+        alert.setTitle("Success");
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
@@ -206,5 +570,20 @@ public final class PublishBookScreen {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+    private static String getFileExtension(File file) {
+        String name = file.getName();
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot > 0) {
+            return name.substring(lastDot + 1).toLowerCase();
+        }
+        return "";
+    }
+
+    private static boolean isValidFileType(String extension) {
+        return extension.equals("pdf") ||
+                extension.equals("txt") ||
+                extension.equals("doc") ||
+                extension.equals("docx");
     }
 }
