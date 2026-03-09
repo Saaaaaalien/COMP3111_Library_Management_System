@@ -5,11 +5,12 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
 
 /**
- * Librarian portal entry: placeholder for Login and Register (to be implemented).
+ * Librarian portal entry: choose to login or register.
  */
 public final class LibrarianEntryScreen {
 
@@ -19,16 +20,36 @@ public final class LibrarianEntryScreen {
         Label title = new Label("Librarian Portal");
         title.getStyleClass().add("screen-title");
 
+        Button loginBtn = new Button("Login");
+        loginBtn.getStyleClass().add("primary-button");
+        loginBtn.setMinWidth(150);
+        loginBtn.setOnAction(e -> navigator.showLibrarianLogin());
+
+        Button registerBtn = new Button("Register");
+        registerBtn.getStyleClass().add("primary-button");
+        registerBtn.setMinWidth(150);
+        registerBtn.setOnAction(e -> navigator.showLibrarianRegister());
+
+        VBox buttonBox = new VBox(10, loginBtn, registerBtn);
+        buttonBox.setAlignment(Pos.CENTER);
+
+        Label hintLbl = new Label("Choose to login with an existing account or register a new one.");
+        hintLbl.setWrapText(true);
+        hintLbl.setMaxWidth(280);
+        hintLbl.getStyleClass().add("login-hint");
+
         Button backBtn = new Button("Back to Welcome");
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
-        VBox content = new VBox(20, title, backBtn);
+        VBox content = new VBox(18, title, hintLbl, buttonBox, backBtn);
         content.setAlignment(Pos.CENTER);
+        content.setMaxWidth(440);
         content.getStyleClass().add("content-card");
 
-        VBox root = new VBox(content);
-        root.setAlignment(Pos.CENTER);
+        BorderPane root = new BorderPane();
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(40));
         root.getStyleClass().add("app-root");
 

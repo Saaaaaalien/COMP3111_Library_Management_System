@@ -1,15 +1,15 @@
 package org.example.service;
 
+import java.sql.SQLException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import org.example.db.UserDao;
 import org.example.domain.Role;
 import org.example.domain.User;
 import org.example.security.PasswordHasher;
 import org.example.util.ValidationException;
 import org.example.util.Validators;
-
-import java.sql.SQLException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 /**
  * Registration and login using hashed passwords and validation.
@@ -71,7 +71,7 @@ public final class AuthService {
         }
         Validators.validateUsername(username.trim());
         Validators.validateFullName(fullName);
-        Validators.validatePassword(password);
+        Validators.validatePasswordStrength(password);
         ensureUsernameAvailable(username.trim());
         String trimmedEmployeeId = Validators.trimOptional(employeeId);
         return insertUser(username.trim(), fullName.trim(), password, Role.LIBRARIAN, null, trimmedEmployeeId);
