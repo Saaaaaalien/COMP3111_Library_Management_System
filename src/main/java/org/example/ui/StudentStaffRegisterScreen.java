@@ -11,7 +11,6 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
@@ -51,11 +50,11 @@ public final class StudentStaffRegisterScreen {
         passwordField.setPromptText("Min 8 chars, 1 uppercase, 1 number, 1 special character");
         passwordField.setMaxWidth(280);
 
-        Label strengthLbl = new Label("");
+        Label strengthLbl = new Label("Empty");
         strengthLbl.getStyleClass().add("password-strength");
         passwordField.textProperty().addListener((obs, prev, newVal) -> {
             String strength = Validators.getPasswordStrengthLabel(newVal);
-            strengthLbl.setText(strength.isEmpty() ? "" : "Strength: " + strength);
+            strengthLbl.setText(strength.isEmpty() ? "Empty" : "Strength: " + strength);
         });
 
         Label roleLbl = new Label("Role:");

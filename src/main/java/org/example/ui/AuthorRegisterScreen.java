@@ -49,11 +49,11 @@ public final class AuthorRegisterScreen {
         passwordField.setPromptText("Min 8 chars, 1 uppercase, 1 number, 1 special character");
         passwordField.setMaxWidth(280);
 
-        Label strengthLbl = new Label("");
+        Label strengthLbl = new Label("Empty");
         strengthLbl.getStyleClass().add("password-strength");
         passwordField.textProperty().addListener((obs, prev, newVal) -> {
             String strength = org.example.util.Validators.getPasswordStrengthLabel(newVal);
-            strengthLbl.setText(strength.isEmpty() ? "" : "Strength: " + strength);
+            strengthLbl.setText(strength.isEmpty() ? "Empty" : "Strength: " + strength);
         });
 
         Button registerBtn = new Button("Register");
