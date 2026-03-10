@@ -11,6 +11,7 @@ JavaFX + SQLite library management application (Phase 1+). Supports registration
 - **Task 3 (Librarian):** Registration, login, approval dashboard (pending submissions, approve/reject with optional review notes, confirmation dialogs). Approved books are added to the catalog for students to borrow.
 - **Security:** PBKDF2 password hashing with per-user salt; SQLite database at `data/library.db`.
 
+
 ---
 
 ## Documentation
