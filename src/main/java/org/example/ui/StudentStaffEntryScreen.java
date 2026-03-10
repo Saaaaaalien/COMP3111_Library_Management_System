@@ -10,11 +10,21 @@ import org.example.app.Navigator;
 
 /**
  * Student/Staff portal entry: Login or Register.
+ * <p>
+ * First screen after choosing "Student / Staff" from the welcome screen; offers
+ * buttons to go to {@link StudentStaffLoginScreen} or {@link StudentStaffRegisterScreen},
+ * or back to the welcome screen.
  */
 public final class StudentStaffEntryScreen {
 
     private StudentStaffEntryScreen() {}
 
+    /**
+     * Builds the Student/Staff entry scene with Login, Register, and Back buttons.
+     *
+     * @param navigator application navigator for screen transitions
+     * @return the configured JavaFX {@link javafx.scene.Scene}
+     */
     public static Scene create(Navigator navigator) {
         Label title = new Label("Student / Staff Portal");
         title.getStyleClass().add("screen-title");

@@ -4,7 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated for task 1" />
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features">
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/domain/BorrowWithBook.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/UserDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/UserDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/domain/Borrow.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/domain/Borrow.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianLoginScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianRegisterScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffEntryScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffEntryScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffLoginScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -38,24 +60,27 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "arungtaab"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;arungtaab&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/Saaaaaalien/COMP3111_Library_Management_System.git",
-    "accountId": "6a5d010c-ccd6-4592-8731-c473a22f5646"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Saaaaaalien/COMP3111_Library_Management_System.git&quot;,
+    &quot;accountId&quot;: &quot;6a5d010c-ccd6-4592-8731-c473a22f5646&quot;
   }
-}]]></component>
-  <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+}</component>
+  <component name="MavenRunner">
+    <option name="delegateBuildToMaven" value="true" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 1
-}]]></component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="Security Analysis" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
   <component name="ProjectId" id="3AVbnOk1KUXWt2bdhnVi6LxbAZ1" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -64,6 +89,8 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Application.ResetDatabase.executor": "Run",
+    "Maven.COMP3111_Library_Management_System [install...].executor": "Run",
+    "Maven.ResetDatabase.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -72,6 +99,7 @@
     "git-widget-placeholder": "task1",
     "kotlin-language-version-configured": "true",
     "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "reference.settings.project.maven.runner",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -110,7 +138,9 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1772680850993</updated>
-      <workItem from="1772680852089" duration="12936000" />
+      <workItem from="1772680852089" duration="18980000" />
+      <workItem from="1773049127696" duration="8498000" />
+      <workItem from="1773101546786" duration="247000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />
@@ -176,11 +206,30 @@
       <option name="project" value="LOCAL" />
       <updated>1772702032022</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="updated for task 2 to have consistent css">
+      <option name="closed" value="true" />
+      <created>1772702624773</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1772702624773</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="phase 1 basic" />
@@ -189,6 +238,8 @@
     <MESSAGE value="updated the css of task 2 to be consistent" />
     <MESSAGE value="updated the css to be consistent" />
     <MESSAGE value="updated for task 1" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated for task 1" />
+    <MESSAGE value="updated for task 2 to have consistent css" />
+    <MESSAGE value="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features" />
+    <option name="LAST_COMMIT_MESSAGE" value="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features" />
   </component>
 </project>

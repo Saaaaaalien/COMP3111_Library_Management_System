@@ -13,6 +13,9 @@ import org.example.util.Validators;
 
 /**
  * Registration and login using hashed passwords and validation.
+ * <p>
+ * Used by Task 1 for Student/Staff: {@link #registerStudentStaff} and {@link #login}.
+ * Passwords are hashed with a per-user salt; failed login attempts can lock an account temporarily.
  */
 public final class AuthService {
 
@@ -59,22 +62,25 @@ public final class AuthService {
 
     /**
      * Registers a librarian.
+     * First/last name and password rules match Student/Staff.
      *
      * @param employeeId optional; may be null or empty
      * @return the new user's id
      * @throws ValidationException if validation fails or username already exists
      */
-    public static long registerLibrarian(String username, String fullName, String password, String employeeId)
+    public static long registerLibrarian(String username, String firstName, String lastName, String password, String employeeId)
             throws ValidationException, SQLException {
         if (username == null) {
             throw new ValidationException("Username is required.");
         }
         Validators.validateUsername(username.trim());
-        Validators.validateFullName(fullName);
+        Validators.validateFirstName(firstName);
+        Validators.validateLastName(lastName);
         Validators.validatePasswordStrength(password);
         ensureUsernameAvailable(username.trim());
+        String fullName = firstName.trim() + " " + lastName.trim();
         String trimmedEmployeeId = Validators.trimOptional(employeeId);
-        return insertUser(username.trim(), fullName.trim(), password, Role.LIBRARIAN, null, trimmedEmployeeId);
+        return insertUser(username.trim(), fullName, password, Role.LIBRARIAN, null, trimmedEmployeeId);
     }
 
     /**
@@ -119,6 +125,27 @@ public final class AuthService {
         return user;
     }
 
+    /**
+     * Returns an error message directing the user to the correct login portal based on their role.
+     * Used when a user attempts to log in on a portal that does not match their account type
+     * (e.g. a student trying to log in on the Librarian screen).
+     *
+     * @param user the authenticated user whose role does not match the current portal
+     * @return a message such as "This username is registered as a student. Please use the Student/Staff login."
+     */
+    public static String getWrongPortalMessage(User user) {
+        if (user == null) {
+            return "Invalid account type.";
+        }
+        return switch (user.getRole()) {
+            case STUDENT -> "This username is registered as a student. Please use the Student/Staff login.";
+            case STAFF -> "This username is registered as staff. Please use the Student/Staff login.";
+            case AUTHOR -> "This username is registered as an author. Please use the Author login.";
+            case LIBRARIAN -> "This username is registered as a librarian. Please use the Librarian login.";
+        };
+    }
+
+    /** Validates and ensures username availability for Student/Staff registration; used by registerStudentStaff. */
     private static void validateStudentStaffRegistration(String username, String firstName, String lastName, String password, Role role)
             throws ValidationException, SQLException {
         if (username == null) {
@@ -134,6 +161,7 @@ public final class AuthService {
         ensureUsernameAvailable(username.trim());
     }
 
+    /** Throws ValidationException if the username is already taken. */
     private static void ensureUsernameAvailable(String username) throws ValidationException, SQLException {
         if (UserDao.findByUsername(username).isPresent()) {
             throw new ValidationException("Username is already taken.");

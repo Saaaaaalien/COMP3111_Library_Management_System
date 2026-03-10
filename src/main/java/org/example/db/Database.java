@@ -76,7 +76,7 @@ public final class Database {
                 """);
             migrateUsersTable(conn);
 
-            //pending books table
+            // pending books table
             st.execute("""
             CREATE TABLE IF NOT EXISTS pending_books (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,6 +96,22 @@ public final class Database {
                 FOREIGN KEY (author_user_id) REFERENCES users(id)
             )
             """);
+
+            // book submissions table (legacy flow)
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS book_submissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    author_user_id INTEGER NOT NULL,
+                    genre TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    submitted_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    decision_at TEXT,
+                    FOREIGN KEY (author_user_id) REFERENCES users(id)
+                )
+                """);
 
             st.execute("""
                 CREATE TABLE IF NOT EXISTS books (
@@ -118,10 +134,21 @@ public final class Database {
                     borrower_user_id INTEGER NOT NULL,
                     borrowed_at TEXT NOT NULL,
                     returned_at TEXT,
+                    due_at TEXT,
                     FOREIGN KEY (book_id) REFERENCES books(id),
                     FOREIGN KEY (borrower_user_id) REFERENCES users(id)
                 )
                 """);
+            migrateBorrowsTable(conn);
+        }
+    }
+
+    private static void migrateBorrowsTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE borrows ADD COLUMN due_at TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
         }
     }
 
@@ -134,6 +161,18 @@ public final class Database {
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE users ADD COLUMN locked_until TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN bio TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN employee_id TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;

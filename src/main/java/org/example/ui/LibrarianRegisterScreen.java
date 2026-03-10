@@ -18,8 +18,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 
 /**
- * Librarian registration: username, full name, password, and optional employee ID.
- * Role is implicitly LIBRARIAN.
+ * Librarian registration: username, first name, last name, password (with strength meter), optional employee ID.
+ * Role is implicitly LIBRARIAN. Same rules and layout as Student/Staff.
  */
 public final class LibrarianRegisterScreen {
     private LibrarianRegisterScreen() {}
@@ -33,9 +33,13 @@ public final class LibrarianRegisterScreen {
         usernameField.setPromptText("3–50 characters, letters/numbers/underscore");
         usernameField.setMaxWidth(280);
 
-        Label fullNameLabel = new Label("Full Name:");
-        TextField fullNameField = new TextField();
-        fullNameField.setMaxWidth(280);
+        Label firstNameLabel = new Label("First Name:");
+        TextField firstNameField = new TextField();
+        firstNameField.setMaxWidth(280);
+
+        Label lastNameLabel = new Label("Last Name:");
+        TextField lastNameField = new TextField();
+        lastNameField.setMaxWidth(280);
 
         Label employeeIdLabel = new Label("Employee ID (optional):");
         TextField employeeIdField = new TextField();
@@ -43,25 +47,26 @@ public final class LibrarianRegisterScreen {
 
         Label passwordLabel = new Label("Password:");
         PasswordField passwordField = new PasswordField();
-        passwordField.setPromptText("Minimum 8 characters");
+        passwordField.setPromptText("Min 8 chars, 1 uppercase, 1 number, 1 special character");
         passwordField.setMaxWidth(280);
 
-        Label strengthLbl = new Label("Empty");
+        Label strengthLbl = new Label("");
         strengthLbl.getStyleClass().add("password-strength");
         passwordField.textProperty().addListener((obs, prev, newVal) -> {
             String strength = org.example.util.Validators.getPasswordStrengthLabel(newVal);
-            strengthLbl.setText(strength.isEmpty() ? "Empty" : "Strength: " + strength);
+            strengthLbl.setText(strength.isEmpty() ? "" : "Strength: " + strength);
         });
 
         Button registerBtn = new Button("Register");
         registerBtn.getStyleClass().add("primary-button");
         registerBtn.setOnAction(e -> {
             String username = usernameField.getText();
-            String fullName = fullNameField.getText();
+            String firstName = firstNameField.getText();
+            String lastName = lastNameField.getText();
             String employeeId = employeeIdField.getText();
             String password = passwordField.getText();
             try {
-                AuthService.registerLibrarian(username, fullName, password, employeeId);
+                AuthService.registerLibrarian(username, firstName, lastName, password, employeeId);
                 showAlert(Alert.AlertType.INFORMATION, "Registration successful",
                         "You can now log in with your librarian username and password.");
                 navigator.showLibrarianPortal();
@@ -79,8 +84,11 @@ public final class LibrarianRegisterScreen {
         VBox usernameBox = new VBox(5, usernameLabel, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
 
-        VBox fullNameBox = new VBox(5, fullNameLabel, fullNameField);
-        fullNameBox.setAlignment(Pos.CENTER);
+        VBox firstNameBox = new VBox(5, firstNameLabel, firstNameField);
+        firstNameBox.setAlignment(Pos.CENTER);
+
+        VBox lastNameBox = new VBox(5, lastNameLabel, lastNameField);
+        lastNameBox.setAlignment(Pos.CENTER);
 
         VBox employeeIdBox = new VBox(5, employeeIdLabel, employeeIdField);
         employeeIdBox.setAlignment(Pos.CENTER);
@@ -88,12 +96,12 @@ public final class LibrarianRegisterScreen {
         VBox passwordBox = new VBox(5, passwordLabel, passwordField, strengthLbl);
         passwordBox.setAlignment(Pos.CENTER);
 
-        VBox form = new VBox(12, usernameBox, fullNameBox, employeeIdBox, passwordBox);
+        VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, employeeIdBox, passwordBox);
         form.setAlignment(Pos.CENTER);
 
         VBox content = new VBox(18, title, form, registerBtn, backBtn);
         content.setAlignment(Pos.CENTER);
-        content.setMaxWidth(440);
+        content.setMaxWidth(520);
         content.getStyleClass().add("content-card");
 
         BorderPane root = new BorderPane();

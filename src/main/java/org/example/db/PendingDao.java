@@ -1,9 +1,9 @@
 package org.example.db;
 
 import org.example.domain.PendingBook;
-import org.example.domain.SubmissionStatus;
 
 import java.sql.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -11,6 +11,14 @@ import java.util.List;
 import java.util.Optional;
 
 
+/**
+ * Data access for pending_books (submissions awaiting librarian approval).
+ * <p>
+ * Uses {@link Database#getConnection()}, which returns the application's single shared
+ * connection. That connection must not be closed here; only statements and result sets
+ * are closed. Closing the shared connection would break all subsequent database
+ * operations (e.g. "database connection closed" when approving books).
+ */
 public final class PendingDao {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -40,8 +48,8 @@ public final class PendingDao {
             )
             """;
 
-        try (Connection conn = Database.getConnection();
-             Statement stmt = conn.createStatement()) {
+        Connection conn = Database.getConnection();
+        try (Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
         }
     }
@@ -57,8 +65,8 @@ public final class PendingDao {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, book.getTitle());
             ps.setLong(2, book.getAuthorUserId());
@@ -99,8 +107,8 @@ public final class PendingDao {
     public static Optional<PendingBook> findById(long id) throws SQLException {
         String sql = "SELECT * FROM pending_books WHERE id = ?";
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setLong(1, id);
 
@@ -114,23 +122,58 @@ public final class PendingDao {
     }
 
     /**
-     * Approve a pending book submission
+     * Approve a pending book submission.
+     * Updates pending_books status and inserts the book into the books table
+     * so it appears as available for students to borrow.
+     * Both operations run in a single transaction; if the catalog insert fails,
+     * the status update is rolled back so the database stays consistent.
      */
     public static void approvePendingBook(long bookId, String reviewNotes) throws SQLException {
-        String sql = """
-            UPDATE pending_books
-            SET status = 'APPROVED', reviewed_date = ?, review_notes = ?
-            WHERE id = ?
-            """;
+        Connection conn = Database.getConnection();
+        boolean originalAutoCommit = conn.getAutoCommit();
+        try {
+            conn.setAutoCommit(false);
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+            String updateSql = """
+                UPDATE pending_books
+                SET status = 'APPROVED', reviewed_date = ?, review_notes = ?
+                WHERE id = ?
+                """;
+            try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+                ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
+                ps.setString(2, reviewNotes != null ? reviewNotes : "");
+                ps.setLong(3, bookId);
+                ps.executeUpdate();
+            }
 
-            ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
-            ps.setString(2, reviewNotes != null ? reviewNotes : "");
-            ps.setLong(3, bookId);
+            // Load the row we just updated (still in same transaction) and add to catalog
+            Optional<PendingBook> pending = findById(bookId);
+            if (pending.isPresent()) {
+                PendingBook p = pending.get();
+                String publishDate = Instant.now().toString();
+                BookDao.insert(
+                    p.getTitle(),
+                    p.getAuthorUserId(),
+                    p.getAuthorFullName(),
+                    p.getGenre(),
+                    p.getSummary() != null ? p.getSummary() : "",
+                    p.getFilePath(),
+                    publishDate
+                );
+            }
 
-            ps.executeUpdate();
+            conn.commit();
+        } catch (SQLException e) {
+            try {
+                conn.rollback();
+            } catch (SQLException ignored) {
+            }
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(originalAutoCommit);
+            } catch (SQLException ignored) {
+            }
         }
     }
 
@@ -144,8 +187,8 @@ public final class PendingDao {
             WHERE id = ?
             """;
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
             ps.setString(2, reviewNotes != null ? reviewNotes : "");
@@ -162,8 +205,8 @@ public final class PendingDao {
     private static List<PendingBook> findBooksBySql(String sql) throws SQLException {
         List<PendingBook> books = new ArrayList<>();
 
-        try (Connection conn = Database.getConnection();
-             Statement stmt = conn.createStatement();
+        Connection conn = Database.getConnection();
+        try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {

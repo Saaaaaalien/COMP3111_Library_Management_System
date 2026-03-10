@@ -23,11 +23,21 @@ import java.sql.SQLException;
 
 /**
  * Student/Staff registration: username, first name, last name, password (with strength meter), role (radio buttons).
+ * <p>
+ * Validates input via {@link org.example.util.Validators} and registers via
+ * {@link AuthService#registerStudentStaff(String, String, String, String, Role)}.
+ * On success, navigates to {@link StudentStaffLoginScreen}.
  */
 public final class StudentStaffRegisterScreen {
 
     private StudentStaffRegisterScreen() {}
 
+    /**
+     * Builds the registration scene with form fields, role selection, and Register/Back buttons.
+     *
+     * @param navigator application navigator for screen transitions
+     * @return the configured JavaFX {@link javafx.scene.Scene}
+     */
     public static Scene create(Navigator navigator) {
         Label title = new Label("Register (Student / Staff)");
         title.getStyleClass().add("screen-title");
@@ -57,6 +67,7 @@ public final class StudentStaffRegisterScreen {
             strengthLbl.setText(strength.isEmpty() ? "Empty" : "Strength: " + strength);
         });
 
+        // Role: Student or Staff only (used by Task 1 registration)
         Label roleLbl = new Label("Role:");
         ToggleGroup roleGroup = new ToggleGroup();
         RadioButton studentRadio = new RadioButton("Student");
@@ -127,6 +138,9 @@ public final class StudentStaffRegisterScreen {
         return scene;
     }
 
+    /**
+     * Shows a modal alert with the given type, title, and message.
+     */
     private static void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
         alert.setTitle(title);

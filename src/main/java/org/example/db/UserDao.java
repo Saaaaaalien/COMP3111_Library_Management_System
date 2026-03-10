@@ -53,7 +53,8 @@ public final class UserDao {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.of(mapRow(rs));
+                    User u = mapRow(rs);
+                    return Optional.of(u);
                 }
             }
         }
