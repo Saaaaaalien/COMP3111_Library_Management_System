@@ -184,7 +184,7 @@ public final class PublishBookScreen {
         authorField.setPrefWidth(550);
 
         // Multi-genre selection - FIXED LIST VISIBILITY
-        Label genreLabel = new Label("Genres * (to select multiple: Ctrl + Click)");
+        Label genreLabel = new Label("Genres * (to select multiple: Ctrl/ Command + Click)");
         genreLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
 
         // Create ListView with explicit size and ensure it's visible
@@ -254,8 +254,9 @@ public final class PublishBookScreen {
         descriptionLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
         descriptionArea = new TextArea();
         descriptionArea.setPromptText("Enter book description, abstract, or summary...");
-        descriptionArea.setPrefRowCount(6);
+        descriptionArea.setPrefRowCount(10);
         descriptionArea.setPrefWidth(550);
+        descriptionArea.setPrefHeight(500);
         descriptionArea.setWrapText(true);
         descriptionArea.getStyleClass().add("text-area");
 

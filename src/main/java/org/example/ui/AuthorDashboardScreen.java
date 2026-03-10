@@ -168,12 +168,7 @@ public final class AuthorDashboardScreen {
         message.setPrefWidth(Double.MAX_VALUE);
         message.setStyle("-fx-text-fill: #34495e; -fx-font-size: 14px;");
 
-        Label instruction = new Label("Click the button below to publish a new book.");
-        instruction.setWrapText(true);
-        instruction.setPrefWidth(Double.MAX_VALUE);
-        instruction.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 13px; -fx-font-style: italic;");
-
-        card.getChildren().addAll(title, message, instruction);
+        card.getChildren().addAll(title, message);
 
         return card;
     }
@@ -184,43 +179,31 @@ public final class AuthorDashboardScreen {
         card.setMaxWidth(500);
         card.setAlignment(Pos.CENTER);
         card.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, #27ae60, #229954);" +
-                        "-fx-background-radius: 20;" +
-                        "-fx-border-radius: 20;" +
-                        "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 15, 0, 0, 5);"
+                "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #58a9d5);" +
+                        "-fx-background-radius: 5;"
         );
 
         // Hover effect
         card.setOnMouseEntered(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, #2ecc71, #27ae60);" +
-                                "-fx-background-radius: 20;" +
-                                "-fx-border-radius: 20;" +
-                                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 20, 0, 0, 8);" +
-                                "-fx-cursor: hand;"
+                        "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #5bb2f5);" +
+                                "-fx-cursor: hand;"+
+                                "-fx-background-radius: 5;"
                 )
         );
         card.setOnMouseExited(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, #27ae60, #229954);" +
-                                "-fx-background-radius: 20;" +
-                                "-fx-border-radius: 20;" +
-                                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 15, 0, 0, 5);"
+                        "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #58a9d5);"+
+                                "-fx-background-radius: 5;"
                 )
         );
 
-        // Book icon
-        Label iconLabel = new Label("📖");
-        iconLabel.setFont(Font.font("System", 64));
-        iconLabel.setStyle("-fx-text-fill: white;");
-
+        // publish button
         Label titleLabel = new Label("Publish New Book");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
         titleLabel.setStyle("-fx-text-fill: white;");
 
-        Label descriptionLabel = new Label(
-                "Share your knowledge and stories with the world. " +
-                        "Submit a new book for librarian review."
+        Label descriptionLabel = new Label("Submit a new book for librarian review."
         );
         descriptionLabel.setWrapText(true);
         descriptionLabel.setPrefWidth(Double.MAX_VALUE);
@@ -230,12 +213,11 @@ public final class AuthorDashboardScreen {
         Button publishBtn = new Button("Start Publishing →");
         publishBtn.setStyle(
                 "-fx-background-color: white;" +
-                        "-fx-text-fill: #27ae60;" +
+                        "-fx-text-fill: #5bb2f5;" +
                         "-fx-font-weight: bold;" +
                         "-fx-font-size: 18px;" +
                         "-fx-padding: 15 30 15 30;" +
-                        "-fx-background-radius: 30;" +
-                        "-fx-border-radius: 30;" +
+                        "-fx-background-radius: 5;" +
                         "-fx-cursor: hand;"
         );
         publishBtn.setPrefWidth(250);
@@ -244,25 +226,20 @@ public final class AuthorDashboardScreen {
         publishBtn.setOnMouseEntered(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: #f8f8f8;" +
-                                "-fx-text-fill: #229954;" +
+                                "-fx-text-fill: #5bb2f5;" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 18px;" +
                                 "-fx-padding: 15 30 15 30;" +
-                                "-fx-background-radius: 30;" +
-                                "-fx-border-radius: 30;" +
-                                "-fx-cursor: hand;" +
-                                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 5, 0, 0, 2);"
+                                "-fx-cursor: hand;"
                 )
         );
         publishBtn.setOnMouseExited(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: white;" +
-                                "-fx-text-fill: #27ae60;" +
+                                "-fx-text-fill: #5bb2f5;" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 18px;" +
-                                "-fx-padding: 15 30 15 30;" +
-                                "-fx-background-radius: 30;" +
-                                "-fx-border-radius: 30;"
+                                "-fx-padding: 15 30 15 30;"
                 )
         );
 
@@ -277,7 +254,7 @@ public final class AuthorDashboardScreen {
             navigator.showPublishBook(currentUser);
         });
 
-        card.getChildren().addAll(iconLabel, titleLabel, descriptionLabel, publishBtn);
+        card.getChildren().addAll(titleLabel, descriptionLabel, publishBtn);
 
         return card;
     }
