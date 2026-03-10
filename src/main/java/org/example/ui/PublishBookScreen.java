@@ -68,12 +68,12 @@ public final class PublishBookScreen {
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setPrefWidth(200);
 
-        Button cancelBtn = new Button("Cancel");
-        cancelBtn.getStyleClass().add("secondary-button");
-        cancelBtn.setPrefWidth(150);
-        cancelBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
+        Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(150);
+        backBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
 
-        buttonBox.getChildren().addAll(submitBtn, cancelBtn);
+        buttonBox.getChildren().addAll(submitBtn, backBtn);
 
         // Submit action
         submitBtn.setOnAction(e -> {
@@ -512,7 +512,7 @@ public final class PublishBookScreen {
             dialog.close();
         });
 
-        Button cancelBtn = new Button("❌ Cancel");
+        Button cancelBtn = new Button("❌ Back");
         cancelBtn.getStyleClass().add("secondary-button");
         cancelBtn.setOnAction(e -> {
             dialog.setUserData(false);
