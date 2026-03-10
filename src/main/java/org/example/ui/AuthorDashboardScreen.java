@@ -73,7 +73,7 @@ public final class AuthorDashboardScreen {
         // Logout button (right-aligned)
         Button logoutBtn = new Button("Logout");
         logoutBtn.setStyle(
-                "-fx-background-color: #e74c3c;" +
+                "-fx-background-color: #a8a5a5;" +
                         "-fx-text-fill: white;" +
                         "-fx-font-weight: bold;" +
                         "-fx-font-size: 14px;" +
@@ -85,7 +85,7 @@ public final class AuthorDashboardScreen {
         // Hover effect
         logoutBtn.setOnMouseEntered(e ->
                 logoutBtn.setStyle(
-                        "-fx-background-color: #c0392b;" +
+                        "-fx-background-color: #7a7373;" +
                                 "-fx-text-fill: white;" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 14px;" +
@@ -95,7 +95,7 @@ public final class AuthorDashboardScreen {
         );
         logoutBtn.setOnMouseExited(e ->
                 logoutBtn.setStyle(
-                        "-fx-background-color: #e74c3c;" +
+                        "-fx-background-color: #a8a5a5;" +
                                 "-fx-text-fill: white;" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 14px;" +
@@ -161,11 +161,9 @@ public final class AuthorDashboardScreen {
         title.setStyle("-fx-text-fill: #2c3e50;");
 
         Label message = new Label(
-                "Welcome to your author dashboard. From here you can publish new books " +
-                        "that will be reviewed by librarians before being added to the library."
+                "From here you can publish new books that will be reviewed by librarians before being added to the library."
         );
         message.setWrapText(true);
-        message.setPrefWidth(Double.MAX_VALUE);
         message.setStyle("-fx-text-fill: #34495e; -fx-font-size: 14px;");
 
         card.getChildren().addAll(title, message);

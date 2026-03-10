@@ -200,7 +200,6 @@ public final class PublishBookScreen {
         genreListView.setManaged(true);
         genreListView.getStyleClass().add("list-view");
 
-        // Add a border to make it visible (for debugging, can remove later)
         genreListView.setStyle("-fx-border-color: #3498db; -fx-border-width: 1;");
 
         // Selection info and clear button
@@ -256,7 +255,7 @@ public final class PublishBookScreen {
         descriptionArea.setPromptText("Enter book description, abstract, or summary...");
         descriptionArea.setPrefRowCount(10);
         descriptionArea.setPrefWidth(550);
-        descriptionArea.setPrefHeight(500);
+        descriptionArea.setMinHeight(200);
         descriptionArea.setWrapText(true);
         descriptionArea.getStyleClass().add("text-area");
 
