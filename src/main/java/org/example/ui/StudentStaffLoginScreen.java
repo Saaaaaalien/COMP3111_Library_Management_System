@@ -20,11 +20,21 @@ import java.sql.SQLException;
 
 /**
  * Student/Staff login: username and password, then navigate to Available Books.
+ * <p>
+ * Authenticates via {@link AuthService#login(String, String)}. Only users with role
+ * {@link org.example.domain.Role#STUDENT} or {@link org.example.domain.Role#STAFF} are
+ * allowed; others see an error. On success, navigates to {@link AvailableBooksScreen}.
  */
 public final class StudentStaffLoginScreen {
 
     private StudentStaffLoginScreen() {}
 
+    /**
+     * Builds the login scene with username/password fields and Login/Back buttons.
+     *
+     * @param navigator application navigator for screen transitions
+     * @return the configured JavaFX {@link javafx.scene.Scene}
+     */
     public static Scene create(Navigator navigator) {
         Label title = new Label("Login (Student / Staff)");
         title.getStyleClass().add("screen-title");
@@ -44,8 +54,9 @@ public final class StudentStaffLoginScreen {
             String password = passwordField.getText();
             try {
                 User user = AuthService.login(username, password);
+                // Restrict this portal to Student/Staff only; username is unique per account type
                 if (user.getRole() != org.example.domain.Role.STUDENT && user.getRole() != org.example.domain.Role.STAFF) {
-                    showLoginError("This portal is for students and staff only.");
+                    showLoginError(AuthService.getWrongPortalMessage(user));
                     return;
                 }
                 navigator.showAvailableBooks(user);
@@ -93,6 +104,7 @@ public final class StudentStaffLoginScreen {
         return scene;
     }
 
+    /** Shows an error alert with the given message (e.g. invalid credentials or DB error). */
     private static void showLoginError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Login failed");

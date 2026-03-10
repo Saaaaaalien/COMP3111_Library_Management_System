@@ -45,6 +45,11 @@ public class Navigator {
         stage.setScene(scene);
     }
 
+    public void showMyBorrowedBooks(User studentOrStaff) {
+        Scene scene = org.example.ui.MyBorrowedBooksScreen.create(this, studentOrStaff);
+        stage.setScene(scene);
+    }
+
     //Tasks2
     public void showAuthorPortal() {
         Scene scene = org.example.ui.AuthorEntryScreen.create(this);

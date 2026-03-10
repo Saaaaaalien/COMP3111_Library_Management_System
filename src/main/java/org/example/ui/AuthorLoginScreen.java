@@ -43,8 +43,9 @@ public final class AuthorLoginScreen {
             String password = passwordField.getText();
             try {
                 User user = AuthService.login(username, password);
+                // Username is unique; ensure this account is an author
                 if (user.getRole() != org.example.domain.Role.AUTHOR) {
-                    showLoginError("This portal is for authors only.");
+                    showLoginError(AuthService.getWrongPortalMessage(user));
                     return;
                 }
                 navigator.showAuthorDashboard(user);

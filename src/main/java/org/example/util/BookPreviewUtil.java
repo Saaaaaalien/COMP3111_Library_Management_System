@@ -1,0 +1,148 @@
+package org.example.util;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+/**
+ * Utility to read a short preview of a book file for "Quick Review" before borrowing.
+ * Supports plain text (.txt), PDF (.pdf), and Word (.doc, .docx) files.
+ */
+public final class BookPreviewUtil {
+
+    /** Maximum number of characters to include in a text preview (roughly first few pages). */
+    private static final int MAX_PREVIEW_CHARS = 3000;
+
+    private BookPreviewUtil() {}
+
+    /**
+     * Reads a preview of the book content from the file at the given path.
+     * Supported formats: .txt (plain text), .pdf (PDFBox), .docx and .doc (Apache POI).
+     * Returns null if the format is unsupported, the file is missing/unreadable, or extraction fails.
+     *
+     * @param filePath absolute path to the book file (may be null or empty)
+     * @return preview text (first ~3000 characters), or null if not available
+     */
+    public static String readTextPreview(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return null;
+        }
+        Path path = Paths.get(filePath);
+        if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+            return null;
+        }
+        String lower = filePath.toLowerCase();
+        if (lower.endsWith(".txt")) {
+            return readTxtPreview(path);
+        }
+        if (lower.endsWith(".pdf")) {
+            return readPdfPreview(path);
+        }
+        if (lower.endsWith(".docx")) {
+            return readDocxPreview(path);
+        }
+        if (lower.endsWith(".doc")) {
+            return readDocPreview(path);
+        }
+        return null;
+    }
+
+    private static String readTxtPreview(Path path) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            if (content == null || content.isEmpty()) {
+                return null;
+            }
+            return truncateAtBoundary(content, MAX_PREVIEW_CHARS);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String readPdfPreview(Path path) {
+        try {
+            org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile());
+            try {
+                org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                stripper.setEndPage(Math.min(5, document.getNumberOfPages()));
+                String text = stripper.getText(document);
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return truncateAtBoundary(text.trim(), MAX_PREVIEW_CHARS);
+            } finally {
+                document.close();
+            }
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String readDocxPreview(Path path) {
+        try (InputStream in = Files.newInputStream(path)) {
+            org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument(in);
+            org.apache.poi.xwpf.extractor.XWPFWordExtractor extractor = new org.apache.poi.xwpf.extractor.XWPFWordExtractor(document);
+            try {
+                String text = extractor.getText();
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return truncateAtBoundary(text.trim(), MAX_PREVIEW_CHARS);
+            } finally {
+                extractor.close();
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static String readDocPreview(Path path) {
+        try (InputStream in = Files.newInputStream(path)) {
+            org.apache.poi.hwpf.HWPFDocument document = new org.apache.poi.hwpf.HWPFDocument(in);
+            org.apache.poi.hwpf.extractor.WordExtractor extractor = new org.apache.poi.hwpf.extractor.WordExtractor(document);
+            try {
+                String text = extractor.getText();
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return truncateAtBoundary(text.trim(), MAX_PREVIEW_CHARS);
+            } finally {
+                extractor.close();
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Truncates text to at most maxChars characters, breaking at a line or word boundary when possible.
+     */
+    private static String truncateAtBoundary(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) {
+            return text;
+        }
+        String preview = text.substring(0, maxChars);
+        int lastNewline = preview.lastIndexOf('\n');
+        if (lastNewline > maxChars / 2) {
+            return preview.substring(0, lastNewline + 1) + "\n\n[...]";
+        }
+        int lastSpace = preview.lastIndexOf(' ');
+        if (lastSpace > maxChars / 2) {
+            return preview.substring(0, lastSpace + 1) + "\n\n[...]";
+        }
+        return preview + "\n\n[...]";
+    }
+
+    /**
+     * Returns whether the file at the given path is a supported type for content preview.
+     */
+    public static boolean isSupportedPreviewType(String filePath) {
+        if (filePath == null || filePath.isBlank()) return false;
+        String lower = filePath.toLowerCase();
+        return lower.endsWith(".txt") || lower.endsWith(".pdf")
+                || lower.endsWith(".doc") || lower.endsWith(".docx");
+    }
+}

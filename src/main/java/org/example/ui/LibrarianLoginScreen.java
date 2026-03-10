@@ -43,8 +43,9 @@ public final class LibrarianLoginScreen {
             String password = passwordField.getText();
             try {
                 User user = AuthService.login(username, password);
+                // Username is unique; ensure this account is a librarian
                 if (user.getRole() != org.example.domain.Role.LIBRARIAN) {
-                    showLoginError("This portal is for librarians only.");
+                    showLoginError(AuthService.getWrongPortalMessage(user));
                     return;
                 }
                 navigator.showLibrarianApproval(user);
