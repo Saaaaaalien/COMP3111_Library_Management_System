@@ -16,6 +16,7 @@ JavaFX + SQLite library management application (Phase 1+). Supports registration
 ## Documentation
 
 - **Task 1 testing:** `docs/TASK1_TEST_GUIDE.md`
+- **Task 2 testing:** `docs/TASK2_TEST_GUIDE.md`
 - **Task 3 (Librarian):** `Documentations/README_TASK3.md`, `Documentations/TASK3_QUICK_START.md`, `Documentations/TASK3_TEST_GUIDE.md`
 
 ---
