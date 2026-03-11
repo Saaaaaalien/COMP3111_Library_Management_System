@@ -86,9 +86,14 @@ mvn exec:java -Dexec.mainClass="org.example.db.ResetDatabase"
 ## Supplementary Notes: Running on Any OS (Windows / macOS / Linux)
 
 - **Java & Maven**: Install Java 21 and Maven 3.6+ from your OS package manager or official downloads (ensure `java -version` and `mvn -version` work in a terminal).
-- **Clone the repo**:
-  - `git clone <repo-url>`
-  - `cd COMP3111_Library_Management_System`
+- **Get the project files**:
+  - **From Git:**  
+    - `git clone <repo-url>`
+    - `cd COMP3111_Library_Management_System`
+  - **From a ZIP (e.g. course submission):**  
+    - Download the ZIP  
+    - Extract it (unzip) to a folder on your machine  
+    - Open a terminal in the extracted `COMP3111_Library_Management_System` folder
 - **Line endings (shared repo)**:
   - The project includes a `.gitattributes` file so Git normalizes text files; no extra steps are needed on most setups.
   - Recommended Git setting per developer:
