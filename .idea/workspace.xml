@@ -4,28 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features">
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/domain/BorrowWithBook.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" afterDir="false" />
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="updated the UI for borrowed books screen and available books screen; will now open a pdf reader for pdf file types">
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/library/ui/LibrarianMenu.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/library/ui/StudentStaffMenu.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/UserDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/UserDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/domain/Borrow.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/domain/Borrow.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorLoginScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/library/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/library/service/UserService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianLoginScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianRegisterScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffEntryScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffEntryScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffLoginScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffLoginScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffRegisterScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,6 +106,10 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Application.ResetDatabase" />
+        <item itemvalue="Application.ResetDatabase" />
+        <item itemvalue="Application.ResetDatabase" />
+        <item itemvalue="Application.ResetDatabase" />
         <item itemvalue="Application.ResetDatabase" />
       </list>
     </recent_temporary>
@@ -240,6 +231,7 @@
     <MESSAGE value="updated for task 1" />
     <MESSAGE value="updated for task 2 to have consistent css" />
     <MESSAGE value="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features" />
-    <option name="LAST_COMMIT_MESSAGE" value="bug fixes: registration/log in database errors and error for approved books not being available to borrow. additionally, added extra nice-to-have features" />
+    <MESSAGE value="updated the UI for borrowed books screen and available books screen; will now open a pdf reader for pdf file types" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated the UI for borrowed books screen and available books screen; will now open a pdf reader for pdf file types" />
   </component>
 </project>

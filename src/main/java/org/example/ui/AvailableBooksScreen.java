@@ -1,8 +1,11 @@
 package org.example.ui;
 
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -12,22 +15,27 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.example.app.Navigator;
+import org.example.db.BookDao;
+import org.example.db.BorrowDao;
 import org.example.domain.Book;
 import org.example.domain.User;
 import org.example.service.BorrowService;
 import org.example.util.BookPreviewUtil;
-
-import javafx.animation.PauseTransition;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.util.Duration;
 
 import java.sql.SQLException;
 import java.time.Instant;
@@ -35,9 +43,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
-
-import org.example.db.BookDao;
-import org.example.db.BorrowDao;
 
 /**
  * Available books list for Student/Staff; borrow action with confirmation.
@@ -68,9 +73,13 @@ public final class AvailableBooksScreen {
         Label title = new Label("Available Books");
         title.getStyleClass().add("screen-title");
 
+        Label subtitle = new Label("Browse and borrow available books.");
+        subtitle.setWrapText(true);
+
         TableView<BookRow> table = new TableView<>();
-        ObservableList<BookRow> items = FXCollections.observableArrayList();
-        table.setItems(items);
+        ObservableList<BookRow> allItems = FXCollections.observableArrayList();
+        FilteredList<BookRow> filteredItems = new FilteredList<>(allItems, row -> true);
+        table.setItems(filteredItems);
 
         TableColumn<BookRow, String> colTitle = new TableColumn<>("Title");
         colTitle.setCellValueFactory(new PropertyValueFactory<>("title"));
@@ -101,11 +110,11 @@ public final class AvailableBooksScreen {
 
         // Load available books from DB and populate the table; run on init and after each borrow
         Runnable refresh = () -> {
-            items.clear();
+            allItems.clear();
             try {
-                List<Book> books = org.example.db.BookDao.findAllAvailable();
+                List<Book> books = BookDao.findAllAvailable();
                 for (Book b : books) {
-                    items.add(new BookRow(b));
+                    allItems.add(new BookRow(b));
                 }
             } catch (SQLException ex) {
                 runWithTimerPaused(inactivityTimer,
@@ -218,19 +227,59 @@ public final class AvailableBooksScreen {
         logoutBtn.getStyleClass().add("secondary-button");
         logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
 
-        HBox buttons = new HBox(10, readSummaryBtn, quickReviewBtn, borrowBtn, myBorrowedBtn, logoutBtn);
+        // Disable book actions when nothing is selected
+        readSummaryBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        quickReviewBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        borrowBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+
+        // Search field to filter by title/author
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by title or author...");
+        searchField.setMaxWidth(300);
+        searchField.textProperty().addListener((obs, oldText, newText) -> {
+            String query = newText == null ? "" : newText.trim().toLowerCase();
+            filteredItems.setPredicate(row -> {
+                if (query.isEmpty()) {
+                    return true;
+                }
+                return row.getTitle().toLowerCase().contains(query)
+                        || row.getAuthor().toLowerCase().contains(query);
+            });
+        });
+
+        HBox searchRow = new HBox(8, new Label("Search:"), searchField);
+        searchRow.setAlignment(Pos.CENTER_RIGHT);
+
+        Label loggedInLabel = new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
+
+        VBox headerBox = new VBox(4, title, subtitle, loggedInLabel);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+
+        VBox tableContainer = new VBox(table);
+        tableContainer.getStyleClass().add("table-container");
+        tableContainer.setPadding(new Insets(10));
+
+        // Group primary and navigation actions
+        HBox leftActions = new HBox(10, readSummaryBtn, quickReviewBtn, borrowBtn);
+        leftActions.setAlignment(Pos.CENTER_LEFT);
+        HBox rightActions = new HBox(10, myBorrowedBtn, logoutBtn);
+        rightActions.setAlignment(Pos.CENTER_RIGHT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox buttons = new HBox(10, leftActions, spacer, rightActions);
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 
-        VBox top = new VBox(10, title, new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")"));
-        VBox tableContainer = new VBox(table);
-        tableContainer.getStyleClass().add("table-container");
+        VBox content = new VBox(16, headerBox, searchRow, tableContainer, buttons);
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(10));
+        content.setMaxWidth(900);
+        content.getStyleClass().add("content-card");
 
-        VBox center = new VBox(10, tableContainer, buttons);
-        center.setPadding(new Insets(10));
         BorderPane root = new BorderPane();
-        root.setTop(top);
-        root.setCenter(center);
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 
@@ -238,7 +287,14 @@ public final class AvailableBooksScreen {
         root.addEventFilter(KeyEvent.ANY, ev -> inactivityTimer.playFromStart());
         inactivityTimer.play();
 
-        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
+        ScrollPane scrollRoot = new ScrollPane(root);
+        scrollRoot.setFitToHeight(true);
+        scrollRoot.setFitToWidth(false);
+        scrollRoot.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollRoot.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollRoot.setPannable(true);
+
+        Scene scene = new Scene(scrollRoot, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         java.net.URL cssResource = AvailableBooksScreen.class.getResource("/app.css");
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
@@ -383,8 +439,9 @@ public final class AvailableBooksScreen {
     }
 
     /**
-     * Shows a Quick Review dialog for the given book: details, summary, and first few pages of content
-     * (for .txt files). User can close or choose to borrow from the dialog.
+     * Shows a Quick Review dialog for the given book in a reader-style layout:
+     * header with title/author and a central scrollable preview area (first few pages).
+     * User can close or choose to borrow from the dialog.
      */
     private static void showQuickReviewDialog(Book book, BookRow row,
                                              Navigator navigator, User currentUser,
@@ -393,43 +450,49 @@ public final class AvailableBooksScreen {
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.setTitle("Quick Review — " + book.getTitle());
 
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
+        VBox rootContent = new VBox(16);
+        rootContent.setPadding(new Insets(20));
 
-        Label header = new Label("Quick Review");
-        header.getStyleClass().add("screen-title");
+        // Header: title + author
+        Label titleLabel = new Label(book.getTitle());
+        titleLabel.getStyleClass().add("screen-title");
 
-        VBox details = new VBox(5);
-        details.getStyleClass().add("content-card");
-        details.setPadding(new Insets(12));
-        addDetailRow(details, "Title:", book.getTitle());
-        addDetailRow(details, "Author:", book.getAuthorFullNameSnapshot());
-        addDetailRow(details, "Genre:", book.getGenre() != null ? book.getGenre() : "—");
-        addDetailRow(details, "Publish date:", row.getPublishDateDisplay());
+        Label authorLabel = new Label("by " + book.getAuthorFullNameSnapshot());
+        authorLabel.setStyle("-fx-font-size: 13px;");
 
-        Label summaryLabel = new Label("Summary / Abstract");
-        summaryLabel.setStyle("-fx-font-weight: bold;");
-        String summary = book.getSummary() != null && !book.getSummary().isBlank()
-                ? book.getSummary() : "No summary available.";
-        TextArea summaryArea = new TextArea(summary);
-        summaryArea.setEditable(false);
-        summaryArea.setWrapText(true);
-        summaryArea.setPrefRowCount(4);
-        summaryArea.setStyle("-fx-background-color: #f8fafc;");
+        Label hintLabel = new Label("Preview \u2014 first few pages");
+        hintLabel.setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
 
-        Label previewLabel = new Label("Preview (first few pages)");
-        previewLabel.setStyle("-fx-font-weight: bold;");
-        String previewText = BookPreviewUtil.readTextPreview(book.getFilePath());
-        TextArea previewArea = new TextArea(
-                previewText != null ? previewText
-                        : "Preview could not be loaded (file missing, unsupported format, or read error). You can read the summary above.");
-        previewArea.setEditable(false);
-        previewArea.setWrapText(true);
-        previewArea.setPrefRowCount(12);
-        previewArea.setStyle("-fx-background-color: #f8fafc;");
+        VBox headerBox = new VBox(4, titleLabel, authorLabel, hintLabel);
 
-        content.getChildren().addAll(header, details, summaryLabel, summaryArea, previewLabel, previewArea);
+        // Reader-style preview area: prefer PDF page images when available, otherwise fall back to text
+        VBox pageCard = new VBox(12);
+        pageCard.setPadding(new Insets(16));
+        pageCard.getStyleClass().add("content-card");
 
+        boolean isPdf = book.getFilePath() != null && book.getFilePath().toLowerCase().endsWith(".pdf");
+        if (isPdf) {
+            java.util.List<Image> pages = BookPreviewUtil.readPdfPreviewImages(book.getFilePath(), 5);
+            if (!pages.isEmpty()) {
+                for (Image img : pages) {
+                    ImageView imageView = new ImageView(img);
+                    imageView.setPreserveRatio(true);
+                    imageView.setFitWidth(520);
+                    pageCard.getChildren().add(imageView);
+                }
+            } else {
+                addTextPreviewFallback(pageCard, book);
+            }
+        } else {
+            addTextPreviewFallback(pageCard, book);
+        }
+
+        ScrollPane readerScroll = new ScrollPane(pageCard);
+        readerScroll.setFitToWidth(true);
+        readerScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        readerScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        // Actions: Borrow / Close
         Button borrowBtn = new Button("Borrow this book");
         borrowBtn.getStyleClass().add("primary-button");
         borrowBtn.setOnAction(ev -> {
@@ -473,22 +536,44 @@ public final class AvailableBooksScreen {
         closeBtn.getStyleClass().add("secondary-button");
         closeBtn.setOnAction(ev -> dialog.close());
 
-        HBox buttons = new HBox(10, borrowBtn, closeBtn);
-        buttons.setPadding(new Insets(10, 0, 0, 0));
-        content.getChildren().add(buttons);
+        HBox buttonRow = new HBox(10, borrowBtn, closeBtn);
+        buttonRow.setAlignment(Pos.CENTER_RIGHT);
+        buttonRow.setPadding(new Insets(10, 0, 0, 0));
 
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        rootContent.getChildren().addAll(headerBox, readerScroll, buttonRow);
 
-        Scene dialogScene = new Scene(scroll, 560, 620);
+        ScrollPane rootScroll = new ScrollPane(rootContent);
+        rootScroll.setFitToWidth(true);
+        rootScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        rootScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Scene dialogScene = new Scene(rootScroll, 700, 700);
         java.net.URL cssResource = AvailableBooksScreen.class.getResource("/app.css");
         if (cssResource != null) {
             dialogScene.getStylesheets().add(cssResource.toExternalForm());
         }
         dialog.setScene(dialogScene);
         dialog.showAndWait();
+    }
+
+    /**
+     * Adds a text-based preview into the given pageCard, using extracted content when possible,
+     * or falling back to the book summary.
+     */
+    private static void addTextPreviewFallback(VBox pageCard, Book book) {
+        String previewText = BookPreviewUtil.readTextPreview(book.getFilePath());
+        if (previewText == null || previewText.isBlank()) {
+            String summary = book.getSummary() != null && !book.getSummary().isBlank()
+                    ? book.getSummary()
+                    : "Preview could not be loaded (file missing, unsupported format, or read error).";
+            previewText = summary;
+        }
+        TextArea previewArea = new TextArea(previewText);
+        previewArea.setEditable(false);
+        previewArea.setWrapText(true);
+        previewArea.setStyle("-fx-background-color: white; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
+        previewArea.setPrefRowCount(20);
+        pageCard.getChildren().add(previewArea);
     }
 
     private static void addDetailRow(VBox parent, String label, String value) {

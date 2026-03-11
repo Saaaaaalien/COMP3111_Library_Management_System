@@ -24,7 +24,7 @@ public class UserService {
     }
 
 
-    //Task 2.1 Author Registration, return false if unsuccessful
+    // Task 2.1 Author Registration, return false if unsuccessful
     public boolean registerAuthor(String username, String fullName, String password, String bio) {
         if (findUserByUsername(username).isPresent()) {
             return false;
@@ -37,6 +37,42 @@ public class UserService {
         String passwordHash = PasswordValidator.hashPassword(password);
         Author author = new Author(username, fullName, passwordHash, bio);
         users.add(author);
+        FileUtils.saveUsers(users);
+        return true;
+    }
+
+    /**
+     * Legacy registration for Student/Staff used by the old LoginMenu.
+     * Stores a basic User with role \"STUDENT_STAFF\".
+     */
+    public boolean registerStudentStaff(String username, String fullName, String password) {
+        if (findUserByUsername(username).isPresent()) {
+            return false;
+        }
+        if (!PasswordValidator.isValid(password)) {
+            return false;
+        }
+        String passwordHash = PasswordValidator.hashPassword(password);
+        User user = new User(username, fullName, passwordHash, "STUDENT_STAFF");
+        users.add(user);
+        FileUtils.saveUsers(users);
+        return true;
+    }
+
+    /**
+     * Legacy registration for Librarian used by the old LoginMenu.
+     * Stores a basic User with role \"LIBRARIAN\"; employeeId is not persisted in this model.
+     */
+    public boolean registerLibrarian(String username, String fullName, String password, String employeeId) {
+        if (findUserByUsername(username).isPresent()) {
+            return false;
+        }
+        if (!PasswordValidator.isValid(password)) {
+            return false;
+        }
+        String passwordHash = PasswordValidator.hashPassword(password);
+        User user = new User(username, fullName, passwordHash, "LIBRARIAN");
+        users.add(user);
         FileUtils.saveUsers(users);
         return true;
     }

@@ -1,11 +1,22 @@
 package org.example.util;
 
+import javafx.scene.image.Image;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import javax.imageio.ImageIO;
 
 /**
  * Utility to read a short preview of a book file for "Quick Review" before borrowing.
@@ -14,7 +25,7 @@ import java.nio.file.Paths;
 public final class BookPreviewUtil {
 
     /** Maximum number of characters to include in a text preview (roughly first few pages). */
-    private static final int MAX_PREVIEW_CHARS = 3000;
+    private static final int MAX_PREVIEW_CHARS = 5000;
 
     private BookPreviewUtil() {}
 
@@ -24,7 +35,7 @@ public final class BookPreviewUtil {
      * Returns null if the format is unsupported, the file is missing/unreadable, or extraction fails.
      *
      * @param filePath absolute path to the book file (may be null or empty)
-     * @return preview text (first ~3000 characters), or null if not available
+     * @return preview text (first ~N characters), or null if not available
      */
     public static String readTextPreview(String filePath) {
         if (filePath == null || filePath.isBlank()) {
@@ -64,7 +75,7 @@ public final class BookPreviewUtil {
 
     private static String readPdfPreview(Path path) {
         try {
-            org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.pdmodel.PDDocument.load(path.toFile());
+            PDDocument document = Loader.loadPDF(path.toFile());
             try {
                 org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
                 stripper.setEndPage(Math.min(5, document.getNumberOfPages()));
@@ -115,6 +126,43 @@ public final class BookPreviewUtil {
         } catch (IOException | RuntimeException e) {
             return null;
         }
+    }
+
+    /**
+     * For PDF files, renders up to maxPages pages as JavaFX Images for visual preview.
+     * Returns an empty list if rendering fails.
+     */
+    public static List<Image> readPdfPreviewImages(String filePath, int maxPages) {
+        List<Image> images = new ArrayList<>();
+        if (filePath == null || filePath.isBlank()) {
+            return images;
+        }
+        if (!filePath.toLowerCase().endsWith(".pdf")) {
+            return images;
+        }
+        Path path = Paths.get(filePath);
+        if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+            return images;
+        }
+        try (PDDocument document = Loader.loadPDF(path.toFile())) {
+            PDFRenderer renderer = new PDFRenderer(document);
+            int pageCount = Math.min(maxPages, document.getNumberOfPages());
+            for (int i = 0; i < pageCount; i++) {
+                BufferedImage buffered = renderer.renderImageWithDPI(i, 120);
+                try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    ImageIO.write(buffered, "png", baos);
+                    baos.flush();
+                    byte[] data = baos.toByteArray();
+                    try (ByteArrayInputStream bais = new ByteArrayInputStream(data)) {
+                        Image fxImage = new Image(bais);
+                        images.add(fxImage);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            // ignore, return whatever we have (likely empty)
+        }
+        return images;
     }
 
     /**
