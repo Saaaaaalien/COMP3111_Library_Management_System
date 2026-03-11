@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.library.ui.AuthorMenu"
+            prefHeight="400.0" prefWidth="600.0">
+
+    <children>
+        <VBox spacing="10"
+              AnchorPane.topAnchor="0.0"
+              AnchorPane.bottomAnchor="0.0"
+              AnchorPane.leftAnchor="0.0"
+              AnchorPane.rightAnchor="0.0">
+            <padding>
+                <Insets bottom="10" left="10" right="10" top="10"/>
+            </padding>
+
+            <HBox alignment="CENTER_RIGHT" spacing="10">
+                <Label fx:id="welcomeLabel" text="Welcome!" HBox.hgrow="ALWAYS"/>
+                <Button text="Logout" onAction="#handleLogout"/>
+            </HBox>
+
+            <TabPane VBox.vgrow="ALWAYS">
+                <Tab text="Publish New Book" closable="false">
+                    <content>
+                        <ScrollPane fitToWidth="true">
+                            <content>
+                                <VBox spacing="15" alignment="TOP_CENTER">
+                                    <padding>
+                                        <Insets bottom="15" left="15" right="15" top="15"/>
+                                    </padding>
+
+                                    <GridPane hgap="10" vgap="10">
+                                        <Label text="Title:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                                        <TextField fx:id="titleField" prefWidth="300.0"
+                                                   GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                                        <Label text="Genre:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                                        <TextField fx:id="genreField" prefWidth="300.0"
+                                                   GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                                        <Label text="Description:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                                        <TextArea fx:id="descriptionArea" prefRowCount="4" prefWidth="300.0"
+                                                  wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                                        <Label text="Book File:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                                        <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                                            <TextField fx:id="filePathField" editable="false" HBox.hgrow="ALWAYS"/>
+                                            <Button text="Browse..." onAction="#handleBrowse"/>
+                                        </HBox>
+                                    </GridPane>
+
+                                    <Button text="Submit for Approval" onAction="#handleSubmit" prefWidth="200.0"/>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+                    </content>
+                </Tab>
+
+                <Tab text="My Books" closable="false">
+                    <content>
+                        <VBox spacing="10">
+                            <TableView fx:id="myBooksTable" VBox.vgrow="ALWAYS">
+                                <columns>
+                                    <TableColumn text="Title" fx:id="titleColumn" prefWidth="200"/>
+                                    <TableColumn text="Genre" fx:id="genreColumn" prefWidth="100"/>
+                                    <TableColumn text="Submitted Date" fx:id="submittedDateColumn" prefWidth="120"/>
+                                    <TableColumn text="Status" fx:id="statusColumn" prefWidth="100"/>
+                                </columns>
+                            </TableView>
+                        </VBox>
+                    </content>
+                </Tab>
+            </TabPane>
+        </VBox>
+    </children>
+</AnchorPane>
