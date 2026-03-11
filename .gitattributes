@@ -1,0 +1,18 @@
+* text=auto
+
+# Common source files
+*.java  text
+*.xml   text
+*.fxml  text
+*.md    text
+*.txt   text
+
+# Binary assets (do not modify line endings)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.pdf   binary
+*.doc   binary
+*.docx  binary
+
