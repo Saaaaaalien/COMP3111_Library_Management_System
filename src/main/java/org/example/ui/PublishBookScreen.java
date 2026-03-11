@@ -68,12 +68,12 @@ public final class PublishBookScreen {
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setPrefWidth(200);
 
-        Button cancelBtn = new Button("Cancel");
-        cancelBtn.getStyleClass().add("secondary-button");
-        cancelBtn.setPrefWidth(150);
-        cancelBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
+        Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(150);
+        backBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
 
-        buttonBox.getChildren().addAll(submitBtn, cancelBtn);
+        buttonBox.getChildren().addAll(submitBtn, backBtn);
 
         // Submit action
         submitBtn.setOnAction(e -> {
@@ -184,7 +184,7 @@ public final class PublishBookScreen {
         authorField.setPrefWidth(550);
 
         // Multi-genre selection - FIXED LIST VISIBILITY
-        Label genreLabel = new Label("Genres * (to select multiple: Ctrl + Click)");
+        Label genreLabel = new Label("Genres * (to select multiple: Ctrl/ Command + Click)");
         genreLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
 
         // Create ListView with explicit size and ensure it's visible
@@ -200,7 +200,6 @@ public final class PublishBookScreen {
         genreListView.setManaged(true);
         genreListView.getStyleClass().add("list-view");
 
-        // Add a border to make it visible (for debugging, can remove later)
         genreListView.setStyle("-fx-border-color: #3498db; -fx-border-width: 1;");
 
         // Selection info and clear button
@@ -254,8 +253,9 @@ public final class PublishBookScreen {
         descriptionLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
         descriptionArea = new TextArea();
         descriptionArea.setPromptText("Enter book description, abstract, or summary...");
-        descriptionArea.setPrefRowCount(6);
+        descriptionArea.setPrefRowCount(10);
         descriptionArea.setPrefWidth(550);
+        descriptionArea.setMinHeight(200);
         descriptionArea.setWrapText(true);
         descriptionArea.getStyleClass().add("text-area");
 
@@ -512,7 +512,7 @@ public final class PublishBookScreen {
             dialog.close();
         });
 
-        Button cancelBtn = new Button("❌ Cancel");
+        Button cancelBtn = new Button("❌ Back");
         cancelBtn.getStyleClass().add("secondary-button");
         cancelBtn.setOnAction(e -> {
             dialog.setUserData(false);

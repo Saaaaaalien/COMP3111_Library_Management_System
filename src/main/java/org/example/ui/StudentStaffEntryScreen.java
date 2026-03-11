@@ -5,6 +5,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
 
@@ -36,21 +37,28 @@ public final class StudentStaffEntryScreen {
         Button registerBtn = new Button("Register");
         registerBtn.getStyleClass().addAll("portal-button", "primary-button");
         registerBtn.setOnAction(e -> navigator.showStudentStaffRegister());
+        Label hintLbl = new Label("Choose to login with an existing account or register a new one.");
+        hintLbl.setWrapText(true);
+        hintLbl.setMaxWidth(280);
+        hintLbl.getStyleClass().add("login-hint");
 
         Button backBtn = new Button("Back to Welcome");
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showWelcome());
 
-        VBox content = new VBox(20, title, loginBtn, registerBtn, backBtn);
+        VBox content = new VBox(18, title, hintLbl, loginBtn, registerBtn, backBtn);
         content.setAlignment(Pos.CENTER);
+        content.setMaxWidth(440);
+        content.getStyleClass().add("content-card");
 
-        VBox root = new VBox(content);
-        root.setAlignment(Pos.CENTER);
+        BorderPane root = new BorderPane();
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(40));
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
-        java.net.URL cssResource = StudentStaffEntryScreen.class.getResource("/app.css");
+        java.net.URL cssResource = LibrarianEntryScreen.class.getResource("/app.css");
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
         }
