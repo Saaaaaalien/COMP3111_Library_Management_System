@@ -80,3 +80,27 @@ mvn exec:java -Dexec.mainClass="org.example.db.ResetDatabase"
 - **Database**: SQLite file at `data/library.db` (created on first run). Reset via `org.example.db.ResetDatabase` as above.
 - **Tech stack**: Java 21, JavaFX 21, Maven, SQLite (org.xerial:sqlite-jdbc).
 - **Tests**: `mvn test` to run JUnit tests (if any).
+
+---
+
+## Supplementary Notes: Running on Any OS (Windows / macOS / Linux)
+
+- **Java & Maven**: Install Java 21 and Maven 3.6+ from your OS package manager or official downloads (ensure `java -version` and `mvn -version` work in a terminal).
+- **Get the project files**:
+  - **From Git:**  
+    - `git clone <repo-url>`
+    - `cd COMP3111_Library_Management_System`
+  - **From a ZIP (e.g. course submission):**  
+    - Download the ZIP  
+    - Extract it (unzip) to a folder on your machine  
+    - Open a terminal in the extracted `COMP3111_Library_Management_System` folder
+- **Line endings (shared repo)**:
+  - The project includes a `.gitattributes` file so Git normalizes text files; no extra steps are needed on most setups.
+  - Recommended Git setting per developer:
+    - Windows: `git config --global core.autocrlf true`
+    - macOS/Linux: `git config --global core.autocrlf input`
+- **Run from command line (all platforms)**:
+  - `mvn clean javafx:run` (downloads dependencies and starts the JavaFX app).
+- **Run from IntelliJ / other IDEs**:
+  - Import as a Maven project, ensure the project SDK is **Java 21**, then run `org.example.app.Main`.
+

@@ -140,12 +140,22 @@ public final class Database {
                 )
                 """);
             migrateBorrowsTable(conn);
+            migratePendingBooksTable(conn);
         }
     }
 
     private static void migrateBorrowsTable(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE borrows ADD COLUMN due_at TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+    }
+
+    private static void migratePendingBooksTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE pending_books ADD COLUMN rejection_reason TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
