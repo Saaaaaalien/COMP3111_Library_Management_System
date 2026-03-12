@@ -1,13 +1,16 @@
 package org.example.ui;
 
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -15,8 +18,9 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.animation.PauseTransition;
 import javafx.util.Duration;
 import org.example.app.Navigator;
 import org.example.domain.BorrowWithBook;
@@ -38,6 +42,9 @@ public final class MyBorrowedBooksScreen {
     public static Scene create(Navigator navigator, User currentUser) {
         Label title = new Label("My Borrowed Books");
         title.getStyleClass().add("screen-title");
+
+        Label subtitle = new Label("View and return your borrowed books.");
+        subtitle.setWrapText(true);
 
         TableView<BorrowRow> table = new TableView<>();
         ObservableList<BorrowRow> items = FXCollections.observableArrayList();
@@ -73,6 +80,8 @@ public final class MyBorrowedBooksScreen {
         PauseTransition inactivityTimer = new PauseTransition(Duration.minutes(15));
         inactivityTimer.setOnFinished(ev -> navigator.showStudentStaffPortal());
 
+        Label summaryLabel = new Label();
+
         Runnable refresh = () -> {
             items.clear();
             try {
@@ -80,6 +89,9 @@ public final class MyBorrowedBooksScreen {
                 for (BorrowWithBook b : borrows) {
                     items.add(new BorrowRow(b));
                 }
+                long activeCount = items.stream().filter(BorrowRow::isActive).count();
+                long returnedCount = items.size() - activeCount;
+                summaryLabel.setText("Active: " + activeCount + "   Returned: " + returnedCount);
             } catch (SQLException ex) {
                 runWithTimerPaused(inactivityTimer,
                     () -> showAlert(Alert.AlertType.ERROR, "Error", "Could not load borrowed books."));
@@ -126,27 +138,46 @@ public final class MyBorrowedBooksScreen {
             });
         });
 
-        Button availableBooksBtn = new Button("Available Books");
-        availableBooksBtn.getStyleClass().add("secondary-button");
-        availableBooksBtn.setOnAction(e -> navigator.showAvailableBooks(currentUser));
+        Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setOnAction(e -> navigator.showAvailableBooks(currentUser));
 
         Button logoutBtn = new Button("Logout");
         logoutBtn.getStyleClass().add("secondary-button");
         logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
 
-        HBox buttons = new HBox(10, returnBtn, availableBooksBtn, logoutBtn);
+        // Disable return when nothing is selected
+        returnBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+
+        HBox leftActions = new HBox(10, returnBtn);
+        leftActions.setAlignment(Pos.CENTER_LEFT);
+        HBox rightActions = new HBox(10, backBtn, logoutBtn);
+        rightActions.setAlignment(Pos.CENTER_RIGHT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox buttons = new HBox(10, leftActions, spacer, rightActions);
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 
-        VBox top = new VBox(10, title, new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")"));
+        Label loggedInLabel = new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
+
+        VBox headerBox = new VBox(4, title, subtitle, loggedInLabel);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+
         VBox tableContainer = new VBox(table);
         tableContainer.getStyleClass().add("table-container");
+        tableContainer.setPadding(new Insets(10));
 
-        VBox center = new VBox(10, tableContainer, buttons);
-        center.setPadding(new Insets(10));
+        VBox content = new VBox(16, headerBox, summaryLabel, tableContainer, buttons);
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(10));
+        content.setMaxWidth(900);
+        content.getStyleClass().add("content-card");
+
         BorderPane root = new BorderPane();
-        root.setTop(top);
-        root.setCenter(center);
+        root.setCenter(content);
+        BorderPane.setAlignment(content, Pos.CENTER);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 
@@ -154,7 +185,14 @@ public final class MyBorrowedBooksScreen {
         root.addEventFilter(KeyEvent.ANY, ev -> inactivityTimer.playFromStart());
         inactivityTimer.play();
 
-        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
+        ScrollPane scrollRoot = new ScrollPane(root);
+        scrollRoot.setFitToHeight(true);
+        scrollRoot.setFitToWidth(false);
+        scrollRoot.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollRoot.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollRoot.setPannable(true);
+
+        Scene scene = new Scene(scrollRoot, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         java.net.URL cssResource = MyBorrowedBooksScreen.class.getResource("/app.css");
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
