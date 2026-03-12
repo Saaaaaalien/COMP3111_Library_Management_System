@@ -1,14 +1,18 @@
 package org.example.db;
 
-import org.example.domain.PendingBook;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import org.example.domain.PendingBook;
 
 
 /**
@@ -102,6 +106,14 @@ public final class PendingDao {
     }
 
     /**
+     * Find all books regardless of status (PENDING, APPROVED, REJECTED)
+     */
+    public static List<PendingBook> findAll() throws SQLException {
+        String sql = "SELECT * FROM pending_books ORDER BY submitted_date DESC";
+        return findBooksBySql(sql);
+    }
+
+    /**
      * Find a specific pending book by ID
      */
     public static Optional<PendingBook> findById(long id) throws SQLException {
@@ -180,10 +192,10 @@ public final class PendingDao {
     /**
      * Reject a pending book submission
      */
-    public static void rejectPendingBook(long bookId, String reviewNotes) throws SQLException {
+    public static void rejectPendingBook(long bookId, String reviewNotes, String rejectionReason) throws SQLException {
         String sql = """
             UPDATE pending_books
-            SET status = 'REJECTED', reviewed_date = ?, review_notes = ?
+            SET status = 'REJECTED', reviewed_date = ?, review_notes = ?, rejection_reason = ?
             WHERE id = ?
             """;
 
@@ -192,10 +204,99 @@ public final class PendingDao {
 
             ps.setString(1, LocalDateTime.now().format(DATE_FORMATTER));
             ps.setString(2, reviewNotes != null ? reviewNotes : "");
-            ps.setLong(3, bookId);
+            ps.setString(3, rejectionReason != null ? rejectionReason : "");
+            ps.setLong(4, bookId);
 
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Search pending books by title, author, genre, or submitted date
+     */
+    public static List<PendingBook> searchBooks(String searchTerm) throws SQLException {
+        String sql = """
+            SELECT * FROM pending_books 
+            WHERE (title LIKE ? OR author_full_name LIKE ? OR genre LIKE ?)
+            ORDER BY submitted_date DESC
+            """;
+
+        List<PendingBook> books = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            String likePattern = "%" + searchTerm + "%";
+            ps.setString(1, likePattern);
+            ps.setString(2, likePattern);
+            ps.setString(3, likePattern);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    books.add(mapRow(rs));
+                }
+            }
+        }
+        return books;
+    }
+
+    /**
+     * Filter books by status (PENDING, APPROVED, REJECTED)
+     */
+    public static List<PendingBook> filterByStatus(String status) throws SQLException {
+        String sql = "SELECT * FROM pending_books WHERE status = ? ORDER BY submitted_date DESC";
+
+        List<PendingBook> books = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    books.add(mapRow(rs));
+                }
+            }
+        }
+        return books;
+    }
+
+    /**
+     * Search and filter combined
+     */
+    public static List<PendingBook> searchAndFilter(String searchTerm, String status) throws SQLException {
+        String sql;
+        if (searchTerm == null || searchTerm.isEmpty()) {
+            if (status == null || status.isEmpty()) {
+                return findAllPending();
+            }
+            return filterByStatus(status);
+        } else {
+            if (status == null || status.isEmpty()) {
+                return searchBooks(searchTerm);
+            }
+        }
+
+        sql = """
+            SELECT * FROM pending_books 
+            WHERE (title LIKE ? OR author_full_name LIKE ? OR genre LIKE ?)
+            AND status = ?
+            ORDER BY submitted_date DESC
+            """;
+
+        List<PendingBook> books = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            String likePattern = "%" + searchTerm + "%";
+            ps.setString(1, likePattern);
+            ps.setString(2, likePattern);
+            ps.setString(3, likePattern);
+            ps.setString(4, status);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    books.add(mapRow(rs));
+                }
+            }
+        }
+        return books;
     }
 
 
@@ -244,6 +345,7 @@ public final class PendingDao {
         }
 
         book.setReviewNotes(rs.getString("review_notes"));
+        book.setRejectionReason(rs.getString("rejection_reason"));
 
         return book;
     }

@@ -17,6 +17,7 @@ public class PendingBook {
     private String status; // PENDING, APPROVED, REJECTED
     private String reviewNotes;
     private LocalDateTime reviewedDate;
+    private String rejectionReason;
 
     public PendingBook() {}
 
@@ -78,6 +79,9 @@ public class PendingBook {
 
     public LocalDateTime getReviewedDate() { return reviewedDate; }
     public void setReviewedDate(LocalDateTime reviewedDate) { this.reviewedDate = reviewedDate; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
     public String getFormattedFileSize() {
         if (fileSize < 1024) return fileSize + " B";
