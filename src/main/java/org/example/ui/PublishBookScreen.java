@@ -11,19 +11,25 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.animation.PauseTransition;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import org.example.app.Navigator;
+import org.example.db.PublishDraftDao;
 import org.example.domain.User;
 import org.example.service.PublishService;
 
 import java.io.File;
+import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 
 public final class PublishBookScreen {
 
     private static File selectedBookFile;
+    private static File selectedCoverFile;
     private static Label fileNameLabel;
     private static TextField titleField;
     private static ListView<String> genreListView;
@@ -34,6 +40,7 @@ public final class PublishBookScreen {
     // Display components for selections
     private static Label selectedGenresLabel;
     private static Label fileDisplayLabel;
+    private static Label coverPathDisplay;
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -95,7 +102,8 @@ public final class PublishBookScreen {
                     titleField.getText().trim(),
                     genres,
                     descriptionArea.getText().trim(),
-                    selectedBookFile
+                    selectedBookFile,
+                    selectedCoverFile
             );
 
             if (result.isSuccess()) {
@@ -150,6 +158,50 @@ public final class PublishBookScreen {
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
         }
+
+        try {
+            PublishDraftDao.findByAuthor(currentUser.getId()).ifPresent(d -> {
+                if (d.title() != null) {
+                    titleField.setText(d.title());
+                }
+                if (d.summary() != null) {
+                    descriptionArea.setText(d.summary());
+                }
+                if (d.genre() != null && !d.genre().isBlank()) {
+                    genreListView.getSelectionModel().clearSelection();
+                    for (String part : d.genre().split(",")) {
+                        String g = part.trim();
+                        int idx = AVAILABLE_GENRES.indexOf(g);
+                        if (idx >= 0) {
+                            genreListView.getSelectionModel().select(idx);
+                        }
+                    }
+                    updateSelectedGenresDisplay();
+                }
+            });
+        } catch (SQLException ignored) {
+        }
+
+        PauseTransition draftDebounce = new PauseTransition(Duration.seconds(1.2));
+        draftDebounce.setOnFinished(ev -> {
+            try {
+                String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+                PublishDraftDao.upsert(
+                        currentUser.getId(),
+                        titleField.getText(),
+                        genres,
+                        descriptionArea.getText(),
+                        selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
+                        Instant.now().toString()
+                );
+            } catch (SQLException ignored) {
+            }
+        });
+        Runnable bumpDraft = () -> draftDebounce.playFromStart();
+        titleField.textProperty().addListener((a, b, c) -> bumpDraft.run());
+        descriptionArea.textProperty().addListener((a, b, c) -> bumpDraft.run());
+        genreListView.getSelectionModel().getSelectedItems().addListener(
+                (javafx.collections.ListChangeListener<String>) c -> bumpDraft.run());
 
         return scene;
     }
@@ -367,6 +419,31 @@ public final class PublishBookScreen {
 
         VBox fileSelectionBox = new VBox(8, fileBox, fileDisplayBox);
 
+        Label coverLabel = new Label("Cover image (optional, JPG/PNG ≤ 2MB)");
+        coverLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        Label coverPathLabel = new Label("None");
+        coverPathLabel.setStyle("-fx-text-fill: #666;");
+        coverPathDisplay = coverPathLabel;
+        Button coverBtn = new Button("Choose cover");
+        coverBtn.getStyleClass().add("secondary-button");
+        coverBtn.setOnAction(e -> {
+            Stage st = (Stage) coverBtn.getScene().getWindow();
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Cover image");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png"));
+            File f = fc.showOpenDialog(st);
+            if (f != null) {
+                if (f.length() > 2L * 1024 * 1024) {
+                    showError("Too large", "Cover must be at most 2MB.");
+                    return;
+                }
+                selectedCoverFile = f;
+                coverPathLabel.setText(f.getName());
+            }
+        });
+        HBox coverRow = new HBox(10, coverBtn, coverPathLabel);
+        VBox coverBox = new VBox(6, coverLabel, coverRow);
+
         // Required fields note
         Label requiredNote = new Label("* Required fields");
         requiredNote.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11px;");
@@ -379,6 +456,7 @@ public final class PublishBookScreen {
                 genreLabel, genreBox,
                 descriptionLabel, descriptionArea,
                 fileLabel, fileSelectionBox,
+                coverBox,
                 requiredNote
         );
 
@@ -548,6 +626,10 @@ public final class PublishBookScreen {
         fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
         selectedGenresLabel.setText("None selected");
         selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        selectedCoverFile = null;
+        if (coverPathDisplay != null) {
+            coverPathDisplay.setText("None");
+        }
     }
 
     private static String formatFileSize(long size) {

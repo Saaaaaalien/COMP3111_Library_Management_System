@@ -132,6 +132,16 @@ public final class AuthorDashboardScreen {
         // Welcome message card
         VBox welcomeCard = createInfoCard();
 
+        HBox phase2Links = new HBox(12);
+        phase2Links.setAlignment(Pos.CENTER);
+        Button myBooksBtn = new Button("My submissions & published books");
+        myBooksBtn.setOnAction(e -> navigator.showAuthorPublishedBooks(currentUser));
+        Button profileBtn = new Button("Profile");
+        profileBtn.setOnAction(e -> navigator.showAuthorProfile(currentUser));
+        Button notifBtn = new Button("Notifications");
+        notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
+        phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
+
         // Publish Book Card
         VBox publishCard = createPublishBookCard();
 
@@ -139,7 +149,7 @@ public final class AuthorDashboardScreen {
         Label bottomSpacer = new Label("");
         bottomSpacer.setPrefHeight(50);
 
-        content.getChildren().addAll(welcomeCard, publishCard, bottomSpacer);
+        content.getChildren().addAll(welcomeCard, phase2Links, publishCard, bottomSpacer);
 
         return content;
     }

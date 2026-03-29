@@ -57,6 +57,14 @@ public final class PublishService {
      */
     public static PublishResult submitBook(User author, String title, String genre,
                                            String description, File bookFile) {
+        return submitBook(author, title, genre, description, bookFile, null);
+    }
+
+    /**
+     * @param coverFile optional JPG/PNG cover (max ~2MB), copied under {@code data/covers/}
+     */
+    public static PublishResult submitBook(User author, String title, String genre,
+                                           String description, File bookFile, File coverFile) {
 
         // Validate all inputs
         try {
@@ -150,6 +158,19 @@ public final class PublishService {
                         bookFile.length(),
                         extension
                 );
+                if (coverFile != null && coverFile.exists() && coverFile.canRead()) {
+                    String cext = getFileExtension(coverFile);
+                    if (cext.equals("jpg") || cext.equals("jpeg") || cext.equals("png")) {
+                        if (coverFile.length() <= 2L * 1024 * 1024) {
+                            Path cdir = Paths.get("data", "covers");
+                            Files.createDirectories(cdir);
+                            String cname = author.getId() + "_" + System.currentTimeMillis() + "." + cext;
+                            Path cdest = cdir.resolve(cname);
+                            Files.copy(coverFile.toPath(), cdest, StandardCopyOption.REPLACE_EXISTING);
+                            pendingBook.setCoverPath(cdest.toAbsolutePath().toString());
+                        }
+                    }
+                }
             } catch (Exception e) {
                 // Clean up the file if object creation fails
                 try {
@@ -164,6 +185,10 @@ public final class PublishService {
             // Save to database using PendingDao
             try {
                 long bookId = PendingDao.insert(pendingBook);
+                try {
+                    org.example.db.PublishDraftDao.deleteForAuthor(author.getId());
+                } catch (SQLException ignored) {
+                }
                 return new PublishResult(true,
                         "Book submitted successfully! Waiting for librarian approval.",
                         bookId);

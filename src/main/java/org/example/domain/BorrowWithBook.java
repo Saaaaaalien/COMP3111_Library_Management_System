@@ -12,9 +12,11 @@ public class BorrowWithBook {
     private final String borrowedAt;
     private final String returnedAt;
     private final String dueAt;
+    /** Path to book file on disk (for reader); may be null for legacy rows. */
+    private final String filePath;
 
     public BorrowWithBook(long borrowId, long bookId, String title, String author,
-                          String borrowedAt, String returnedAt, String dueAt) {
+                          String borrowedAt, String returnedAt, String dueAt, String filePath) {
         this.borrowId = borrowId;
         this.bookId = bookId;
         this.title = title;
@@ -22,6 +24,7 @@ public class BorrowWithBook {
         this.borrowedAt = borrowedAt;
         this.returnedAt = returnedAt;
         this.dueAt = dueAt;
+        this.filePath = filePath;
     }
 
     public long getBorrowId() { return borrowId; }
@@ -31,6 +34,7 @@ public class BorrowWithBook {
     public String getBorrowedAt() { return borrowedAt; }
     public String getReturnedAt() { return returnedAt; }
     public String getDueAt() { return dueAt; }
+    public String getFilePath() { return filePath; }
 
     /** True if this borrow is still active (not yet returned). */
     public boolean isActive() {

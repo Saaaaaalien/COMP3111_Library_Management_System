@@ -65,8 +65,8 @@ public final class PendingDao {
         String sql = """
             INSERT INTO pending_books (
                 title, author_user_id, author_full_name, genre, summary,
-                file_name, file_path, file_size, file_type, submitted_date, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                file_name, file_path, file_size, file_type, submitted_date, status, cover_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         Connection conn = Database.getConnection();
@@ -83,6 +83,11 @@ public final class PendingDao {
             ps.setString(9, book.getFileType());
             ps.setString(10, LocalDateTime.now().format(DATE_FORMATTER));
             ps.setString(11, "PENDING");
+            if (book.getCoverPath() != null && !book.getCoverPath().isEmpty()) {
+                ps.setString(12, book.getCoverPath());
+            } else {
+                ps.setNull(12, Types.VARCHAR);
+            }
 
             ps.executeUpdate();
 
@@ -170,7 +175,8 @@ public final class PendingDao {
                     p.getGenre(),
                     p.getSummary() != null ? p.getSummary() : "",
                     p.getFilePath(),
-                    publishDate
+                    publishDate,
+                    p.getCoverPath()
                 );
             }
 
@@ -347,6 +353,70 @@ public final class PendingDao {
         book.setReviewNotes(rs.getString("review_notes"));
         book.setRejectionReason(rs.getString("rejection_reason"));
 
+        try {
+            book.setCoverPath(rs.getString("cover_path"));
+        } catch (SQLException ignored) {
+        }
+
         return book;
+    }
+
+    public static List<PendingBook> findAllByAuthorUserId(long authorUserId) throws SQLException {
+        String sql = "SELECT * FROM pending_books WHERE author_user_id = ? ORDER BY submitted_date DESC";
+        Connection conn = Database.getConnection();
+        List<PendingBook> books = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, authorUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    books.add(mapRow(rs));
+                }
+            }
+        }
+        return books;
+    }
+
+    public static void updatePendingSubmission(long id, long authorUserId, String title, String genre, String summary,
+                                              String fileName, String filePath, long fileSize, String fileType,
+                                              String coverPath) throws SQLException {
+        String sql = """
+            UPDATE pending_books SET title = ?, genre = ?, summary = ?, file_name = ?, file_path = ?,
+            file_size = ?, file_type = ?, cover_path = ?
+            WHERE id = ? AND author_user_id = ? AND status = 'PENDING'
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setString(2, genre);
+            ps.setString(3, summary);
+            ps.setString(4, fileName);
+            ps.setString(5, filePath);
+            ps.setLong(6, fileSize);
+            ps.setString(7, fileType);
+            if (coverPath != null) {
+                ps.setString(8, coverPath);
+            } else {
+                ps.setNull(8, Types.VARCHAR);
+            }
+            ps.setLong(9, id);
+            ps.setLong(10, authorUserId);
+            int n = ps.executeUpdate();
+            if (n == 0) {
+                throw new SQLException("No pending row updated (wrong author or not PENDING).");
+            }
+        }
+    }
+
+    public static void deletePending(long id, long authorUserId) throws SQLException {
+        String sql = "DELETE FROM pending_books WHERE id = ? AND author_user_id = ? AND status = 'PENDING'";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.setLong(2, authorUserId);
+            int n = ps.executeUpdate();
+            if (n == 0) {
+                throw new SQLException("Could not delete (not pending or wrong author).");
+            }
+        }
     }
 }
