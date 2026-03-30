@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,58 +49,65 @@ public final class PublishService {
     public static PublishResult submitBook(User author, String title, String genre,
                                            String description, File bookFile, File coverFile) {
 
-        // Validate all inputs
         try {
+            List<String> errors = new ArrayList<>();
+
             // Validate required fields
-            if (title == null || title.trim().isEmpty()) {
-                return new PublishResult(false, "Book title is required");
-            }
-
-            if (genre == null || genre.trim().isEmpty()) {
-                return new PublishResult(false, "Genre is required");
-            }
-
-            if (description == null || description.trim().isEmpty()) {
-                return new PublishResult(false, "Description is required");
-            }
+            if (title == null || title.trim().isEmpty()) errors.add("Book title is required");
+            if (genre == null || genre.trim().isEmpty()) errors.add("Genre is required");
+            if (description == null || description.trim().isEmpty()) errors.add("Description is required");
 
             if (author == null) {
-                return new PublishResult(false, "Author information is missing");
+                errors.add("Author information is missing");
+            } else if (author.getId() <= 0) {
+                errors.add("Invalid author ID");
             }
 
-            if (author.getId() <= 0) {
-                return new PublishResult(false, "Invalid author ID");
-            }
-
+            // Validate file presence + metadata (collect all possible errors)
             if (bookFile == null) {
-                return new PublishResult(false, "Please select a book file to upload");
-            }
+                errors.add("Please select a book file to upload");
+            } else {
+                if (!bookFile.exists()) {
+                    errors.add("Selected file does not exist");
+                } else if (!bookFile.canRead()) {
+                    errors.add("Cannot read the selected file");
+                } else {
+                    String extension = getFileExtension(bookFile);
+                    if (!isValidFileType(extension)) {
+                        errors.add("Invalid file type. Please upload PDF, TXT, or DOC/DOCX files. Got: " + extension);
+                    }
 
-            // Validate file exists and is readable
-            if (!bookFile.exists()) {
-                return new PublishResult(false, "Selected file does not exist");
-            }
+                    if (bookFile.length() == 0) {
+                        errors.add("File is empty");
+                    }
 
-            if (!bookFile.canRead()) {
-                return new PublishResult(false, "Cannot read the selected file");
-            }
-
-            // Validate file extension
-            String extension = getFileExtension(bookFile);
-            if (!isValidFileType(extension)) {
-                return new PublishResult(false,
-                        "Invalid file type. Please upload PDF, TXT, or DOC/DOCX files. Got: " + extension);
-            }
-
-            //  Validate file size
-            if (bookFile.length() > MAX_FILE_SIZE) {
-                return new PublishResult(false,
-                        "File size must be less than 10MB. Your file: " +
+                    if (bookFile.length() > MAX_FILE_SIZE) {
+                        errors.add("File size must be less than 10MB. Your file: " +
                                 String.format("%.2f MB", bookFile.length() / (1024.0 * 1024.0)));
+                    }
+                }
             }
 
-            if (bookFile.length() == 0) {
-                return new PublishResult(false, "File is empty");
+            // Validate optional cover too (so users see all errors at once)
+            if (coverFile != null) {
+                if (!coverFile.exists()) {
+                    errors.add("Selected cover image does not exist");
+                } else if (!coverFile.canRead()) {
+                    errors.add("Cannot read the selected cover image");
+                } else {
+                    String coverExtension = getFileExtension(coverFile);
+                    boolean coverTypeOk = coverExtension.equals("jpg") || coverExtension.equals("jpeg") || coverExtension.equals("png");
+                    if (!coverTypeOk) {
+                        errors.add("Invalid cover image type. Please upload JPG, JPEG, or PNG. Got: " + coverExtension);
+                    }
+                    if (coverFile.length() > 2L * 1024 * 1024) {
+                        errors.add("Cover must be at most 2MB.");
+                    }
+                }
+            }
+
+            if (!errors.isEmpty()) {
+                return new PublishResult(false, String.join("\n", errors));
             }
 
             // Generate unique filename to avoid conflicts
@@ -128,6 +137,8 @@ public final class PublishService {
             // Create PendingBook object
             PendingBook pendingBook;
             try {
+                // Re-derive extension since earlier validation ensured file readability/type.
+                String extension = getFileExtension(bookFile);
                 pendingBook = new PendingBook(
                         title.trim(),
                         author.getId(),
@@ -139,18 +150,15 @@ public final class PublishService {
                         bookFile.length(),
                         extension
                 );
-                if (coverFile != null && coverFile.exists() && coverFile.canRead()) {
+                if (coverFile != null) {
+                    // Validation already ensured cover is readable and correct type/size.
                     String coverExtension = getFileExtension(coverFile);
-                    if (coverExtension.equals("jpg") || coverExtension.equals("jpeg") || coverExtension.equals("png")) {
-                        if (coverFile.length() <= 2L * 1024 * 1024) {
-                            Path coversDirectory = Paths.get("data", "covers");
-                            Files.createDirectories(coversDirectory);
-                            String coverFileName = author.getId() + "_" + System.currentTimeMillis() + "." + coverExtension;
-                            Path coverDestPath = coversDirectory.resolve(coverFileName);
-                            Files.copy(coverFile.toPath(), coverDestPath, StandardCopyOption.REPLACE_EXISTING);
-                            pendingBook.setCoverPath(coverDestPath.toAbsolutePath().toString());
-                        }
-                    }
+                    Path coversDirectory = Paths.get("data", "covers");
+                    Files.createDirectories(coversDirectory);
+                    String coverFileName = author.getId() + "_" + System.currentTimeMillis() + "." + coverExtension;
+                    Path coverDestPath = coversDirectory.resolve(coverFileName);
+                    Files.copy(coverFile.toPath(), coverDestPath, StandardCopyOption.REPLACE_EXISTING);
+                    pendingBook.setCoverPath(coverDestPath.toAbsolutePath().toString());
                 }
             } catch (Exception e) {
                 // Clean up the file if object creation fails

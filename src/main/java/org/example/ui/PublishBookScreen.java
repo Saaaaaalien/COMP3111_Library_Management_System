@@ -484,23 +484,29 @@ public final class PublishBookScreen {
     }
 
     private static boolean validateForm() {
-        if (titleField.getText().trim().isEmpty()) {
-            showError("Validation Error", "Book title is required");
-            return false;
+        List<String> errors = new java.util.ArrayList<>();
+
+        String title = titleField.getText();
+        if (title == null || title.trim().isEmpty()) {
+            errors.add("Book title is required");
         }
 
-        if (genreListView.getSelectionModel().getSelectedItems().isEmpty()) {
-            showError("Validation Error", "Please select at least one genre");
-            return false;
+        var selectedGenres = genreListView.getSelectionModel().getSelectedItems();
+        if (selectedGenres == null || selectedGenres.isEmpty()) {
+            errors.add("Please select at least one genre");
         }
 
-        if (descriptionArea.getText().trim().isEmpty()) {
-            showError("Validation Error", "Description is required");
-            return false;
+        String description = descriptionArea.getText();
+        if (description == null || description.trim().isEmpty()) {
+            errors.add("Description is required");
         }
 
         if (selectedBookFile == null) {
-            showError("Validation Error", "Please select a book file");
+            errors.add("Please select a book file");
+        }
+
+        if (!errors.isEmpty()) {
+            showError("Validation Error", String.join("\n", errors));
             return false;
         }
 

@@ -9,6 +9,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.service.BorrowService;
 import org.example.service.NotificationService;
+import org.example.util.ResourceSetup;
 
 import java.sql.SQLException;
 
@@ -16,6 +17,9 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
+        // Ensure resources are set up
+        ResourceSetup.ensureIconExists();
+        
         try {
             org.example.db.Database.getConnection();
             BorrowService.processDueReturns();

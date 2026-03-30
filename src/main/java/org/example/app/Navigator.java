@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.scene.image.Image;
 import org.example.domain.User;
 
 /**
@@ -24,7 +25,18 @@ public class Navigator {
     public Navigator(Stage stage) {
         this.stage = stage;
         this.stage.setTitle("E-Book Library System");
+        setAppIcon();
         this.stage.sceneProperty().addListener((obs, oldScene, newScene) -> attachDevCrashShortcut(newScene));
+    }
+
+    private void setAppIcon() {
+        try {
+            String iconPath = "/icons/app-icon.png";
+            Image icon = new Image(getClass().getResourceAsStream(iconPath));
+            stage.getIcons().add(icon);
+        } catch (Exception e) {
+            System.err.println("Failed to load app icon: " + e.getMessage());
+        }
     }
 
     private void attachDevCrashShortcut(Scene scene) {

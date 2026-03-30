@@ -3,6 +3,8 @@ package org.example.service;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.example.db.UserDao;
 import org.example.domain.Role;
@@ -32,12 +34,54 @@ public final class AuthService {
      */
     public static long registerStudentStaff(String username, String firstName, String lastName, String password, Role role)
             throws ValidationException, SQLException {
-        if (username == null) {
-            throw new ValidationException("Username is required.");
+        List<String> errors = new ArrayList<>();
+
+        String trimmedUsername = username == null ? null : username.trim();
+        if (trimmedUsername == null) {
+            errors.add("Username is required.");
+        } else {
+            try {
+                Validators.validateUsername(trimmedUsername);
+            } catch (ValidationException ex) {
+                errors.add(ex.getMessage());
+            }
+            // Only check uniqueness when we have a non-empty username.
+            if (!trimmedUsername.isEmpty()) {
+                try {
+                    ensureUsernameAvailable(trimmedUsername);
+                } catch (ValidationException ex) {
+                    errors.add(ex.getMessage());
+                }
+            }
         }
-        validateStudentStaffRegistration(username, firstName, lastName, password, role);
+
+        try {
+            Validators.validateFirstName(firstName);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+        try {
+            Validators.validateLastName(lastName);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+
+        try {
+            Validators.validatePasswordStrength(password);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+
+        if (role != Role.STUDENT && role != Role.STAFF) {
+            errors.add("Role must be Student or Staff.");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(String.join("\n", errors));
+        }
+
         String fullName = firstName.trim() + " " + lastName.trim();
-        return insertUser(username.trim(), fullName, password, role, null, null);
+        return insertUser(trimmedUsername, fullName, password, role, null, null);
     }
 
     /**
@@ -48,16 +92,56 @@ public final class AuthService {
      */
     public static void registerAuthor(String username, String firstName, String lastName, String password, String bio)
             throws ValidationException, SQLException {
-        if (username == null) {
-            throw new ValidationException("Username is required.");
+        List<String> errors = new ArrayList<>();
+
+        String trimmedUsername = username == null ? null : username.trim();
+        if (trimmedUsername == null) {
+            errors.add("Username is required.");
+        } else {
+            try {
+                Validators.validateUsername(trimmedUsername);
+            } catch (ValidationException ex) {
+                errors.add(ex.getMessage());
+            }
+            if (!trimmedUsername.isEmpty()) {
+                try {
+                    ensureUsernameAvailable(trimmedUsername);
+                } catch (ValidationException ex) {
+                    errors.add(ex.getMessage());
+                }
+            }
         }
-        Validators.validateUsername(username.trim());
-        Validators.validateFirstName(firstName);
-        Validators.validateLastName(lastName);
-        Validators.validatePasswordStrength(password);
-        ensureUsernameAvailable(username.trim());
+
+        boolean firstBlank = firstName == null || firstName.isBlank();
+        boolean lastBlank = lastName == null || lastName.isBlank();
+        if (firstBlank || lastBlank) {
+            errors.add("Full name is required (First name and Last name).");
+        } else {
+            // If both are non-blank, still validate allowed/required constraints.
+            try {
+                Validators.validateFirstName(firstName);
+            } catch (ValidationException ex) {
+                errors.add(ex.getMessage());
+            }
+            try {
+                Validators.validateLastName(lastName);
+            } catch (ValidationException ex) {
+                errors.add(ex.getMessage());
+            }
+        }
+
+        try {
+            Validators.validatePasswordStrength(password);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(String.join("\n", errors));
+        }
+
         String fullName = firstName.trim() + " " + lastName.trim();
-        insertUser(username.trim(), fullName, password, Role.AUTHOR, bio, null);
+        insertUser(trimmedUsername, fullName, password, Role.AUTHOR, bio, null);
     }
 
     /**
@@ -70,17 +154,50 @@ public final class AuthService {
      */
     public static long registerLibrarian(String username, String firstName, String lastName, String password, String employeeId)
             throws ValidationException, SQLException {
-        if (username == null) {
-            throw new ValidationException("Username is required.");
+        List<String> errors = new ArrayList<>();
+
+        String trimmedUsername = username == null ? null : username.trim();
+        if (trimmedUsername == null) {
+            errors.add("Username is required.");
+        } else {
+            try {
+                Validators.validateUsername(trimmedUsername);
+            } catch (ValidationException ex) {
+                errors.add(ex.getMessage());
+            }
+            if (!trimmedUsername.isEmpty()) {
+                try {
+                    ensureUsernameAvailable(trimmedUsername);
+                } catch (ValidationException ex) {
+                    errors.add(ex.getMessage());
+                }
+            }
         }
-        Validators.validateUsername(username.trim());
-        Validators.validateFirstName(firstName);
-        Validators.validateLastName(lastName);
-        Validators.validatePasswordStrength(password);
-        ensureUsernameAvailable(username.trim());
+
+        try {
+            Validators.validateFirstName(firstName);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+        try {
+            Validators.validateLastName(lastName);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+
+        try {
+            Validators.validatePasswordStrength(password);
+        } catch (ValidationException ex) {
+            errors.add(ex.getMessage());
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(String.join("\n", errors));
+        }
+
         String fullName = firstName.trim() + " " + lastName.trim();
         String trimmedEmployeeId = Validators.trimOptional(employeeId);
-        return insertUser(username.trim(), fullName, password, Role.LIBRARIAN, null, trimmedEmployeeId);
+        return insertUser(trimmedUsername, fullName, password, Role.LIBRARIAN, null, trimmedEmployeeId);
     }
 
     /**
@@ -143,22 +260,6 @@ public final class AuthService {
             case AUTHOR -> "This username is registered as an author. Please use the Author login.";
             case LIBRARIAN -> "This username is registered as a librarian. Please use the Librarian login.";
         };
-    }
-
-    /** Validates and ensures username availability for Student/Staff registration; used by registerStudentStaff. */
-    private static void validateStudentStaffRegistration(String username, String firstName, String lastName, String password, Role role)
-            throws ValidationException, SQLException {
-        if (username == null) {
-            throw new ValidationException("Username is required.");
-        }
-        Validators.validateUsername(username.trim());
-        Validators.validateFirstName(firstName);
-        Validators.validateLastName(lastName);
-        Validators.validatePasswordStrength(password);
-        if (role != Role.STUDENT && role != Role.STAFF) {
-            throw new ValidationException("Role must be Student or Staff.");
-        }
-        ensureUsernameAvailable(username.trim());
     }
 
     /** Throws ValidationException if the username is already taken. */
