@@ -167,6 +167,17 @@ public final class PublishBookScreen {
                 if (d.summary() != null) {
                     descriptionArea.setText(d.summary());
                 }
+                if (d.filePath() != null && !d.filePath().isBlank()) {
+                    File draftFile = new File(d.filePath());
+                    if (draftFile.exists() && draftFile.canRead()) {
+                        selectedBookFile = draftFile;
+                        fileNameLabel.setText(draftFile.getName());
+                        fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                        fileDisplayLabel.setText(draftFile.getName() + " (" +
+                                formatFileSize(draftFile.length()) + ")");
+                        fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    }
+                }
                 if (d.genre() != null && !d.genre().isBlank()) {
                     genreListView.getSelectionModel().clearSelection();
                     for (String part : d.genre().split(",")) {
@@ -184,18 +195,7 @@ public final class PublishBookScreen {
 
         PauseTransition draftDebounce = new PauseTransition(Duration.seconds(1.2));
         draftDebounce.setOnFinished(ev -> {
-            try {
-                String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
-                PublishDraftDao.upsert(
-                        currentUser.getId(),
-                        titleField.getText(),
-                        genres,
-                        descriptionArea.getText(),
-                        selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
-                        Instant.now().toString()
-                );
-            } catch (SQLException ignored) {
-            }
+            persistDraftQuietly();
         });
         Runnable bumpDraft = () -> draftDebounce.playFromStart();
         titleField.textProperty().addListener((a, b, c) -> bumpDraft.run());
@@ -270,6 +270,7 @@ public final class PublishBookScreen {
         clearGenreSelectionBtn.setOnAction(e -> {
             genreListView.getSelectionModel().clearSelection();
             updateSelectedGenresDisplay();
+            persistDraftQuietly();
         });
 
         // Spacer to push button to the right
@@ -351,6 +352,7 @@ public final class PublishBookScreen {
             fileNameLabel.setStyle("-fx-text-fill: #666;");
             fileDisplayLabel.setText("None");
             fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+            persistDraftQuietly();
         });
 
         fileDisplayBox.getChildren().addAll(selectedFileHeader, fileDisplayLabel, clearFileBtn);
@@ -410,6 +412,7 @@ public final class PublishBookScreen {
                     fileDisplayLabel.setText(selectedFile.getName() + " (" +
                             formatFileSize(selectedFile.length()) + ")");
                     fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    persistDraftQuietly();
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -629,6 +632,21 @@ public final class PublishBookScreen {
         selectedCoverFile = null;
         if (coverPathDisplay != null) {
             coverPathDisplay.setText("None");
+        }
+    }
+
+    private static void persistDraftQuietly() {
+        try {
+            String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+            PublishDraftDao.upsert(
+                    currentUser.getId(),
+                    titleField.getText(),
+                    genres,
+                    descriptionArea.getText(),
+                    selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
+                    Instant.now().toString()
+            );
+        } catch (SQLException ignored) {
         }
     }
 

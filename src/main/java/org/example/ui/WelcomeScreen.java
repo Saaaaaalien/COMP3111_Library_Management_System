@@ -6,6 +6,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
+import org.example.app.AppConfig;
 import org.example.app.Navigator;
 import org.example.app.SessionService;
 
@@ -36,8 +37,10 @@ public final class WelcomeScreen {
         crashBtn.getStyleClass().add("secondary-button");
         crashBtn.setOnAction(e -> {
             SessionService.save("WELCOME", 0);
-            Runtime.getRuntime().halt(0);
+            SessionService.simulateCrash();
         });
+        crashBtn.setVisible(AppConfig.DEV_MODE);
+        crashBtn.setManaged(AppConfig.DEV_MODE);
 
         VBox root = new VBox(20, title, studentStaffBtn, authorBtn, librarianBtn, crashBtn);
         root.setAlignment(Pos.CENTER);

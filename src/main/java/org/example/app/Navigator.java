@@ -1,6 +1,13 @@
 package org.example.app;
 
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.example.domain.User;
 
@@ -17,6 +24,27 @@ public class Navigator {
     public Navigator(Stage stage) {
         this.stage = stage;
         this.stage.setTitle("E-Book Library System");
+        this.stage.sceneProperty().addListener((obs, oldScene, newScene) -> attachDevCrashShortcut(newScene));
+    }
+
+    private void attachDevCrashShortcut(Scene scene) {
+        if (scene == null || !AppConfig.DEV_MODE) {
+            return;
+        }
+        var crashCombo = new KeyCodeCombination(KeyCode.X, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
+        scene.getAccelerators().put(crashCombo, SessionService::simulateCrash);
+        Object wrapped = scene.getProperties().get("devCrashOverlayInstalled");
+        if (Boolean.TRUE.equals(wrapped)) {
+            return;
+        }
+        Button crashBtn = new Button("Crash Test");
+        crashBtn.getStyleClass().add("secondary-button");
+        crashBtn.setOnAction(e -> SessionService.simulateCrash());
+        StackPane wrapper = new StackPane(scene.getRoot(), crashBtn);
+        StackPane.setAlignment(crashBtn, Pos.TOP_RIGHT);
+        StackPane.setMargin(crashBtn, new Insets(10));
+        scene.setRoot(wrapper);
+        scene.getProperties().put("devCrashOverlayInstalled", true);
     }
 
     public void showWelcome() {

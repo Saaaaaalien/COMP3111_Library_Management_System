@@ -142,6 +142,17 @@ public final class Database {
                     FOREIGN KEY (borrower_user_id) REFERENCES users(id)
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS publish_drafts (
+                    author_user_id INTEGER PRIMARY KEY,
+                    title TEXT,
+                    genre TEXT,
+                    summary TEXT,
+                    file_path TEXT,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (author_user_id) REFERENCES users(id)
+                )
+                """);
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
             migrateBooksTable(conn);

@@ -3,6 +3,8 @@ package org.example.app;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.service.BorrowService;
@@ -23,7 +25,17 @@ public class Main extends Application {
         }
 
         Navigator navigator = new Navigator(stage);
-        SessionService.tryRestore(navigator);
+        SessionService.RestoreResult restore = SessionService.tryRestore(navigator);
+        if (restore.restored() || restore.fallbackToWelcome()) {
+            Platform.runLater(() -> {
+                Alert.AlertType type = restore.restored() ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING;
+                Alert alert = new Alert(type);
+                alert.setTitle("Session Recovery");
+                alert.setHeaderText(null);
+                alert.setContentText(restore.message());
+                alert.showAndWait();
+            });
+        }
 
         Timeline maintenance = new Timeline(new KeyFrame(Duration.minutes(3), ev -> {
             try {
