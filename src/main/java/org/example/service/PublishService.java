@@ -12,11 +12,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Service for validating and submitting book publish requests (author flow).
  */
 public final class PublishService {
+
+    private static final Logger LOG = Logger.getLogger(PublishService.class.getName());
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     private static final String UPLOAD_DIR = System.getProperty("user.home") +
@@ -24,40 +28,17 @@ public final class PublishService {
             File.separator + "pending";
 
     static {
-        // Create upload directory if it doesn't exist
-        File dir = new File(UPLOAD_DIR);
-        if (!dir.exists()) {
-            dir.mkdirs();
+        try {
+            Files.createDirectories(Paths.get(UPLOAD_DIR));
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "Could not create upload directory: " + UPLOAD_DIR, e);
         }
     }
 
-    public static class PublishResult {
-        private final boolean success;
-        private final String message;
-        private final Long bookId;
-
+    public record PublishResult(boolean success, String message, Long bookId) {
         public PublishResult(boolean success, String message) {
             this(success, message, null);
         }
-
-        public PublishResult(boolean success, String message, Long bookId) {
-            this.success = success;
-            this.message = message;
-            this.bookId = bookId;
-        }
-
-        public boolean isSuccess() { return success; }
-        public String getMessage() { return message; }
-        public Long getBookId() { return bookId; }
-    }
-
-    /**
-     * Validates and submits a book for publication
-     * @return PublishResult with success status and message
-     */
-    public static PublishResult submitBook(User author, String title, String genre,
-                                           String description, File bookFile) {
-        return submitBook(author, title, genre, description, bookFile, null);
     }
 
     /**
@@ -139,7 +120,7 @@ public final class PublishService {
                     throw new IOException("File copy verification failed - size mismatch");
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                LOG.log(Level.WARNING, "Failed to upload file", e);
                 return new PublishResult(false,
                         "Failed to upload file: " + e.getMessage());
             }
@@ -159,15 +140,15 @@ public final class PublishService {
                         extension
                 );
                 if (coverFile != null && coverFile.exists() && coverFile.canRead()) {
-                    String cext = getFileExtension(coverFile);
-                    if (cext.equals("jpg") || cext.equals("jpeg") || cext.equals("png")) {
+                    String coverExtension = getFileExtension(coverFile);
+                    if (coverExtension.equals("jpg") || coverExtension.equals("jpeg") || coverExtension.equals("png")) {
                         if (coverFile.length() <= 2L * 1024 * 1024) {
-                            Path cdir = Paths.get("data", "covers");
-                            Files.createDirectories(cdir);
-                            String cname = author.getId() + "_" + System.currentTimeMillis() + "." + cext;
-                            Path cdest = cdir.resolve(cname);
-                            Files.copy(coverFile.toPath(), cdest, StandardCopyOption.REPLACE_EXISTING);
-                            pendingBook.setCoverPath(cdest.toAbsolutePath().toString());
+                            Path coversDirectory = Paths.get("data", "covers");
+                            Files.createDirectories(coversDirectory);
+                            String coverFileName = author.getId() + "_" + System.currentTimeMillis() + "." + coverExtension;
+                            Path coverDestPath = coversDirectory.resolve(coverFileName);
+                            Files.copy(coverFile.toPath(), coverDestPath, StandardCopyOption.REPLACE_EXISTING);
+                            pendingBook.setCoverPath(coverDestPath.toAbsolutePath().toString());
                         }
                     }
                 }
@@ -193,35 +174,37 @@ public final class PublishService {
                         "Book submitted successfully! Waiting for librarian approval.",
                         bookId);
             } catch (SQLException e) {
-                e.printStackTrace();
-                // Try to clean up the uploaded file if database insert fails
+                LOG.log(Level.WARNING, "Pending book insert failed", e);
                 try {
                     Files.deleteIfExists(targetPath);
-                    System.out.println("Cleaned up orphaned file: " + targetPath);
+                    LOG.fine(() -> "Cleaned up orphaned file: " + targetPath);
                 } catch (IOException ex) {
-                    System.err.println("Failed to delete orphaned file: " + targetPath);
+                    LOG.log(Level.WARNING, "Failed to delete orphaned file: " + targetPath, ex);
                 }
-
-                // Provide more specific error message
-                String errorMsg = "Database error";
-                if (e.getMessage() != null) {
-                    if (e.getMessage().contains("no such table")) {
-                        errorMsg = "Database not initialized properly. Please restart the application.";
-                    } else if (e.getMessage().contains("FOREIGN KEY")) {
-                        errorMsg = "Invalid author reference. Please try logging in again.";
-                    } else if (e.getMessage().contains("constraint")) {
-                        errorMsg = "Data validation error in database.";
-                    } else {
-                        errorMsg = "Database error: " + e.getMessage();
-                    }
-                }
-                return new PublishResult(false, errorMsg);
+                return new PublishResult(false, userFacingSqlMessage(e));
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOG.log(Level.WARNING, "Unexpected error in submitBook", e);
             return new PublishResult(false, "Unexpected error: " + e.getMessage());
         }
+    }
+
+    private static String userFacingSqlMessage(SQLException e) {
+        String errorMsg = "Database error";
+        String msg = e.getMessage();
+        if (msg != null) {
+            if (msg.contains("no such table")) {
+                errorMsg = "Database not initialized properly. Please restart the application.";
+            } else if (msg.contains("FOREIGN KEY")) {
+                errorMsg = "Invalid author reference. Please try logging in again.";
+            } else if (msg.contains("constraint")) {
+                errorMsg = "Data validation error in database.";
+            } else {
+                errorMsg = "Database error: " + msg;
+            }
+        }
+        return errorMsg;
     }
 
     private static String getFileExtension(File file) {

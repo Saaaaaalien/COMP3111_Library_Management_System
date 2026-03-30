@@ -34,6 +34,7 @@ public final class PendingDao {
      * Creates the pending_books table if it doesn't exist
      */
     public static void createTable() throws SQLException {
+        //noinspection SqlNoDataSourceInspection
         String sql = """
             CREATE TABLE IF NOT EXISTS pending_books (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,13 +50,22 @@ public final class PendingDao {
                 submitted_date TEXT NOT NULL,
                 status TEXT NOT NULL,
                 review_notes TEXT,
-                reviewed_date TEXT
+                reviewed_date TEXT,
+                cover_path TEXT
             )
             """;
 
         Connection conn = Database.getConnection();
         try (Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
+            stmt.executeUpdate(sql);
+            try {
+                stmt.executeUpdate("ALTER TABLE pending_books ADD COLUMN cover_path TEXT");
+            } catch (SQLException e) {
+                String msg = e.getMessage();
+                if (msg == null || !msg.contains("duplicate column")) {
+                    throw e;
+                }
+            }
         }
     }
 

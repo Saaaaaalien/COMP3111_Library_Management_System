@@ -106,11 +106,11 @@ public final class PublishBookScreen {
                     selectedCoverFile
             );
 
-            if (result.isSuccess()) {
-                showSuccess(result.getMessage());
+            if (result.success()) {
+                showSuccess(result.message());
                 clearForm();
             } else {
-                showError("Error", result.getMessage());
+                showError("Error", result.message());
             }
         });
 
