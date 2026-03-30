@@ -70,6 +70,7 @@ public final class Database {
                     created_at TEXT NOT NULL,
                     bio TEXT,
                     employee_id TEXT,
+                    avatar_path TEXT,
                     failed_login_attempts INTEGER DEFAULT 0,
                     locked_until TEXT
                 )
@@ -183,6 +184,12 @@ public final class Database {
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE users ADD COLUMN employee_id TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN avatar_path TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
