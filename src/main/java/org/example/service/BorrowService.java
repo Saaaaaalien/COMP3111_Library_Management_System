@@ -2,6 +2,8 @@ package org.example.service;
 
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
+import org.example.db.ReadingHighlightDao;
+import org.example.db.ReadingProgressDao;
 import org.example.domain.Availability;
 import org.example.domain.Book;
 import org.example.domain.Borrow;
@@ -10,6 +12,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Borrow a book: checks availability and records the borrow in a transaction.
@@ -101,6 +105,7 @@ public final class BorrowService {
             }
             BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
             BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            clearReadingForBorrow(borrowId);
             conn.commit();
         } catch (BorrowException | SQLException e) {
             rollback(conn);
@@ -111,6 +116,109 @@ public final class BorrowService {
             } catch (SQLException ignored) {
             }
         }
+    }
+
+    /**
+     * Marks a borrow returned and frees the book without borrower check (auto-return on due date / admin).
+     */
+    public static void returnBorrowAsSystem(long borrowId) throws SQLException {
+        Connection conn = org.example.db.Database.getConnection();
+        boolean originalAutoCommit = conn.getAutoCommit();
+        try {
+            conn.setAutoCommit(false);
+            var borrowOpt = BorrowDao.findById(borrowId);
+            if (borrowOpt.isEmpty()) {
+                conn.commit();
+                return;
+            }
+            Borrow borrow = borrowOpt.get();
+            if (borrow.getReturnedAt() != null && !borrow.getReturnedAt().isEmpty()) {
+                conn.commit();
+                return;
+            }
+            BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
+            BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            clearReadingForBorrow(borrowId);
+            conn.commit();
+        } catch (SQLException e) {
+            rollback(conn);
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(originalAutoCommit);
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
+    /**
+     * Auto-returns all active borrows past {@code due_at}.
+     *
+     * @return number of borrows closed
+     */
+    public static int processDueReturns() throws SQLException {
+        String now = Instant.now().toString();
+        List<Long> ids = new ArrayList<>(BorrowDao.findOverdueActiveBorrowIds(now));
+        int count = 0;
+        for (Long id : ids) {
+            try {
+                returnBorrowAsSystem(id);
+                count++;
+            } catch (SQLException ignored) {
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Borrows several available books in one transaction (fails entirely if any item fails).
+     */
+    public static List<Borrow> borrowMany(List<Long> bookIds, long borrowerUserId) throws SQLException, BorrowException {
+        if (bookIds == null || bookIds.isEmpty()) {
+            throw new BorrowException("No books selected.");
+        }
+        Connection conn = org.example.db.Database.getConnection();
+        boolean originalAutoCommit = conn.getAutoCommit();
+        List<Borrow> created = new ArrayList<>();
+        try {
+            conn.setAutoCommit(false);
+            int activeCount = BorrowDao.countActiveByBorrowerUserId(borrowerUserId);
+            if (activeCount + bookIds.size() > MAX_ACTIVE_BORROWS) {
+                throw new BorrowException("Borrowing these books would exceed the limit of "
+                        + MAX_ACTIVE_BORROWS + " active borrows.");
+            }
+            Instant batchStart = Instant.now();
+            for (Long bookId : bookIds) {
+                var bookOpt = BookDao.findById(bookId);
+                if (bookOpt.isEmpty()) {
+                    throw new BorrowException("Book not found (id " + bookId + ").");
+                }
+                Book book = bookOpt.get();
+                if (book.getAvailability() != Availability.AVAILABLE) {
+                    throw new BorrowException("One or more books are no longer available: " + book.getTitle());
+                }
+                BookDao.updateAvailability(bookId, Availability.BORROWED);
+                String borrowedAt = batchStart.toString();
+                String dueAt = batchStart.plus(BORROW_DURATION_DAYS, ChronoUnit.DAYS).toString();
+                long borrowId = BorrowDao.insert(bookId, borrowerUserId, borrowedAt, dueAt);
+                created.add(BorrowDao.findById(borrowId).orElseThrow(() -> new SQLException("Borrow missing after insert")));
+            }
+            conn.commit();
+            return created;
+        } catch (BorrowException | SQLException e) {
+            rollback(conn);
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(originalAutoCommit);
+            } catch (SQLException ignored) {
+            }
+        }
+    }
+
+    private static void clearReadingForBorrow(long borrowId) throws SQLException {
+        ReadingHighlightDao.deleteAllForBorrow(borrowId);
+        ReadingProgressDao.deleteForBorrow(borrowId);
     }
 
     /** Rolls back the current transaction on the given connection; ignores rollback errors. */

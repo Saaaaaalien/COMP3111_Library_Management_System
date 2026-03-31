@@ -21,7 +21,7 @@ I have thoroughly checked and verified that all registration validation requirem
 - **Database Query:** `SELECT * FROM users WHERE username = ?`
 
 **Code:**
-```java
+```text
 private static void ensureUsernameAvailable(String username) throws ValidationException, SQLException {
     if (UserDao.findByUsername(username).isPresent()) {
         throw new ValidationException("Username is already taken.");
@@ -49,11 +49,11 @@ private static void ensureUsernameAvailable(String username) throws ValidationEx
 ### Verification Examples
 
 | Scenario | Username | Result | Status |
-|----------|----------|--------|--------|
-| First registration | john_doe | ✅ Allowed | ✅ |
-| Different user tries same username | john_doe | ❌ Rejected | ✅ |
-| Student uses existing Staff username | admin | ❌ Rejected | ✅ |
-| Author uses existing Author username | jane_smith | ❌ Rejected | ✅ |
+| --- | --- | --- | --- |
+| First registration | john_doe | Allowed | Pass |
+| Different user tries same username | john_doe | Rejected | Pass |
+| Student uses existing Staff username | admin | Rejected | Pass |
+| Author uses existing Author username | jane_smith | Rejected | Pass |
 
 **Result:** ✅ **Username uniqueness enforced across all user types**
 
@@ -73,7 +73,7 @@ private static void ensureUsernameAvailable(String username) throws ValidationEx
 - **Method:** `validateFullName(String fullName)`
 
 **Code:**
-```java
+```text
 public static void validateFullName(String fullName) throws ValidationException {
     validateRequired(fullName, "Full name");
 }
@@ -105,11 +105,11 @@ public static void validateRequired(String value, String fieldLabel) throws Vali
 ### Validation Checks
 
 | Input | Check | Result | Status |
-|-------|-------|--------|--------|
-| `"John Smith"` | Not empty? | ✅ Pass | ✅ |
-| `""` | Empty string? | ❌ Fail | ✅ |
-| `"   "` | Whitespace only? | ❌ Fail | ✅ |
-| `null` | Null value? | ❌ Fail | ✅ |
+| --- | --- | --- | --- |
+| John Smith (quoted) | Not empty? | Pass | Pass |
+| empty string | Empty string? | Fail | Pass |
+| whitespace only | Whitespace only? | Fail | Pass |
+| null | Null value? | Fail | Pass |
 
 **Result:** ✅ **Full Name validation prevents empty submissions**
 
@@ -139,7 +139,7 @@ This implementation meets or exceeds standards from:
 - **Method:** `validatePasswordStrength(String password)`
 
 **Core Validation Code:**
-```java
+```text
 public static void validatePasswordStrength(String password) throws ValidationException {
     validatePassword(password);  // Must be 8+ chars, not empty
     
@@ -165,28 +165,28 @@ public static void validatePassword(String password) throws ValidationException 
 ### Password Strength Criteria
 
 | Criteria | Requirement | Implementation | Status |
-|----------|-------------|-----------------|--------|
-| **Minimum Length** | 8+ characters | `PASSWORD_MIN_LENGTH = 8` | ✅ |
-| **Uppercase Letter** | At least 1 | Regex: `[A-Z]` | ✅ |
-| **Lowercase Letter** | (Not required) | Optional | ✅ |
-| **Number/Digit** | At least 1 | Regex: `[0-9]` | ✅ |
-| **Special Character** | At least 1 | Regex: `[!@#$%...]` | ✅ |
-| **Not Empty** | Required | `validateRequired()` | ✅ |
+| --- | --- | --- | --- |
+| Minimum Length | 8+ characters | PASSWORD_MIN_LENGTH = 8 | Complete |
+| Uppercase Letter | At least 1 | Regex A-Z | Complete |
+| Lowercase Letter | (Not required) | Optional | Complete |
+| Number/Digit | At least 1 | Regex 0-9 | Complete |
+| Special Character | At least 1 | Regex special chars | Complete |
+| Not Empty | Required | validateRequired() | Complete |
 
 ### Real-Time Strength Meter
 
 **Implementation:**
-```java
+```text
 // In LibrarianRegisterScreen, AuthorRegisterScreen, etc.
 Label strengthLbl = new Label("Empty");
-passwordField.textProperty().addListener((obs, prev, newVal) -> {
-    String strength = Validators.getPasswordStrengthLabel(newVal);
+passwordField.textProperty().addListener((observable, oldText, passwordText) -> {
+    String strength = Validators.getPasswordStrengthLabel(passwordText);
     strengthLbl.setText(strength.isEmpty() ? "Empty" : "Strength: " + strength);
 });
 ```
 
 **Strength Scoring Algorithm:**
-```java
+```text
 public static String getPasswordStrengthLabel(String password) {
     if (password == null || password.isEmpty()) return "";
     int score = 0;
@@ -211,13 +211,13 @@ public static String getPasswordStrengthLabel(String password) {
 ### Examples of Password Validation
 
 | Password | Length | Upper | Number | Special | Result | Status |
-|----------|--------|-------|--------|---------|--------|--------|
-| `Test123!` | 8 | ✅ | ✅ | ✅ | ✅ Accept | ✅ |
-| `test123!` | 8 | ❌ | ✅ | ✅ | ❌ Reject | ✅ |
-| `Test123` | 8 | ✅ | ✅ | ❌ | ❌ Reject | ✅ |
-| `Test!` | 5 | ✅ | ❌ | ✅ | ❌ Reject | ✅ |
-| `Test@2024Pass` | 13 | ✅ | ✅ | ✅ | ✅ Accept | ✅ |
-| (empty) | 0 | ❌ | ❌ | ❌ | ❌ Reject | ✅ |
+| --- | --- | --- | --- | --- | --- | --- |
+| Test123! | 8 | yes | yes | yes | Accept | Pass |
+| test123! | 8 | no | yes | yes | Reject | Pass |
+| Test123 | 8 | yes | yes | no | Reject | Pass |
+| Test! | 5 | yes | no | yes | Reject | Pass |
+| Test@2024Pass | 13 | yes | yes | yes | Accept | Pass |
+| (empty) | 0 | no | no | no | Reject | Pass |
 
 ### Error Messages (Specific & Helpful)
 
@@ -380,15 +380,15 @@ The system provides specific error messages for each validation failure:
 
 ## Summary Table
 
-| Requirement | Implementation | Status | Error Messages |
-|---|---|---|---|
-| **Username Uniqueness** | `UserDao.findByUsername()` across all roles | ✅ Complete | "Username is already taken." |
-| **Full Name Non-Empty** | `Validators.validateFullName()` | ✅ Complete | "Full name is required." |
-| **Password Minimum 8 Chars** | `validatePassword()` length check | ✅ Complete | "Password must be at least 8 characters." |
-| **Password Uppercase Letter** | `validatePasswordStrength()` regex `[A-Z]` | ✅ Complete | "Password must contain at least one uppercase letter." |
-| **Password Number/Digit** | `validatePasswordStrength()` regex `[0-9]` | ✅ Complete | "Password must contain at least one number." |
-| **Password Special Char** | `validatePasswordStrength()` regex special chars | ✅ Complete | "Password must contain at least one special character..." |
-| **Real-time Feedback** | Strength meter in all registration screens | ✅ Complete | Weak/Medium/Strong display |
+| Requirement | Implementation | Status | Error messages |
+| --- | --- | --- | --- |
+| Username uniqueness | UserDao.findByUsername across all roles | Complete | Username is already taken. |
+| Full name non-empty | Validators.validateFullName | Complete | Full name is required. |
+| Password minimum 8 chars | validatePassword length check | Complete | Password must be at least 8 characters. |
+| Password uppercase letter | validatePasswordStrength regex A-Z | Complete | Password must contain at least one uppercase letter. |
+| Password number or digit | validatePasswordStrength regex 0-9 | Complete | Password must contain at least one number. |
+| Password special character | validatePasswordStrength special chars | Complete | Password must contain at least one special character. |
+| Real-time feedback | Strength meter in all registration screens | Complete | Weak / Medium / Strong display |
 
 ---
 
@@ -407,6 +407,6 @@ The system provides:
 
 ---
 
-**Verification Date:** March 9, 2026  
-**Build Status:** ✅ SUCCESS  
-**All Requirements:** ✅ MET
+**Verification Date:** 9 March 2026  
+**Build Status:** SUCCESS  
+**All Requirements:** MET

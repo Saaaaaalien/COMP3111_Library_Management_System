@@ -18,6 +18,8 @@ public class PendingBook {
     private String reviewNotes;
     private LocalDateTime reviewedDate;
     private String rejectionReason;
+    /** Optional cover image path (JPG/PNG); may be null. */
+    private String coverPath;
 
     public PendingBook() {}
 
@@ -82,6 +84,9 @@ public class PendingBook {
 
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public String getCoverPath() { return coverPath; }
+    public void setCoverPath(String coverPath) { this.coverPath = coverPath; }
 
     public String getFormattedFileSize() {
         if (fileSize < 1024) return fileSize + " B";

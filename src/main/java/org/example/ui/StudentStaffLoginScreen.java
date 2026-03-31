@@ -15,6 +15,7 @@ import org.example.app.Navigator;
 import org.example.domain.User;
 import org.example.service.AuthException;
 import org.example.service.AuthService;
+import org.example.service.NotificationService;
 
 import java.sql.SQLException;
 
@@ -58,6 +59,11 @@ public final class StudentStaffLoginScreen {
                 if (user.getRole() != org.example.domain.Role.STUDENT && user.getRole() != org.example.domain.Role.STAFF) {
                     showLoginError(AuthService.getWrongPortalMessage(user));
                     return;
+                }
+                try {
+                    NotificationService.seedWelcomeAnnouncementIfNeeded(user.getId());
+                    NotificationService.syncDueReminders();
+                } catch (java.sql.SQLException ignored) {
                 }
                 navigator.showAvailableBooks(user);
             } catch (AuthException ex) {

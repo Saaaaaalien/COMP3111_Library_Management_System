@@ -14,10 +14,18 @@ public class Book {
     private final String filePath;
     private final String publishDate;
     private final Availability availability;
+    /** Optional path to cover image (JPG/PNG). */
+    private final String coverImagePath;
 
     public Book(long id, String title, long authorUserId, String authorFullNameSnapshot,
                 String genre, String summary, String filePath, String publishDate,
                 Availability availability) {
+        this(id, title, authorUserId, authorFullNameSnapshot, genre, summary, filePath, publishDate, availability, null);
+    }
+
+    public Book(long id, String title, long authorUserId, String authorFullNameSnapshot,
+                String genre, String summary, String filePath, String publishDate,
+                Availability availability, String coverImagePath) {
         this.id = id;
         this.title = title;
         this.authorUserId = authorUserId;
@@ -27,6 +35,7 @@ public class Book {
         this.filePath = filePath;
         this.publishDate = publishDate;
         this.availability = availability;
+        this.coverImagePath = coverImagePath;
     }
 
     public long getId() { return id; }
@@ -38,4 +47,5 @@ public class Book {
     public String getFilePath() { return filePath; }
     public String getPublishDate() { return publishDate; }
     public Availability getAvailability() { return availability; }
+    public String getCoverImagePath() { return coverImagePath; }
 }
