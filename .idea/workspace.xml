@@ -4,14 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="modify crash test recovery">
-      <change afterPath="$PROJECT_DIR$/src/main/resources/icons/app-icon.png" afterDir="false" />
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="add icon">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/AuthService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/PublishService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/PublishService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorDashboardScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorDashboardScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorNotificationsScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorNotificationsScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianApprovalScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/LibrarianApprovalScreen.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,7 +17,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="156" />
+    <option name="cachedIndexableFilesCount" value="141" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -42,12 +40,12 @@
     &quot;assignee&quot;: &quot;arungtaab&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Saaaaaalien/COMP3111_Library_Management_System.git&quot;,
-    &quot;accountId&quot;: &quot;6a5d010c-ccd6-4592-8731-c473a22f5646&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Saaaaaalien/COMP3111_Library_Management_System.git",
+    "accountId": "ede30290-3b65-4856-964a-48e8f485a3e8"
   }
-}</component>
+}]]></component>
   <component name="MavenRunner">
     <option name="delegateBuildToMaven" value="true" />
   </component>
@@ -72,6 +70,7 @@
     "Maven.COMP3111_Library_Management_System [install...].executor": "Run",
     "Maven.COMP3111_Library_Management_System [install].executor": "Run",
     "Maven.ResetDatabase.executor": "Run",
+    "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -80,12 +79,19 @@
     "git-widget-placeholder": "phase2__task2",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/icons",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\savan\IdeaProjects\COMP3111_Library_Management_System\src\main\resources\icons" />
+    </key>
+  </component>
   <component name="RunManager">
     <configuration name="ResetDatabase" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="org.example.db.ResetDatabase" />
@@ -114,6 +120,7 @@
     <attachedChunks>
       <set>
         <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.30387.90" />
       </set>
     </attachedChunks>
   </component>
@@ -129,6 +136,7 @@
       <workItem from="1773101546786" duration="247000" />
       <workItem from="1773248156761" duration="20590000" />
       <workItem from="1774187126474" duration="1000" />
+      <workItem from="1774913181129" duration="2333000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />
@@ -266,7 +274,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774891622027</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="add icon">
+      <option name="closed" value="true" />
+      <created>1774894089187</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1774894089187</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -311,7 +327,8 @@
     <MESSAGE value="updated readme for supplementary notes" />
     <MESSAGE value="fix database issue" />
     <MESSAGE value="modify crash test recovery" />
-    <option name="LAST_COMMIT_MESSAGE" value="modify crash test recovery" />
+    <MESSAGE value="add icon" />
+    <option name="LAST_COMMIT_MESSAGE" value="add icon" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

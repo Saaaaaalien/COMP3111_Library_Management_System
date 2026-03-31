@@ -22,6 +22,7 @@ import org.example.service.NotificationService;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.ZoneId;
 
 /**
  * Author notification board with category filter and search.
@@ -55,7 +56,13 @@ public final class AuthorNotificationsScreen {
                 if (empty || n == null) {
                     setText(null);
                 } else {
-                    setText("[P" + n.getPriority() + "] " + n.getTitle() + "\n" + n.getBody());
+                    String ts = n.getCreatedAt();
+                    String when = ts;
+                    try {
+                        when = Instant.parse(ts).atZone(ZoneId.systemDefault()).toLocalDateTime().toString();
+                    } catch (Exception ignored) {}
+                    String status = n.isRead() ? "" : " (NEW)";
+                    setText("[" + n.getCategory() + "]" + status + " \n" + n.getTitle() + "\n" + n.getBody() + "\n" + when + "  [P" + n.getPriority() + "]");
                 }
             }
         });

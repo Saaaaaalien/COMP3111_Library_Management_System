@@ -10,7 +10,10 @@ import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import org.example.app.Navigator;
+import org.example.db.NotificationDao;
 import org.example.domain.User;
+
+import java.sql.SQLException;
 
 import java.util.Optional;
 
@@ -139,6 +142,11 @@ public final class AuthorDashboardScreen {
         Button profileBtn = new Button("Profile");
         profileBtn.setOnAction(e -> navigator.showAuthorProfile(currentUser));
         Button notifBtn = new Button("Notifications");
+        try {
+            int n = NotificationDao.countUnread(currentUser.getId());
+            notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");
+        } catch (SQLException ignored) {
+        }
         notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
         phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
 

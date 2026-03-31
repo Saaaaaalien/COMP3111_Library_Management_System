@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.example.app.Navigator;
 import org.example.db.PendingDao;
+import org.example.service.NotificationService;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
 
@@ -320,6 +321,11 @@ public final class LibrarianApprovalScreen {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 PendingDao.approvePendingBook(book.getId(), reviewNotes);
+                try {
+                    NotificationService.notifyAuthorSubmissionApproved(book.getAuthorUserId(), book.getTitle());
+                } catch (SQLException ne) {
+                    // Non-fatal: logging can be added; do not prevent UI update on notification failure.
+                }
                 showSuccessAlert("Book Approved", "The book \"" + book.getTitle() + "\" has been approved successfully.");
                 
                 // Update status label instead of refreshing entire display
@@ -385,6 +391,17 @@ public final class LibrarianApprovalScreen {
             if (confirmResult.isPresent() && confirmResult.get() == ButtonType.OK) {
                 try {
                     PendingDao.rejectPendingBook(book.getId(), reviewNotes, rejectionReason);
+                    try {
+                        String notesForNotification = (reviewNotes != null ? reviewNotes.trim() : "");
+                        if (notesForNotification.isEmpty()) {
+                            notesForNotification = "Reason: " + rejectionReason;
+                        } else {
+                            notesForNotification = notesForNotification + "\nReason: " + rejectionReason;
+                        }
+                        NotificationService.notifyAuthorSubmissionRejected(book.getAuthorUserId(), book.getTitle(), notesForNotification);
+                    } catch (SQLException ne) {
+                        // Non-fatal: ignore notification failure for now
+                    }
                     showSuccessAlert("Book Rejected", "The book \"" + book.getTitle() + "\" has been rejected.\n\n" +
                                     "The author will receive the rejection reason:\n" + rejectionReason);
                     

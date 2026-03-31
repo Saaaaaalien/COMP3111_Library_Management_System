@@ -130,6 +130,28 @@ public final class Database {
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
+
+            // notifications table for in-app messages to users (authors, students, staff)
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    read_at TEXT,
+                    archived_at TEXT,
+                    priority INTEGER DEFAULT 0,
+                    dedupe_key TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
+            try {
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);");
+            } catch (SQLException ignored) {
+                // ignore index creation errors
+            }
             st.execute("""
                 CREATE TABLE IF NOT EXISTS borrows (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
