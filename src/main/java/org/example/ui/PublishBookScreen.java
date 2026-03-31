@@ -16,6 +16,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
 import org.example.db.PublishDraftDao;
 import org.example.domain.User;
@@ -582,7 +584,24 @@ public final class PublishBookScreen {
         descPreview.setPrefRowCount(5);
         descPreview.setStyle("-fx-background-color: #f8fafc; -fx-border-color: #d0d7e2;");
 
-        previewBox.getChildren().addAll(titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        // Build preview area with cover image on the left
+        VBox details = new VBox(10, titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        details.setPrefWidth(420);
+
+        Image coverImg = null;
+        try {
+            if (selectedCoverFile != null) {
+                coverImg = new Image(selectedCoverFile.toURI().toString(), 120, 180, true, true);
+            }
+        } catch (Exception ignored) {}
+        if (coverImg == null || coverImg.isError()) {
+            var u = PublishBookScreen.class.getResource("/images/default-cover.png");
+            if (u != null) coverImg = new Image(u.toExternalForm(), 120, 180, true, true);
+        }
+        ImageView coverView = new ImageView(coverImg);
+
+        HBox previewWithCover = new HBox(20, coverView, details);
+        previewBox.getChildren().add(previewWithCover);
 
         Label confirmMsg = new Label("Are you sure you want to submit this book for approval?");
         confirmMsg.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 14px;");

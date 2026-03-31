@@ -11,10 +11,13 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
@@ -39,18 +42,21 @@ public final class AuthorPublishedBooksScreen {
         private final String title;
         private final String genre;
         private final String status;
+        private final String coverPath;
 
         PendingRow(PendingBook p) {
             this.id = p.getId();
             this.title = p.getTitle();
             this.genre = p.getGenre();
             this.status = p.getStatus();
+            this.coverPath = p.getCoverPath();
         }
 
         public long getId() { return id; }
         public String getTitle() { return title; }
         public String getGenre() { return genre; }
         public String getStatus() { return status; }
+        public String getCoverPath() { return coverPath; }
     }
 
     public static class BookRow {
@@ -58,18 +64,21 @@ public final class AuthorPublishedBooksScreen {
         private final String title;
         private final String genre;
         private final String availability;
+        private final String coverPath;
 
         BookRow(Book b) {
             this.id = b.getId();
             this.title = b.getTitle();
             this.genre = b.getGenre();
             this.availability = b.getAvailability().name();
+            this.coverPath = b.getCoverImagePath();
         }
 
         public long getId() { return id; }
         public String getTitle() { return title; }
         public String getGenre() { return genre; }
         public String getAvailability() { return availability; }
+        public String getCoverPath() { return coverPath; }
     }
 
     public static Scene create(Navigator navigator, User user) {
@@ -79,8 +88,37 @@ public final class AuthorPublishedBooksScreen {
         Label lp = new Label("Pending / reviewed submissions");
         TableView<PendingRow> pendingTable = new TableView<>();
         var pItems = FXCollections.<PendingRow>observableArrayList();
-        TableColumn<PendingRow, String> pc1 = new TableColumn<>("Title");
-        pc1.setCellValueFactory(new PropertyValueFactory<>("title"));
+        // Title column shows small cover preview + title
+        TableColumn<PendingRow, PendingRow> pc1 = new TableColumn<>("Title");
+        pc1.setCellValueFactory(cd -> new javafx.beans.property.SimpleObjectProperty<>(cd.getValue()));
+        pc1.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(PendingRow r, boolean empty) {
+                super.updateItem(r, empty);
+                if (empty || r == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    Image img = null;
+                    try {
+                        if (r.getCoverPath() != null && !r.getCoverPath().isBlank()) {
+                            img = new Image("file:" + r.getCoverPath(), 60, 90, true, true);
+                        }
+                    } catch (Exception ignored) {}
+                    if (img == null || img.isError()) {
+                        var u = AuthorPublishedBooksScreen.class.getResource("/images/default-cover.png");
+                        if (u != null) img = new Image(u.toExternalForm(), 60, 90, true, true);
+                    }
+                    ImageView iv = new ImageView(img);
+                    Label t = new Label(r.getTitle());
+                    Label g = new Label(r.getGenre());
+                    VBox v = new VBox(2, t, g);
+                    HBox h = new HBox(8, iv, v);
+                    setText(null);
+                    setGraphic(h);
+                }
+            }
+        });
         TableColumn<PendingRow, String> pc2 = new TableColumn<>("Genre");
         pc2.setCellValueFactory(new PropertyValueFactory<>("genre"));
         TableColumn<PendingRow, String> pc3 = new TableColumn<>("Status");
@@ -92,8 +130,36 @@ public final class AuthorPublishedBooksScreen {
         Label lb = new Label("Published in catalog");
         TableView<BookRow> bookTable = new TableView<>();
         var bItems = FXCollections.<BookRow>observableArrayList();
-        TableColumn<BookRow, String> bc1 = new TableColumn<>("Title");
-        bc1.setCellValueFactory(new PropertyValueFactory<>("title"));
+        TableColumn<BookRow, BookRow> bc1 = new TableColumn<>("Title");
+        bc1.setCellValueFactory(cd -> new javafx.beans.property.SimpleObjectProperty<>(cd.getValue()));
+        bc1.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(BookRow r, boolean empty) {
+                super.updateItem(r, empty);
+                if (empty || r == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    Image img = null;
+                    try {
+                        if (r.getCoverPath() != null && !r.getCoverPath().isBlank()) {
+                            img = new Image("file:" + r.getCoverPath(), 60, 90, true, true);
+                        }
+                    } catch (Exception ignored) {}
+                    if (img == null || img.isError()) {
+                        var u = AuthorPublishedBooksScreen.class.getResource("/images/default-cover.png");
+                        if (u != null) img = new Image(u.toExternalForm(), 60, 90, true, true);
+                    }
+                    ImageView iv = new ImageView(img);
+                    Label t = new Label(r.getTitle());
+                    Label g = new Label(r.getGenre());
+                    VBox v = new VBox(2, t, g);
+                    HBox h = new HBox(8, iv, v);
+                    setText(null);
+                    setGraphic(h);
+                }
+            }
+        });
         TableColumn<BookRow, String> bc2 = new TableColumn<>("Genre");
         bc2.setCellValueFactory(new PropertyValueFactory<>("genre"));
         TableColumn<BookRow, String> bc3 = new TableColumn<>("Availability");
@@ -102,11 +168,26 @@ public final class AuthorPublishedBooksScreen {
         bookTable.setItems(bItems);
         bookTable.setPrefHeight(200);
 
+        // Pending filters: status and search
+        TextField pendingSearchField = new TextField();
+        pendingSearchField.setPromptText("Search pending by title...");
+        pendingSearchField.setMaxWidth(300);
+
+        ComboBox<String> pendingStatus = new ComboBox<>(FXCollections.observableArrayList("ALL", "PENDING", "APPROVED", "REJECTED"));
+        pendingStatus.getSelectionModel().selectFirst();
+
+        HBox pendingFilters = new HBox(8, pendingSearchField, pendingStatus);
+
         Runnable refresh = () -> {
             pItems.clear();
             bItems.clear();
             try {
-                for (PendingBook p : PendingDao.findAllByAuthorUserId(user.getId())) {
+                String status = pendingStatus.getSelectionModel().getSelectedItem();
+                if (status != null && "ALL".equals(status)) status = null;
+                String search = pendingSearchField.getText();
+                if (search != null) search = search.trim();
+
+                for (PendingBook p : PendingDao.searchAndFilter(search, status)) {
                     pItems.add(new PendingRow(p));
                 }
                 for (Book b : BookDao.findByAuthorUserId(user.getId())) {
@@ -117,8 +198,11 @@ public final class AuthorPublishedBooksScreen {
             }
         };
         refresh.run();
+        pendingStatus.setOnAction(e -> refresh.run());
+        pendingSearchField.textProperty().addListener((a,b,c) -> refresh.run());
 
         Button editPendingBtn = new Button("Edit pending");
+        // insert pendingFilters above pendingTable in the layout later
         editPendingBtn.setOnAction(e -> {
             PendingRow r = pendingTable.getSelectionModel().getSelectedItem();
             if (r == null || !"PENDING".equalsIgnoreCase(r.getStatus())) {

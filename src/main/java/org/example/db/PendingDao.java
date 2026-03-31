@@ -179,13 +179,42 @@ public final class PendingDao {
             if (pending.isPresent()) {
                 PendingBook p = pending.get();
                 String publishDate = Instant.now().toString();
+
+                // If the uploaded file is not PDF, convert it to PDF so the reader can open it later.
+                String publishFilePath = p.getFilePath();
+                try {
+                    String type = p.getFileType() != null ? p.getFileType().toLowerCase() : "";
+                    if (!"pdf".equals(type)) {
+                        // Convert to PDF and update the pending row within the same transaction
+                        try {
+                            java.nio.file.Path converted = org.example.util.FileToPdfConverter.convertToPdf(java.nio.file.Paths.get(p.getFilePath()));
+                            publishFilePath = converted.toAbsolutePath().toString();
+
+                            String updateFileSql = "UPDATE pending_books SET file_path = ?, file_name = ?, file_size = ?, file_type = ? WHERE id = ?";
+                            try (PreparedStatement ps2 = conn.prepareStatement(updateFileSql)) {
+                                ps2.setString(1, publishFilePath);
+                                ps2.setString(2, converted.getFileName().toString());
+                                ps2.setLong(3, java.nio.file.Files.size(converted));
+                                ps2.setString(4, "pdf");
+                                ps2.setLong(5, bookId);
+                                ps2.executeUpdate();
+                            }
+                        } catch (Exception e) {
+                            throw new SQLException("Failed to convert uploaded file to PDF: " + e.getMessage(), e);
+                        }
+                    }
+                } catch (SQLException e) {
+                    // If conversion/update failed, rollback will happen in caller
+                    throw e;
+                }
+
                 BookDao.insert(
                     p.getTitle(),
                     p.getAuthorUserId(),
                     p.getAuthorFullName(),
                     p.getGenre(),
                     p.getSummary() != null ? p.getSummary() : "",
-                    p.getFilePath(),
+                    publishFilePath,
                     publishDate,
                     p.getCoverPath()
                 );
