@@ -2,11 +2,13 @@ package org.example.ui;
 
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -85,7 +87,7 @@ public final class AuthorPublishedBooksScreen {
         Label head = new Label("My submissions & published books");
         head.getStyleClass().add("screen-title");
 
-        Label lp = new Label("Pending / reviewed submissions");
+        Label lp = new Label("review submissions");
         TableView<PendingRow> pendingTable = new TableView<>();
         var pItems = FXCollections.<PendingRow>observableArrayList();
         // Title column shows small cover preview + title
@@ -202,6 +204,8 @@ public final class AuthorPublishedBooksScreen {
         pendingSearchField.textProperty().addListener((a,b,c) -> refresh.run());
 
         Button editPendingBtn = new Button("Edit pending");
+        editPendingBtn.getStyleClass().add("secondary-button");
+        editPendingBtn.setPrefWidth(140);
         // insert pendingFilters above pendingTable in the layout later
         editPendingBtn.setOnAction(e -> {
             PendingRow r = pendingTable.getSelectionModel().getSelectedItem();
@@ -249,6 +253,8 @@ public final class AuthorPublishedBooksScreen {
         });
 
         Button delPendingBtn = new Button("Delete pending");
+        delPendingBtn.getStyleClass().add("secondary-button");
+        delPendingBtn.setPrefWidth(140);
         delPendingBtn.setOnAction(e -> {
             PendingRow r = pendingTable.getSelectionModel().getSelectedItem();
             if (r == null || !"PENDING".equalsIgnoreCase(r.getStatus())) {
@@ -266,7 +272,9 @@ public final class AuthorPublishedBooksScreen {
                     });
         });
 
-        Button editBookBtn = new Button("Edit published (metadata)");
+        Button editBookBtn = new Button("Edit published");
+        editBookBtn.getStyleClass().add("secondary-button");
+        editBookBtn.setPrefWidth(140);
         editBookBtn.setOnAction(e -> {
             BookRow r = bookTable.getSelectionModel().getSelectedItem();
             if (r == null) {
@@ -315,6 +323,8 @@ public final class AuthorPublishedBooksScreen {
         });
 
         Button delBookBtn = new Button("Delete published");
+        delBookBtn.getStyleClass().add("secondary-button");
+        delBookBtn.setPrefWidth(140);
         delBookBtn.setOnAction(e -> {
             BookRow r = bookTable.getSelectionModel().getSelectedItem();
             if (r == null) {
@@ -341,15 +351,33 @@ public final class AuthorPublishedBooksScreen {
         });
 
         Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(120);
         backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
 
-        HBox pbar = new HBox(8, editPendingBtn, delPendingBtn);
-        HBox bbar = new HBox(8, editBookBtn, delBookBtn);
+        HBox pbar = new HBox(10, editPendingBtn, delPendingBtn);
+        pbar.setAlignment(Pos.CENTER_LEFT);
+        pbar.setPadding(new Insets(16, 0, 0, 0));
 
-        VBox root = new VBox(12, head, lp, pendingTable, pbar, lb, bookTable, bbar, backBtn);
+        HBox bbar = new HBox(10, editBookBtn, delBookBtn);
+        bbar.setAlignment(Pos.CENTER_LEFT);
+        bbar.setPadding(new Insets(16, 0, 0, 0));
+
+        HBox bottomBar = new HBox(10, backBtn);
+        bottomBar.setAlignment(Pos.CENTER_LEFT);
+        bottomBar.setPadding(new Insets(16, 0, 0, 0));
+
+        VBox root = new VBox(16, head, lp, pendingTable, pbar, lb, bookTable, bbar, bottomBar);
         root.setPadding(new Insets(16));
 
-        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: white;");
+
+        Scene scene = new Scene(scrollPane, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         var css = AuthorPublishedBooksScreen.class.getResource("/app.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());

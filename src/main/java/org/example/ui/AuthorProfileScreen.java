@@ -88,6 +88,8 @@ public final class AuthorProfileScreen {
         });
 
         Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(140);
         backBtn.setOnAction(e -> {
             try {
                 navigator.showAuthorDashboard(UserDao.findById(user.getId()).orElse(user));

@@ -140,11 +140,19 @@ public final class AuthorDashboardScreen {
 
         HBox phase2Links = new HBox(12);
         phase2Links.setAlignment(Pos.CENTER);
-        Button myBooksBtn = new Button("My submissions & published books");
+        Button myBooksBtn = new Button("My Books");
+        myBooksBtn.getStyleClass().add("secondary-button");
+        myBooksBtn.setPrefWidth(140);
         myBooksBtn.setOnAction(e -> navigator.showAuthorPublishedBooks(currentUser));
+
         Button profileBtn = new Button("Profile");
+        profileBtn.getStyleClass().add("secondary-button");
+        profileBtn.setPrefWidth(140);
         profileBtn.setOnAction(e -> navigator.showAuthorProfile(currentUser));
+
         Button notifBtn = new Button("Notifications");
+        notifBtn.getStyleClass().add("secondary-button");
+        notifBtn.setPrefWidth(140);
         try {
             int n = NotificationDao.countUnread(currentUser.getId());
             notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");

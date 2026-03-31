@@ -32,6 +32,13 @@ public final class AuthorNotificationsScreen {
     private AuthorNotificationsScreen() {}
 
     public static Scene create(Navigator navigator, User user) {
+        Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(140);
+        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
+
+
+
         Label title = new Label("Author notifications");
         title.getStyleClass().add("screen-title");
 
@@ -113,6 +120,8 @@ public final class AuthorNotificationsScreen {
         showArchived.setOnAction(e -> refresh.run());
 
         Button readBtn = new Button("Mark read");
+        readBtn.getStyleClass().add("secondary-button");
+        readBtn.setPrefWidth(140);
         readBtn.setOnAction(e -> {
             var n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
@@ -127,6 +136,8 @@ public final class AuthorNotificationsScreen {
         });
 
         Button archBtn = new Button("Archive");
+        archBtn.getStyleClass().add("secondary-button");
+        archBtn.setPrefWidth(140);
         archBtn.setOnAction(e -> {
             var n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
@@ -140,16 +151,20 @@ public final class AuthorNotificationsScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
 
-        HBox filters = new HBox(10, new Label("Category:"), category, search, showArchived);
-        HBox actions = new HBox(10, readBtn, archBtn, backBtn);
+        HBox back = new HBox(5, backBtn);
+        HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
+        HBox actions = new HBox(5, readBtn, archBtn);
+        actions.setPadding(new Insets(16, 0, 0, 0));
+
+        VBox listWrapper = new VBox(list);
+        listWrapper.setPadding(new Insets(16, 0, 0, 0));
+        javafx.scene.layout.VBox.setVgrow(list, javafx.scene.layout.Priority.ALWAYS);
 
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(8, title, filters, actions));
-        root.setCenter(list);
-        root.setPadding(new Insets(12));
+        root.setTop(new VBox(8, back, title, filters, actions));
+        root.setCenter(listWrapper);
+        root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
