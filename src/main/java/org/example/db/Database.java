@@ -171,10 +171,12 @@ public final class Database {
                     genre TEXT,
                     summary TEXT,
                     file_path TEXT,
+                    cover_path TEXT,
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
+            migratePublishDraftsTable(conn);
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
             migrateBooksTable(conn);
@@ -199,6 +201,15 @@ public final class Database {
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE pending_books ADD COLUMN cover_path TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+    }
+
+    private static void migratePublishDraftsTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE publish_drafts ADD COLUMN cover_path TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;

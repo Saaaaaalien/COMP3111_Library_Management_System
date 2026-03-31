@@ -6,9 +6,12 @@
   <component name="ChangeListManager">
     <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="update UI">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorNotificationsScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorNotificationsScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorRegisterScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorRegisterScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/Validators.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/Validators.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/PublishDraftDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/PublishDraftDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorDashboardScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorDashboardScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorPublishedBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorPublishedBooksScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBook.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/PublishBookScreen.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -16,7 +19,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="146" />
+    <option name="cachedIndexableFilesCount" value="148" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -28,7 +31,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="task1" />
+        <entry key="$PROJECT_DIR$" value="phase2_task2" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -75,7 +78,7 @@
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;phase2__task2&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/images&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -141,6 +144,7 @@
       <workItem from="1774942641680" duration="86000" />
       <workItem from="1774943466202" duration="41000" />
       <workItem from="1774966036092" duration="1278000" />
+      <workItem from="1774975761952" duration="1360000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />

@@ -14,6 +14,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.control.ContentDisplay;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
+import org.example.db.PublishDraftDao;
 import org.example.domain.User;
 
 import java.sql.SQLException;
@@ -278,11 +279,33 @@ public final class AuthorDashboardScreen {
 
         // Add click handlers to both card and button for better UX
         card.setOnMouseClicked(e -> {
+            try {
+                if (PublishDraftDao.findByAuthor(currentUser.getId()).isPresent()) {
+                    Alert info = new Alert(Alert.AlertType.INFORMATION);
+                    info.setTitle("Draft Loaded");
+                    info.setHeaderText(null);
+                    info.setContentText("A previously saved draft was found and will be loaded into the publishing form.");
+                    info.showAndWait();
+                }
+            } catch (SQLException ex) {
+                // ignore and continue
+            }
             System.out.println("Publish card clicked - navigating to PublishBookScreen");
             navigator.showPublishBook(currentUser);
         });
 
         publishBtn.setOnAction(e -> {
+            try {
+                if (PublishDraftDao.findByAuthor(currentUser.getId()).isPresent()) {
+                    Alert info = new Alert(Alert.AlertType.INFORMATION);
+                    info.setTitle("Draft Loaded");
+                    info.setHeaderText(null);
+                    info.setContentText("A previously saved draft was found and will be loaded into the publishing form.");
+                    info.showAndWait();
+                }
+            } catch (SQLException ex) {
+                // ignore and continue
+            }
             System.out.println("Publish button clicked - navigating to PublishBookScreen");
             navigator.showPublishBook(currentUser);
         });
