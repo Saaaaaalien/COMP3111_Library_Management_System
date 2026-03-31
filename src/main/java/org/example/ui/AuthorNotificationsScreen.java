@@ -76,17 +76,20 @@ public final class AuthorNotificationsScreen {
                         dot = new javafx.scene.shape.Circle(6, javafx.scene.paint.Color.web("#e74c3c"));
                     }
 
-                    Label title = new Label("[" + n.getCategory() + "] " + n.getTitle());
+                    Label catLbl = new Label("[" + n.getCategory() + "] ");
+                    catLbl.setStyle("-fx-text-fill: #7f8c8d;");
+                    Label titleLbl = new Label(n.getTitle());
+                    // Always bold the message title for visibility; indicate unread with color
+                    titleLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
                     if (unread) {
-                        title.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
-                    } else {
-                        title.setStyle("-fx-text-fill: #2c3e50;");
+                        titleLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #1f406e;");
                     }
+                    HBox titleBox = new HBox(4, catLbl, titleLbl);
                     Label body = new Label(n.getBody());
                     body.setWrapText(true);
                     Label meta = new Label(when + "  [P" + n.getPriority() + "]");
 
-                    VBox v = new VBox(4, title, body, meta);
+                    VBox v = new VBox(4, titleBox, body, meta);
                     v.setMaxWidth(Double.MAX_VALUE);
 
                     HBox h;
