@@ -55,14 +55,44 @@ public final class AuthorNotificationsScreen {
                 super.updateItem(n, empty);
                 if (empty || n == null) {
                     setText(null);
+                    setGraphic(null);
                 } else {
                     String ts = n.getCreatedAt();
                     String when = ts;
                     try {
                         when = Instant.parse(ts).atZone(ZoneId.systemDefault()).toLocalDateTime().toString();
                     } catch (Exception ignored) {}
-                    String status = n.isRead() ? "" : " (NEW)";
-                    setText("[" + n.getCategory() + "]" + status + " \n" + n.getTitle() + "\n" + n.getBody() + "\n" + when + "  [P" + n.getPriority() + "]");
+
+                    boolean unread = !n.isRead();
+                    javafx.scene.shape.Circle dot = null;
+                    if (unread) {
+                        dot = new javafx.scene.shape.Circle(6, javafx.scene.paint.Color.web("#e74c3c"));
+                    }
+
+                    Label title = new Label("[" + n.getCategory() + "] " + n.getTitle());
+                    if (unread) {
+                        title.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+                    } else {
+                        title.setStyle("-fx-text-fill: #2c3e50;");
+                    }
+                    Label body = new Label(n.getBody());
+                    body.setWrapText(true);
+                    Label meta = new Label(when + "  [P" + n.getPriority() + "]");
+
+                    VBox v = new VBox(4, title, body, meta);
+                    v.setMaxWidth(Double.MAX_VALUE);
+
+                    HBox h;
+                    if (dot != null) {
+                        h = new HBox(10, dot, v);
+                    } else {
+                        h = new HBox(10, v);
+                    }
+                    h.setStyle("-fx-padding: 8;");
+                    javafx.scene.layout.HBox.setHgrow(v, javafx.scene.layout.Priority.ALWAYS);
+
+                    setText(null);
+                    setGraphic(h);
                 }
             }
         });

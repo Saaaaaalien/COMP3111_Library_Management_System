@@ -9,6 +9,9 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.control.ContentDisplay;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
 import org.example.domain.User;
@@ -145,6 +148,12 @@ public final class AuthorDashboardScreen {
         try {
             int n = NotificationDao.countUnread(currentUser.getId());
             notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");
+            if (n > 0) {
+                Circle dot = new Circle(6, Color.web("#e74c3c"));
+                notifBtn.setGraphic(dot);
+                notifBtn.setContentDisplay(ContentDisplay.RIGHT);
+                notifBtn.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-background-color: white; -fx-text-fill: #2c3e50;");
+            }
         } catch (SQLException ignored) {
         }
         notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
