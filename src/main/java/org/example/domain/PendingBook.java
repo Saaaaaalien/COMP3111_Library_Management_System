@@ -21,6 +21,9 @@ public class PendingBook {
     /** Optional cover image path (JPG/PNG); may be null. */
     private String coverPath;
 
+    /** If this submission is an edit of a published book, the original book id. 0 if new. */
+    private long originalBookId;
+
     public PendingBook() {}
 
     public PendingBook(String title, long authorUserId, String authorFullName,
@@ -87,6 +90,9 @@ public class PendingBook {
 
     public String getCoverPath() { return coverPath; }
     public void setCoverPath(String coverPath) { this.coverPath = coverPath; }
+
+    public long getOriginalBookId() { return originalBookId; }
+    public void setOriginalBookId(long originalBookId) { this.originalBookId = originalBookId; }
 
     public String getFormattedFileSize() {
         if (fileSize < 1024) return fileSize + " B";

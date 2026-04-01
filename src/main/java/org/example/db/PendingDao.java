@@ -66,6 +66,14 @@ public final class PendingDao {
                     throw e;
                 }
             }
+            try {
+                stmt.executeUpdate("ALTER TABLE pending_books ADD COLUMN original_book_id INTEGER");
+            } catch (SQLException e) {
+                String msg = e.getMessage();
+                if (msg == null || !msg.contains("duplicate column")) {
+                    throw e;
+                }
+            }
         }
     }
 
@@ -208,16 +216,27 @@ public final class PendingDao {
                     throw e;
                 }
 
-                BookDao.insert(
-                    p.getTitle(),
-                    p.getAuthorUserId(),
-                    p.getAuthorFullName(),
-                    p.getGenre(),
-                    p.getSummary() != null ? p.getSummary() : "",
-                    publishFilePath,
-                    publishDate,
-                    p.getCoverPath()
-                );
+                if (p.getOriginalBookId() > 0) {
+                    BookDao.updatePublishedFields(
+                        p.getOriginalBookId(),
+                        p.getTitle(),
+                        p.getGenre(),
+                        p.getSummary() != null ? p.getSummary() : "",
+                        publishFilePath,
+                        p.getCoverPath()
+                    );
+                } else {
+                    BookDao.insert(
+                        p.getTitle(),
+                        p.getAuthorUserId(),
+                        p.getAuthorFullName(),
+                        p.getGenre(),
+                        p.getSummary() != null ? p.getSummary() : "",
+                        publishFilePath,
+                        publishDate,
+                        p.getCoverPath()
+                    );
+                }
             }
 
             conn.commit();
@@ -397,6 +416,9 @@ public final class PendingDao {
             book.setCoverPath(rs.getString("cover_path"));
         } catch (SQLException ignored) {
         }
+        try {
+            book.setOriginalBookId(rs.getLong("original_book_id"));
+        } catch (SQLException ignored) {}
 
         return book;
     }
@@ -457,6 +479,35 @@ public final class PendingDao {
             if (n == 0) {
                 throw new SQLException("Could not delete (not pending or wrong author).");
             }
+        }
+    }
+
+    /**
+     * Delete a pending_books row for an author regardless of status (used by authors to clean up rejected submissions).
+     */
+    public static void deleteByIdForAuthor(long id, long authorUserId) throws SQLException {
+        String sql = "DELETE FROM pending_books WHERE id = ? AND author_user_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.setLong(2, authorUserId);
+            int n = ps.executeUpdate();
+            if (n == 0) {
+                throw new SQLException("Could not delete (wrong author or id).");
+            }
+        }
+    }
+
+    /**
+     * Delete all pending submissions that reference an original published book id.
+     * Used when removing a published book to avoid resurrecting it from pending edits.
+     */
+    public static void deleteByOriginalBookId(long originalBookId) throws SQLException {
+        String sql = "DELETE FROM pending_books WHERE original_book_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, originalBookId);
+            ps.executeUpdate();
         }
     }
 }
