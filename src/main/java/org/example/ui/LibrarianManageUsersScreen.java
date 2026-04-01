@@ -88,11 +88,15 @@ public final class LibrarianManageUsersScreen {
         myProfileBtn.getStyleClass().add("secondary-button");
         myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
 
+        Button borrowRecordsBtn = new Button("Borrow Records");
+        borrowRecordsBtn.getStyleClass().add("secondary-button");
+        borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
+
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtns = new HBox(10, myProfileBtn, backBtn);
+        HBox footerBtns = new HBox(10, borrowRecordsBtn, myProfileBtn, backBtn);
         footerBtns.setAlignment(Pos.CENTER_RIGHT);
 
         VBox footerBox = new VBox();

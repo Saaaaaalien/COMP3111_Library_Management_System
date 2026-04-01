@@ -235,6 +235,13 @@ public class Navigator {
         stage.show();
     }
 
+    public void showLibrarianBorrowRecords(User librarian) {
+        SessionService.save("LIBRARIAN_BORROW_RECORDS", librarian.getId());
+        Scene scene = org.example.ui.LibrarianBorrowRecordsScreen.create(this, librarian);
+        stage.setScene(scene);
+        stage.show();
+    }
+
     public void showLibrarianCatalog(User librarian) {
         SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
         Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
