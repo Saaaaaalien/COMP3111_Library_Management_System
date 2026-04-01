@@ -77,11 +77,15 @@ public final class LibrarianApprovalScreen {
         manageUsersBtn.getStyleClass().add("primary-button");
         manageUsersBtn.setOnAction(e -> navigator.showLibrarianManageUsers(librarian));
 
+        Button myProfileBtn = new Button("My Profile");
+        myProfileBtn.getStyleClass().add("secondary-button");
+        myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
+
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtnBox = new HBox(10, manageUsersBtn, logoutBtn);
+        HBox footerBtnBox = new HBox(10, manageUsersBtn, myProfileBtn, logoutBtn);
         footerBtnBox.setAlignment(Pos.CENTER_RIGHT);
 
         VBox footerBox = new VBox();

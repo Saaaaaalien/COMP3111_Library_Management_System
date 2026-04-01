@@ -208,6 +208,13 @@ public class Navigator {
         stage.show();
     }
 
+    public void showLibrarianProfile(User librarian) {
+        SessionService.save("LIBRARIAN_PROFILE", librarian.getId());
+        Scene scene = org.example.ui.LibrarianProfileScreen.create(this, librarian);
+        stage.setScene(scene);
+        stage.show();
+    }
+
     public void showLibrarianCatalog(User librarian) {
         SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
         Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
