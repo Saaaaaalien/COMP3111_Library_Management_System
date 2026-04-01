@@ -17,6 +17,7 @@ public class User {
     private final String avatarPath;
     private final int failedLoginAttempts;
     private final String lockedUntil;
+    private final boolean active;
 
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
@@ -27,6 +28,13 @@ public class User {
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
                 String bio, String employeeId, String avatarPath, int failedLoginAttempts, String lockedUntil) {
+        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, avatarPath, failedLoginAttempts, lockedUntil, true);
+    }
+
+    public User(long id, String username, String fullName, Role role,
+                String passwordHash, String passwordSalt, String createdAt,
+                String bio, String employeeId, String avatarPath, int failedLoginAttempts, String lockedUntil,
+                boolean active) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -39,6 +47,7 @@ public class User {
         this.avatarPath = avatarPath;
         this.failedLoginAttempts = failedLoginAttempts;
         this.lockedUntil = lockedUntil;
+        this.active = active;
     }
 
     public long getId() { return id; }
@@ -53,4 +62,5 @@ public class User {
     public String getAvatarPath() { return avatarPath; }
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
     public String getLockedUntil() { return lockedUntil; }
+    public boolean isActive() { return active; }
 }

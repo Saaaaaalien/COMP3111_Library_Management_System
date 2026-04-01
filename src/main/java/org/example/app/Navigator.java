@@ -1,16 +1,17 @@
 package org.example.app;
 
+import org.example.domain.User;
+
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
-import javafx.scene.image.Image;
-import org.example.domain.User;
 
 /**
  * Central navigation for the app. Holds the main Stage and switches scenes
@@ -196,6 +197,13 @@ public class Navigator {
         SessionService.save("LIBRARIAN_APPROVAL", librarian.getId());
         Scene scene = org.example.ui.LibrarianApprovalScreen.create(this, librarian);
         scene.setUserData(librarian);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showLibrarianManageUsers(User librarian) {
+        SessionService.save("LIBRARIAN_MANAGE_USERS", librarian.getId());
+        Scene scene = org.example.ui.LibrarianManageUsersScreen.create(this, librarian);
         stage.setScene(scene);
         stage.show();
     }

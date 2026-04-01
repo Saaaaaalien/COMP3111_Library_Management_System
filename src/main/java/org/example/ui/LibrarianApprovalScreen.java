@@ -6,9 +6,9 @@ import java.util.Optional;
 
 import org.example.app.Navigator;
 import org.example.db.PendingDao;
-import org.example.service.NotificationService;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
+import org.example.service.NotificationService;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -73,14 +73,21 @@ public final class LibrarianApprovalScreen {
         logoutBtn.getStyleClass().add("secondary-button");
         logoutBtn.setOnAction(e -> navigator.showLibrarianPortal());
 
+        Button manageUsersBtn = new Button("Manage Users");
+        manageUsersBtn.getStyleClass().add("primary-button");
+        manageUsersBtn.setOnAction(e -> navigator.showLibrarianManageUsers(librarian));
+
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
+        HBox footerBtnBox = new HBox(10, manageUsersBtn, logoutBtn);
+        footerBtnBox.setAlignment(Pos.CENTER_RIGHT);
+
         VBox footerBox = new VBox();
         footerBox.setPadding(new Insets(15, 20, 15, 20));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
-        footerBox.getChildren().add(logoutBtn);
+        footerBox.getChildren().add(footerBtnBox);
 
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
