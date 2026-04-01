@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="allow editing cover, fix my books to fulfill requirements">
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="fix edit my books">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/PendingDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/domain/PendingBook.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/domain/PendingBook.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorPublishedBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorPublishedBooksScreen.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -330,7 +327,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774977596041</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="fix edit my books">
+      <option name="closed" value="true" />
+      <created>1775018937790</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1775018937790</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -381,7 +386,8 @@
     <MESSAGE value="allow book upload in other formats, add default book cover" />
     <MESSAGE value="update UI" />
     <MESSAGE value="update auto-draft function" />
-    <option name="LAST_COMMIT_MESSAGE" value="update auto-draft function" />
+    <MESSAGE value="fix edit my books" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix edit my books" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
