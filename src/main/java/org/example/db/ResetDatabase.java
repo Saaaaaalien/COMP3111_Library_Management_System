@@ -10,7 +10,6 @@ import java.nio.file.Paths;
  * On the next run of the main application, a fresh empty database will be created.
  *
  * Run from IntelliJ: right-click this file → Run 'ResetDatabase.main()'
- * Or from project root: mvn exec:java -Dexec.mainClass="org.example.db.ResetDatabase"
  *
  * If reset doesn't clear data: Main and ResetDatabase may be using different working
  * directories. This class tries several locations. Set both run configs to the same
