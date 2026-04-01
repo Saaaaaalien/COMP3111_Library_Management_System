@@ -21,7 +21,13 @@ public final class BookRemovalService {
         if (bookOpt.isEmpty()) {
             return;
         }
-        String title = bookOpt.get().getTitle();
+        Book book = bookOpt.get();
+        String title = book.getTitle();
+        try {
+            NotificationService.notifyAuthorBookRemovedByLibrarian(book.getAuthorUserId(), title);
+        } catch (SQLException ignored) {
+            // non-fatal
+        }
         List<long[]> pairs = new ArrayList<>(BorrowDao.findActiveBorrowerPairsForBook(bookId));
         for (long[] pair : pairs) {
             long borrowId = pair[0];

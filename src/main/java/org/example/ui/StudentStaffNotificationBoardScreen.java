@@ -15,6 +15,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.Pair;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
 import org.example.domain.AppNotification;
@@ -23,6 +24,7 @@ import org.example.service.NotificationService;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Notification board for students and staff.
@@ -31,16 +33,32 @@ public final class StudentStaffNotificationBoardScreen {
 
     private StudentStaffNotificationBoardScreen() {}
 
+    private static final List<Pair<String, String>> STAFF_CATEGORY_FILTERS = List.of(
+            new Pair<>("All categories", "ALL"),
+            new Pair<>("Due date reminders", NotificationService.CAT_DUE_REMINDER),
+            new Pair<>("Book removed from catalog", NotificationService.CAT_BOOK_REMOVED),
+            new Pair<>("Announcements", NotificationService.CAT_ANNOUNCEMENT)
+    );
+
     public static Scene create(Navigator navigator, User user) {
         Label title = new Label("Notifications");
         title.getStyleClass().add("screen-title");
 
-        ComboBox<String> category = new ComboBox<>(FXCollections.observableArrayList(
-                "ALL",
-                NotificationService.CAT_DUE_REMINDER,
-                NotificationService.CAT_BOOK_REMOVED,
-                NotificationService.CAT_ANNOUNCEMENT
-        ));
+        ComboBox<Pair<String, String>> category = new ComboBox<>(FXCollections.observableArrayList(STAFF_CATEGORY_FILTERS));
+        category.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Pair<String, String> item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getKey());
+            }
+        });
+        category.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Pair<String, String> item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getKey());
+            }
+        });
         category.getSelectionModel().selectFirst();
 
         TextField search = new TextField();
@@ -50,23 +68,12 @@ public final class StudentStaffNotificationBoardScreen {
         CheckBox showArchived = new CheckBox("Show archived");
 
         ListView<AppNotification> list = new ListView<>();
-        list.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(AppNotification n, boolean empty) {
-                super.updateItem(n, empty);
-                if (empty || n == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    String rd = n.isRead() ? "read" : "unread";
-                    setText("[" + n.getCategory() + "] " + n.getTitle() + " (" + rd + ")\n" + n.getBody());
-                }
-            }
-        });
+        list.setCellFactory(lv -> NotificationListCellFactory.create());
 
         Runnable refresh = () -> {
             try {
-                String cat = category.getSelectionModel().getSelectedItem();
+                Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
+                String cat = sel == null ? "ALL" : sel.getValue();
                 var rows = NotificationDao.findForUserFiltered(
                         user.getId(),
                         cat,

@@ -19,6 +19,7 @@ import org.example.util.ValidationException;
 import org.example.util.Validators;
 
 import java.sql.SQLException;
+import java.util.Objects;
 
 /**
  * Author profile: name, bio, optional password (requires current password).
@@ -39,7 +40,7 @@ public final class AuthorProfileScreen {
         bioArea.setMaxWidth(360);
 
         PasswordField currentPw = new PasswordField();
-        currentPw.setPromptText("Current password (required if changing password)");
+        currentPw.setPromptText("Current password (required to save any changes)");
         currentPw.setMaxWidth(360);
         PasswordField pw1 = new PasswordField();
         pw1.setPromptText("New password (optional)");
@@ -52,27 +53,41 @@ public final class AuthorProfileScreen {
         saveBtn.getStyleClass().add("primary-button");
         saveBtn.setOnAction(e -> {
             try {
-                Validators.validateFullName(nameField.getText());
-                UserDao.updateFullNameAndBio(user.getId(), nameField.getText().trim(),
-                        Validators.trimOptional(bioArea.getText()));
-
+                String newName = nameField.getText().trim();
+                String newBio = Validators.trimOptional(bioArea.getText());
+                String oldBio = Validators.trimOptional(user.getBio());
                 String np = pw1.getText();
-                if (np != null && !np.isBlank()) {
+                boolean profileChanged = !newName.equals(user.getFullName().trim())
+                        || !Objects.equals(newBio, oldBio);
+                boolean passwordChangeRequested = np != null && !np.isBlank();
+
+                if (!profileChanged && !passwordChangeRequested) {
+                    new Alert(Alert.AlertType.INFORMATION, "No changes to save.").showAndWait();
+                    return;
+                }
+
+                String cur = currentPw.getText();
+                if (cur == null || cur.isBlank()) {
+                    throw new ValidationException("Re-enter your current password to confirm these changes.");
+                }
+                if (!PasswordHasher.verify(cur, user.getPasswordSalt(), user.getPasswordHash())) {
+                    throw new ValidationException("Current password is incorrect.");
+                }
+
+                if (profileChanged) {
+                    Validators.validateFullName(nameField.getText());
+                    UserDao.updateFullNameAndBio(user.getId(), newName, newBio);
+                }
+
+                if (passwordChangeRequested) {
                     Validators.validatePasswordStrength(np);
                     if (!np.equals(pw2.getText())) {
                         throw new ValidationException("New passwords do not match.");
                     }
-                    String cur = currentPw.getText();
-                    if (cur == null || cur.isBlank()) {
-                        throw new ValidationException("Enter your current password to set a new one.");
-                    }
-                    if (!PasswordHasher.verify(cur, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("Current password is incorrect.");
-                    }
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(np, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
-                    new Alert(Alert.AlertType.INFORMATION, "Password changed. Please sign in again.").showAndWait();
+                    new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showAuthorPortal();
                     return;
                 }

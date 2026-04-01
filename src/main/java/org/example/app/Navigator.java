@@ -45,7 +45,7 @@ public class Navigator {
             return;
         }
         var crashCombo = new KeyCodeCombination(KeyCode.X, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
-        scene.getAccelerators().put(crashCombo, SessionService::simulateCrash);
+        scene.getAccelerators().put(crashCombo, () -> SessionService.simulateCrash());
         Object wrapped = scene.getProperties().get("devCrashOverlayInstalled");
         if (Boolean.TRUE.equals(wrapped)) {
             return;
@@ -53,6 +53,7 @@ public class Navigator {
         Button crashBtn = new Button("Crash Test");
         crashBtn.getStyleClass().add("secondary-button");
         crashBtn.setOnAction(e -> SessionService.simulateCrash());
+        crashBtn.setFocusTraversable(false);
         StackPane wrapper = new StackPane(scene.getRoot(), crashBtn);
         StackPane.setAlignment(crashBtn, Pos.TOP_RIGHT);
         StackPane.setMargin(crashBtn, new Insets(10));
@@ -65,6 +66,25 @@ public class Navigator {
         Scene scene = org.example.ui.WelcomeScreen.create(this);
         stage.setScene(scene);
         stage.show();
+    }
+
+    /** Opens each role's main hub after a partial session restore. */
+    public void showHomeForUser(User user) {
+        switch (user.getRole()) {
+            case STUDENT, STAFF -> showAvailableBooks(user);
+            case AUTHOR -> showAuthorDashboard(user);
+            case LIBRARIAN -> showLibrarianApproval(user);
+        }
+    }
+
+    /** Persists PDF reader context so a crash/kill can reopen the reader with the same borrow. */
+    public void recordPdfReaderSession(User user, long borrowId, long bookId, String returnRoute) {
+        SessionService.save("PDF_READER", user.getId(), borrowId, bookId, returnRoute);
+    }
+
+    /** Restores session to the main screen under the PDF reader after it closes. */
+    public void clearPdfReaderSession(User user, String returnRoute) {
+        SessionService.save(returnRoute, user.getId());
     }
 
     public void showStudentStaffPortal() {

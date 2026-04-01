@@ -160,7 +160,7 @@ public final class MyBorrowedBooksScreen {
                 return;
             }
             PdfReaderScreen.open(navigator, currentUser, selected.getBorrowId(), selected.getBookId(),
-                    selected.getTitle(), selected.getFilePath());
+                    selected.getTitle(), selected.getFilePath(), "MY_BORROWS");
         });
 
         Button profileBtn = new Button("My profile");

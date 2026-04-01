@@ -269,6 +269,7 @@ public final class BookDao {
     }
 
     public static void deleteById(long id) throws SQLException {
+        BorrowDao.deleteAllBorrowsForBook(id);
         String sql = "DELETE FROM books WHERE id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {

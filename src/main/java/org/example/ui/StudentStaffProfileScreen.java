@@ -34,7 +34,7 @@ public final class StudentStaffProfileScreen {
         nameField.setMaxWidth(320);
 
         PasswordField currentPw = new PasswordField();
-        currentPw.setPromptText("Current password (required to set a new password)");
+        currentPw.setPromptText("Current password (required to save any changes)");
         currentPw.setMaxWidth(320);
         PasswordField pw1 = new PasswordField();
         pw1.setPromptText("New password (leave blank to keep current)");
@@ -43,7 +43,8 @@ public final class StudentStaffProfileScreen {
         pw2.setPromptText("Confirm new password");
         pw2.setMaxWidth(320);
 
-        Label hint = new Label("Password must meet strength rules if you change it. Your current password is required to change it.");
+        Label hint = new Label("Password must meet strength rules if you change it. "
+                + "You must re-enter your current password to save any profile or password change.");
         hint.setWrapText(true);
         hint.setMaxWidth(360);
 
@@ -51,28 +52,42 @@ public final class StudentStaffProfileScreen {
         saveBtn.getStyleClass().add("primary-button");
         saveBtn.setOnAction(e -> {
             try {
-                Validators.validateFullName(nameField.getText());
-                UserDao.updateFullName(user.getId(), nameField.getText().trim());
+                String newName = nameField.getText().trim();
                 String np = pw1.getText();
-                if (np != null && !np.isBlank()) {
+                boolean profileChanged = !newName.equals(user.getFullName().trim());
+                boolean passwordChangeRequested = np != null && !np.isBlank();
+
+                if (!profileChanged && !passwordChangeRequested) {
+                    new Alert(Alert.AlertType.INFORMATION, "No changes to save.").showAndWait();
+                    return;
+                }
+
+                String cur = currentPw.getText();
+                if (cur == null || cur.isBlank()) {
+                    throw new ValidationException("Re-enter your current password to confirm these changes.");
+                }
+                if (!PasswordHasher.verify(cur, user.getPasswordSalt(), user.getPasswordHash())) {
+                    throw new ValidationException("Current password is incorrect.");
+                }
+
+                if (profileChanged) {
+                    Validators.validateFullName(nameField.getText());
+                    UserDao.updateFullName(user.getId(), newName);
+                }
+
+                if (passwordChangeRequested) {
                     Validators.validatePasswordStrength(np);
                     if (!np.equals(pw2.getText())) {
                         throw new ValidationException("New password and confirmation do not match.");
                     }
-                    String cur = currentPw.getText();
-                    if (cur == null || cur.isBlank()) {
-                        throw new ValidationException("Enter your current password to set a new one.");
-                    }
-                    if (!PasswordHasher.verify(cur, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("Current password is incorrect.");
-                    }
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(np, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
-                    new Alert(Alert.AlertType.INFORMATION, "Password updated. Please sign in again.").showAndWait();
+                    new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showStudentStaffPortal();
                     return;
                 }
+
                 new Alert(Alert.AlertType.INFORMATION, "Profile saved.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAvailableBooks(refreshed);

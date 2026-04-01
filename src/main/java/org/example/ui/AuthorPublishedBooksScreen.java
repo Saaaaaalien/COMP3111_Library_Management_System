@@ -337,7 +337,13 @@ public final class AuthorPublishedBooksScreen {
                     });
 
                 } else {
-                    // published book
+                    // published book — only editable when not borrowed
+                    if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
+                        new Alert(Alert.AlertType.WARNING,
+                                "You cannot edit published book details while it is borrowed. "
+                                        + "Try again after all students/staff have returned it.").showAndWait();
+                        return;
+                    }
                     Optional<Book> opt = BookDao.findById(r.getId());
                     if (opt.isEmpty()) return;
                     Book bk = opt.get();
@@ -431,28 +437,11 @@ public final class AuthorPublishedBooksScreen {
                     return;
                 }
 
-                // published book deletion
+                // published book deletion — only when not borrowed
                 if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
-                    if (r.isHiddenFromCatalog()) {
-                        new Alert(Alert.AlertType.INFORMATION,
-                                "This book is already hidden from catalog but cannot be permanently deleted yet because someone is still borrowing it.")
-                                .showAndWait();
-                        return;
-                    }
-                    new Alert(Alert.AlertType.CONFIRMATION,
-                            "This book is currently borrowed.\n\n" +
-                            "It cannot be permanently deleted now.\n" +
-                            "Do you want to remove it from catalog so no one else can borrow it?")
-                            .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
-                                try {
-                                    BookDao.hideFromCatalog(r.getId());
-                                    new Alert(Alert.AlertType.INFORMATION,
-                                            "Book removed from catalog. Existing borrowers can still return it.").showAndWait();
-                                    refresh.run();
-                                } catch (SQLException ex) {
-                                    new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
-                                }
-                            });
+                    new Alert(Alert.AlertType.WARNING,
+                            "Cannot delete this book while it is borrowed by a student or staff member.")
+                            .showAndWait();
                     return;
                 }
                 new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog permanently?")

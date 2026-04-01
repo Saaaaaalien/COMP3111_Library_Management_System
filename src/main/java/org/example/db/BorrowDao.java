@@ -235,6 +235,49 @@ public final class BorrowDao {
         return 0;
     }
 
+    /**
+     * Removes all borrow rows for a book (active or returned) and any linked reading rows,
+     * so {@link BookDao#deleteById(long)} does not fail on the borrows→books foreign key.
+     * Ignores missing {@code reading_*} tables (lazy schema).
+     */
+    public static void deleteAllBorrowsForBook(long bookId) throws SQLException {
+        Connection conn = Database.getConnection();
+        List<Long> borrowIds = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM borrows WHERE book_id = ?")) {
+            ps.setLong(1, bookId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    borrowIds.add(rs.getLong(1));
+                }
+            }
+        }
+        for (long borrowId : borrowIds) {
+            try {
+                ReadingHighlightDao.deleteAllForBorrow(borrowId);
+            } catch (SQLException e) {
+                if (!isNoSuchTable(e)) {
+                    throw e;
+                }
+            }
+            try {
+                ReadingProgressDao.deleteForBorrow(borrowId);
+            } catch (SQLException e) {
+                if (!isNoSuchTable(e)) {
+                    throw e;
+                }
+            }
+        }
+        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM borrows WHERE book_id = ?")) {
+            ps.setLong(1, bookId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static boolean isNoSuchTable(SQLException e) {
+        String msg = e.getMessage();
+        return msg != null && msg.toLowerCase().contains("no such table");
+    }
+
     private static Borrow mapRow(ResultSet rs) throws SQLException {
         return new Borrow(
             rs.getLong("id"),

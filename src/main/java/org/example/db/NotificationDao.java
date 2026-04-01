@@ -61,12 +61,12 @@ public final class NotificationDao {
             ? """
                 SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority
                 FROM notifications WHERE user_id = ?
-                ORDER BY created_at DESC
+                ORDER BY priority DESC, created_at DESC
                 """
             : """
                 SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority
                 FROM notifications WHERE user_id = ? AND (archived_at IS NULL OR archived_at = '')
-                ORDER BY created_at DESC
+                ORDER BY priority DESC, created_at DESC
                 """;
         List<AppNotification> list = new ArrayList<>();
         Connection conn = Database.getConnection();
@@ -96,7 +96,7 @@ public final class NotificationDao {
         if (searchText != null && !searchText.isBlank()) {
             sql.append(" AND (title LIKE ? OR body LIKE ?) ");
         }
-        sql.append(" ORDER BY created_at DESC ");
+        sql.append(" ORDER BY priority DESC, created_at DESC ");
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int i = 1;

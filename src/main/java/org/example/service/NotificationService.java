@@ -2,6 +2,7 @@ package org.example.service;
 
 import org.example.db.BorrowDao;
 import org.example.db.NotificationDao;
+import org.example.domain.AppNotification;
 
 import java.sql.SQLException;
 import java.time.Instant;
@@ -19,8 +20,20 @@ public final class NotificationService {
     public static final String CAT_ANNOUNCEMENT = "ANNOUNCEMENT";
     public static final String CAT_AUTHOR_APPROVED = "AUTHOR_APPROVED";
     public static final String CAT_AUTHOR_REJECTED = "AUTHOR_REJECTED";
+    /** Librarian removed the author's book from the catalog. */
+    public static final String CAT_AUTHOR_BOOK_REMOVED = "AUTHOR_BOOK_REMOVED";
 
     private NotificationService() {}
+
+    /** True for urgent items that should be visually highlighted (rejection, removal, high numeric priority). */
+    public static boolean isUrgentHighlight(AppNotification n) {
+        if (n == null) return false;
+        if (n.getPriority() >= 8) return true;
+        String c = n.getCategory();
+        return CAT_AUTHOR_REJECTED.equals(c)
+                || CAT_BOOK_REMOVED.equals(c)
+                || CAT_AUTHOR_BOOK_REMOVED.equals(c);
+    }
 
     /**
      * Inserts due-date reminders for borrows due in 3, 1, or 0 days (deduped per borrow and day bucket).
@@ -67,7 +80,19 @@ public final class NotificationService {
             "Book removed from catalog",
             "The library removed \"" + bookTitle + "\" from the catalog. If you had it borrowed, the loan has been closed.",
             Instant.now().toString(),
-            5,
+            9,
+            null
+        );
+    }
+
+    public static void notifyAuthorBookRemovedByLibrarian(long authorUserId, String bookTitle) throws SQLException {
+        NotificationDao.insert(
+            authorUserId,
+            CAT_AUTHOR_BOOK_REMOVED,
+            "Book removed by librarian",
+            "The library removed your book \"" + bookTitle + "\" from the catalog.",
+            Instant.now().toString(),
+            9,
             null
         );
     }

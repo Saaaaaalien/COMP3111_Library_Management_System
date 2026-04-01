@@ -30,11 +30,12 @@ public class Main extends Application {
 
         Navigator navigator = new Navigator(stage);
         SessionService.RestoreResult restore = SessionService.tryRestore(navigator);
-        if (restore.restored() || restore.fallbackToWelcome()) {
+        if (restore.outcome() != SessionService.RestoreOutcome.NONE) {
             Platform.runLater(() -> {
-                Alert.AlertType type = restore.restored() ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING;
+                boolean ok = restore.outcome() == SessionService.RestoreOutcome.SUCCESS;
+                Alert.AlertType type = ok ? Alert.AlertType.INFORMATION : Alert.AlertType.WARNING;
                 Alert alert = new Alert(type);
-                alert.setTitle("Session Recovery");
+                alert.setTitle(ok ? "Session restored" : "Session recovery");
                 alert.setHeaderText(null);
                 alert.setContentText(restore.message());
                 alert.showAndWait();

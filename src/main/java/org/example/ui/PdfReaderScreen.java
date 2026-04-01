@@ -21,7 +21,9 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import org.example.app.AppConfig;
 import org.example.app.Navigator;
+import org.example.app.SessionService;
 import org.example.db.BorrowDao;
 import org.example.db.ReadingHighlightDao;
 import org.example.db.ReadingProgressDao;
@@ -43,7 +45,12 @@ public final class PdfReaderScreen {
 
     private PdfReaderScreen() {}
 
-    public static void open(Navigator navigator, User user, long borrowId, long bookId, String title, String filePath) {
+    /**
+     * @param returnRoute navigator route key to persist when the reader closes (e.g. {@code MY_BORROWS})
+     */
+    public static void open(Navigator navigator, User user, long borrowId, long bookId, String title, String filePath,
+                            String returnRoute) {
+        final String parentRoute = returnRoute != null ? returnRoute : "MY_BORROWS";
         if (filePath == null || !filePath.toLowerCase().endsWith(".pdf")) {
             Alert a = new Alert(Alert.AlertType.INFORMATION);
             a.setContentText("Only PDF files can be opened in the reader.");
@@ -78,6 +85,8 @@ public final class PdfReaderScreen {
             a.showAndWait();
             return;
         }
+
+        navigator.recordPdfReaderSession(user, borrowId, bookId, parentRoute);
 
         try {
             ReadingProgressDao.getLastPage(borrowId).ifPresent(p -> currentPage[0] = Math.min(Math.max(0, p), pageCount[0] - 1));
@@ -188,6 +197,7 @@ public final class PdfReaderScreen {
         Button closeBtn = new Button("Close");
         closeBtn.setOnAction(e -> {
             saveProgress.run();
+            navigator.clearPdfReaderSession(user, parentRoute);
             readerStage.close();
         });
 
@@ -235,6 +245,7 @@ public final class PdfReaderScreen {
         readerStage.setOnCloseRequest(ev -> {
             dueWatch.stop();
             saveProgress.run();
+            navigator.clearPdfReaderSession(user, parentRoute);
         });
 
         ScrollPane imgScroll = new ScrollPane(pageView);
@@ -255,7 +266,16 @@ public final class PdfReaderScreen {
         header.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
         root.setTop(new VBox(4, header, new Label("Logged in as " + user.getFullName())));
         root.setCenter(split);
-        root.setBottom(new HBox(10, closeBtn));
+        HBox bottomBar = new HBox(10, closeBtn);
+        bottomBar.setPadding(new Insets(0, 0, 0, 0));
+        if (AppConfig.DEV_MODE) {
+            Button crashBtn = new Button("Crash Test");
+            crashBtn.getStyleClass().add("secondary-button");
+            crashBtn.setFocusTraversable(false);
+            crashBtn.setOnAction(e -> SessionService.simulateCrash());
+            bottomBar.getChildren().add(crashBtn);
+        }
+        root.setBottom(bottomBar);
         BorderPane.setMargin(root.getBottom(), new Insets(10));
 
         Scene sc = new Scene(root, 980, 720);
