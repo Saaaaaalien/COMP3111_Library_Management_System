@@ -255,10 +255,11 @@ public final class LibrarianApprovalScreen {
             }
         }
 
-        // Show input controls only for pending submissions
+        // Show input controls for all submissions (review notes only for pending)
         VBox inputBox = new VBox();
+        
+        // Review notes input - only for pending submissions
         if ("PENDING".equals(book.getStatus())) {
-            // Review notes input
             Label reviewNotesLbl = new Label("Review Notes (optional):");
             reviewNotesLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 11;");
 
@@ -268,24 +269,47 @@ public final class LibrarianApprovalScreen {
             reviewNotesArea.setPromptText("Add any comments or feedback for the author...");
             reviewNotesArea.setStyle("-fx-font-size: 10; -fx-padding: 5;");
 
-            // Approve and Reject buttons
+            inputBox.getChildren().addAll(
+                new javafx.scene.control.Separator(),
+                reviewNotesLbl,
+                reviewNotesArea
+            );
+
+            // Approve and Reject buttons (always visible)
             Button approveBtn = new Button("Approve");
             approveBtn.getStyleClass().add("primary-button");
             approveBtn.setMinWidth(100);
-            approveBtn.setOnAction(e -> handleApprove(mainContent, book, statusLbl, reviewNotesArea.getText()));
+            approveBtn.setOnAction(e -> handleApprove(mainContent, book, reviewNotesArea.getText()));
 
             Button rejectBtn = new Button("Reject");
             rejectBtn.getStyleClass().add("secondary-button");
             rejectBtn.setMinWidth(100);
-            rejectBtn.setOnAction(e -> handleReject(mainContent, book, statusLbl, reviewNotesArea.getText()));
+            rejectBtn.setOnAction(e -> handleReject(mainContent, book, reviewNotesArea.getText()));
+
+            HBox buttonBox = new HBox(10, approveBtn, rejectBtn);
+            buttonBox.setAlignment(Pos.CENTER_RIGHT);
+            inputBox.getChildren().add(buttonBox);
+        } else {
+            // For approved/rejected books, show buttons to change decision
+            Label changeLbl = new Label("Change Decision:");
+            changeLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 11; -fx-text-fill: #666;");
+
+            Button approveBtn = new Button("Approve");
+            approveBtn.getStyleClass().add("primary-button");
+            approveBtn.setMinWidth(100);
+            approveBtn.setOnAction(e -> handleApprove(mainContent, book, ""));
+
+            Button rejectBtn = new Button("Reject");
+            rejectBtn.getStyleClass().add("secondary-button");
+            rejectBtn.setMinWidth(100);
+            rejectBtn.setOnAction(e -> handleReject(mainContent, book, ""));
 
             HBox buttonBox = new HBox(10, approveBtn, rejectBtn);
             buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
             inputBox.getChildren().addAll(
                 new javafx.scene.control.Separator(),
-                reviewNotesLbl,
-                reviewNotesArea,
+                changeLbl,
                 buttonBox
             );
         }
@@ -311,7 +335,7 @@ public final class LibrarianApprovalScreen {
     /**
      * Handle book approval
      */
-    private static void handleApprove(VBox mainContent, PendingBook book, Label statusLbl, String reviewNotes) {
+    private static void handleApprove(VBox mainContent, PendingBook book, String reviewNotes) {
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Confirm Approval");
         confirmAlert.setHeaderText(null);
@@ -327,11 +351,9 @@ public final class LibrarianApprovalScreen {
                     // Non-fatal: logging can be added; do not prevent UI update on notification failure.
                 }
                 showSuccessAlert("Book Approved", "The book \"" + book.getTitle() + "\" has been approved successfully.");
-                
-                // Update status label instead of refreshing entire display
-                book.setStatus("APPROVED");
-                statusLbl.setText("Status: APPROVED");
-                statusLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #4caf50;");
+
+                // Refresh the display to clear previous state
+                loadAndDisplayBooks(mainContent);
             } catch (SQLException e) {
                 showErrorAlert("Approval Failed", "A database error occurred: " + e.getMessage());
             }
@@ -341,7 +363,7 @@ public final class LibrarianApprovalScreen {
     /**
      * Handle book rejection with required reason in confirmation dialog
      */
-    private static void handleReject(VBox mainContent, PendingBook book, Label statusLbl, String reviewNotes) {
+    private static void handleReject(VBox mainContent, PendingBook book, String reviewNotes) {
         // Create custom dialog for rejection reason
         javafx.scene.control.Dialog<ButtonType> rejectionDialog = new javafx.scene.control.Dialog<>();
         rejectionDialog.setTitle("Reject Book Submission");
@@ -405,11 +427,8 @@ public final class LibrarianApprovalScreen {
                     showSuccessAlert("Book Rejected", "The book \"" + book.getTitle() + "\" has been rejected.\n\n" +
                                     "The author will receive the rejection reason:\n" + rejectionReason);
                     
-                    // Update status label instead of refreshing entire display
-                    book.setStatus("REJECTED");
-                    book.setRejectionReason(rejectionReason);
-                    statusLbl.setText("Status: REJECTED");
-                    statusLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #f44336;");
+                    // Refresh the display to clear previous state
+                    loadAndDisplayBooks(mainContent);
                 } catch (SQLException e) {
                     showErrorAlert("Rejection Failed", "A database error occurred: " + e.getMessage());
                 }
