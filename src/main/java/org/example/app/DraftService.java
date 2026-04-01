@@ -1,61 +1,61 @@
 package org.example.app;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Simple draft persistence for public forms. Stores and loads Properties files
- * under data/drafts/{route}.props. Passwords are intentionally not persisted.
+ * In-memory draft/form persistence service.
+ * Allows UI screens to save partially-filled form fields so that navigating
+ * away and returning restores the user's previous input.
+ *
+ * Data is kept only for the lifetime of the JVM process (no disk persistence).
  */
 public final class DraftService {
 
-    private static final Path DRAFT_DIR = Paths.get("data", "drafts");
+    // key: draftId (e.g. "AUTHOR_REGISTER"), value: map of field→value
+    private static final ConcurrentHashMap<String, Map<String, String>> store = new ConcurrentHashMap<>();
 
     private DraftService() {}
 
-    public static void saveDraft(String route, Map<String, String> fields) {
-        try {
-            Files.createDirectories(DRAFT_DIR);
-            Path file = DRAFT_DIR.resolve(route + ".props");
-            Properties props = new Properties();
-            props.putAll(fields);
-            try (OutputStream os = Files.newOutputStream(file)) {
-                props.store(os, "Draft for " + route);
-            }
-        } catch (IOException ignored) {
-            // Best-effort only; do not disturb user flow on failures
-        }
+    /**
+     * Persist a map of field values for the given draft id.
+     * Replaces any previously stored draft with the same id.
+     *
+     * @param draftId  identifier for the draft (e.g. "AUTHOR_REGISTER")
+     * @param fields   field-name → value pairs to store
+     */
+    public static void saveDraft(String draftId, Map<String, String> fields) {
+        if (draftId == null || fields == null) return;
+        store.put(draftId, new HashMap<>(fields));
     }
 
-    public static Map<String, String> loadDraft(String route) {
-        Path file = DRAFT_DIR.resolve(route + ".props");
-        if (!Files.isRegularFile(file)) return Map.of();
-        Properties props = new Properties();
-        try (InputStream is = Files.newInputStream(file)) {
-            props.load(is);
-            Map<String, String> result = new HashMap<>();
-            for (String name : props.stringPropertyNames()) {
-                result.put(name, props.getProperty(name));
-            }
-            return result;
-        } catch (IOException ignored) {
-            return Map.of();
-        }
+    /**
+     * Load a previously saved draft.
+     *
+     * @param draftId  identifier for the draft
+     * @return an unmodifiable copy of the stored fields, or an empty map if none exists
+     */
+    public static Map<String, String> loadDraft(String draftId) {
+        if (draftId == null) return Collections.emptyMap();
+        Map<String, String> draft = store.get(draftId);
+        return draft != null ? Collections.unmodifiableMap(draft) : Collections.emptyMap();
     }
 
-    public static void clearDraft(String route) {
-        try {
-            Path file = DRAFT_DIR.resolve(route + ".props");
-            Files.deleteIfExists(file);
-        } catch (IOException ignored) {
-        }
+    /**
+     * Remove a saved draft (call on successful form submission or explicit cancel).
+     *
+     * @param draftId  identifier for the draft to remove
+     */
+    public static void clearDraft(String draftId) {
+        if (draftId != null) store.remove(draftId);
+    }
+
+    /**
+     * Remove all stored drafts (e.g. on logout).
+     */
+    public static void clearAll() {
+        store.clear();
     }
 }
