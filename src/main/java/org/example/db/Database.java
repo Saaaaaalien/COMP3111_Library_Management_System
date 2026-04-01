@@ -256,6 +256,12 @@ public final class Database {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
         }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
     }
 
     /**

@@ -1,10 +1,16 @@
 package org.example.db;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import org.example.domain.Role;
 import org.example.domain.User;
-
-import java.sql.*;
-import java.util.Optional;
 
 /**
  * Data access for users table.
@@ -93,6 +99,10 @@ public final class UserDao {
             avatar = rs.getString("avatar_path");
         } catch (SQLException ignored) {
         }
+        boolean active = true;
+        try {
+            active = rs.getInt("is_active") != 0;
+        } catch (SQLException ignored) { }
         return new User(
             rs.getLong("id"),
             rs.getString("username"),
@@ -105,7 +115,8 @@ public final class UserDao {
             rs.getString("employee_id"),
             avatar,
             failed,
-            locked
+            locked,
+            active
         );
     }
 
@@ -151,6 +162,94 @@ public final class UserDao {
                 ps.setNull(1, java.sql.Types.VARCHAR);
             }
             ps.setLong(2, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Returns all users ordered by role, then username.
+     */
+    public static List<User> findAll() throws SQLException {
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users ORDER BY role, username";
+        Connection conn = Database.getConnection();
+        List<User> users = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                users.add(mapRow(rs));
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Returns all users matching a role filter, ordered by username.
+     */
+    public static List<User> findAllByRole(Role role) throws SQLException {
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE role = ? ORDER BY username";
+        Connection conn = Database.getConnection();
+        List<User> users = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, role.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Searches users by username or full_name (case-insensitive LIKE), optionally filtered by role.
+     * Pass null for role to search all roles.
+     */
+    public static List<User> search(String term, Role role) throws SQLException {
+        String likeTerm = "%" + term + "%";
+        String sql = role == null
+            ? "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) ORDER BY role, username"
+            : "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) AND role = ? ORDER BY username";
+        Connection conn = Database.getConnection();
+        List<User> users = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, likeTerm);
+            ps.setString(2, likeTerm);
+            if (role != null) {
+                ps.setString(3, role.name());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+            }
+        }
+        return users;
+    }
+
+    /**
+     * Sets is_active for a user. Pass false to deactivate, true to reactivate.
+     */
+    public static void setActive(long userId, boolean active) throws SQLException {
+        String sql = "UPDATE users SET is_active = ? WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, active ? 1 : 0);
+            ps.setLong(2, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Updates editable profile fields: full name, employee id, and bio.
+     */
+    public static void updateProfile(long userId, String fullName, String employeeId, String bio) throws SQLException {
+        String sql = "UPDATE users SET full_name = ?, employee_id = ?, bio = ? WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, fullName);
+            ps.setString(2, employeeId != null ? employeeId : "");
+            ps.setString(3, bio != null ? bio : "");
+            ps.setLong(4, userId);
             ps.executeUpdate();
         }
     }
