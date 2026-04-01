@@ -70,6 +70,7 @@ public final class Database {
                     created_at TEXT NOT NULL,
                     bio TEXT,
                     employee_id TEXT,
+                    avatar_path TEXT,
                     failed_login_attempts INTEGER DEFAULT 0,
                     locked_until TEXT
                 )
@@ -93,6 +94,7 @@ public final class Database {
                 status TEXT NOT NULL,
                 review_notes TEXT,
                 reviewed_date TEXT,
+                cover_path TEXT,
                 FOREIGN KEY (author_user_id) REFERENCES users(id)
             )
             """);
@@ -124,9 +126,32 @@ public final class Database {
                     file_path TEXT NOT NULL,
                     publish_date TEXT NOT NULL,
                     availability TEXT NOT NULL DEFAULT 'AVAILABLE',
+                    cover_image_path TEXT,
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
+
+            // notifications table for in-app messages to users (authors, students, staff)
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    read_at TEXT,
+                    archived_at TEXT,
+                    priority INTEGER DEFAULT 0,
+                    dedupe_key TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """);
+            try {
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);");
+            } catch (SQLException ignored) {
+                // ignore index creation errors
+            }
             st.execute("""
                 CREATE TABLE IF NOT EXISTS borrows (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,8 +164,20 @@ public final class Database {
                     FOREIGN KEY (borrower_user_id) REFERENCES users(id)
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS publish_drafts (
+                    author_user_id INTEGER PRIMARY KEY,
+                    title TEXT,
+                    genre TEXT,
+                    summary TEXT,
+                    file_path TEXT,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (author_user_id) REFERENCES users(id)
+                )
+                """);
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
+            migrateBooksTable(conn);
         }
     }
 
@@ -156,6 +193,21 @@ public final class Database {
     private static void migratePendingBooksTable(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE pending_books ADD COLUMN rejection_reason TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE pending_books ADD COLUMN cover_path TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+    }
+
+    private static void migrateBooksTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE books ADD COLUMN cover_image_path TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
@@ -183,6 +235,12 @@ public final class Database {
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE users ADD COLUMN employee_id TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN avatar_path TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;

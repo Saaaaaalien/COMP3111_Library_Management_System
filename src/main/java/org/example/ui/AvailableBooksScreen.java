@@ -12,10 +12,15 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -30,6 +35,8 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.app.Navigator;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
 import org.example.domain.Book;
@@ -39,10 +46,16 @@ import org.example.util.BookPreviewUtil;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Available books list for Student/Staff; borrow action with confirmation.
@@ -81,6 +94,27 @@ public final class AvailableBooksScreen {
         FilteredList<BookRow> filteredItems = new FilteredList<>(allItems, row -> true);
         table.setItems(filteredItems);
 
+        table.setRowFactory(tv -> {
+            TableRow<BookRow> row = new TableRow<>();
+            row.itemProperty().addListener((obs, oldItem, item) -> {
+                if (item == null) {
+                    row.setStyle("");
+                    return;
+                }
+                if ("AVAILABLE".equals(item.getAvailability())) {
+                    row.setStyle("-fx-text-fill: #1565c0;");
+                } else {
+                    row.setStyle("");
+                }
+            });
+            return row;
+        });
+
+        TableColumn<BookRow, Boolean> colPick = new TableColumn<>("Borrow");
+        colPick.setCellValueFactory(data -> data.getValue().borrowSelectedProperty());
+        colPick.setCellFactory(CheckBoxTableCell.forTableColumn(colPick));
+        colPick.setPrefWidth(70);
+
         TableColumn<BookRow, String> colTitle = new TableColumn<>("Title");
         colTitle.setCellValueFactory(new PropertyValueFactory<>("title"));
         colTitle.setPrefWidth(180);
@@ -97,31 +131,96 @@ public final class AvailableBooksScreen {
         colAvailability.setCellValueFactory(new PropertyValueFactory<>("availability"));
         colAvailability.setPrefWidth(90);
 
+        TableColumn<BookRow, String> colGenre = new TableColumn<>("Genre");
+        colGenre.setCellValueFactory(new PropertyValueFactory<>("genre"));
+        colGenre.setPrefWidth(100);
+
         TableColumn<BookRow, String> colSummary = new TableColumn<>("Abstract / Summary");
         colSummary.setCellValueFactory(new PropertyValueFactory<>("summary"));
         colSummary.setPrefWidth(SUMMARY_PREF_WIDTH);
 
-        table.getColumns().addAll(List.of(colTitle, colAuthor, colPublishDate, colAvailability, colSummary));
+        table.getColumns().addAll(List.of(colPick, colTitle, colAuthor, colGenre, colPublishDate, colAvailability, colSummary));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         // Inactivity timer: return to portal after 15 minutes with no input
         PauseTransition inactivityTimer = new PauseTransition(Duration.minutes(15));
         inactivityTimer.setOnFinished(ev -> navigator.showStudentStaffPortal());
 
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search by title or author...");
+        searchField.setMaxWidth(300);
+
+        ComboBox<String> genreFilter = new ComboBox<>(FXCollections.observableArrayList("All genres"));
+        genreFilter.getSelectionModel().selectFirst();
+        DatePicker publishFrom = new DatePicker();
+        publishFrom.setPromptText("Published from");
+        DatePicker publishTo = new DatePicker();
+        publishTo.setPromptText("Published to");
+
+        Runnable updateFilter = () -> {
+            String query = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+            String gSel = genreFilter.getSelectionModel().getSelectedItem();
+            LocalDate fromD = publishFrom.getValue();
+            LocalDate toD = publishTo.getValue();
+            filteredItems.setPredicate(row -> {
+                if (!query.isEmpty()) {
+                    boolean match = row.getTitle().toLowerCase().contains(query)
+                            || row.getAuthor().toLowerCase().contains(query);
+                    if (!match) {
+                        return false;
+                    }
+                }
+                if (gSel != null && !gSel.isBlank() && !"All genres".equals(gSel)) {
+                    if (!gSel.equalsIgnoreCase(row.getGenre())) {
+                        return false;
+                    }
+                }
+                if (fromD != null || toD != null) {
+                    try {
+                        LocalDate pd = Instant.parse(row.getPublishDateIso()).atZone(ZoneId.systemDefault()).toLocalDate();
+                        if (fromD != null && pd.isBefore(fromD)) {
+                            return false;
+                        }
+                        if (toD != null && pd.isAfter(toD)) {
+                            return false;
+                        }
+                    } catch (Exception ex) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        };
+
         // Load available books from DB and populate the table; run on init and after each borrow
         Runnable refresh = () -> {
             allItems.clear();
             try {
                 List<Book> books = BookDao.findAllAvailable();
+                Set<String> genres = new HashSet<>();
                 for (Book b : books) {
                     allItems.add(new BookRow(b));
+                    if (b.getGenre() != null && !b.getGenre().isBlank()) {
+                        genres.add(b.getGenre());
+                    }
                 }
+                List<String> gItems = new ArrayList<>();
+                gItems.add("All genres");
+                gItems.addAll(genres.stream().sorted(String.CASE_INSENSITIVE_ORDER).collect(Collectors.toList()));
+                genreFilter.setItems(FXCollections.observableArrayList(gItems));
+                genreFilter.getSelectionModel().selectFirst();
             } catch (SQLException ex) {
                 runWithTimerPaused(inactivityTimer,
                         () -> showAlert(Alert.AlertType.ERROR, "Error", "Could not load books."));
             }
+            updateFilter.run();
         };
         refresh.run();
+
+        searchField.textProperty().addListener((obs, oldText, newText) -> updateFilter.run());
+        genreFilter.setOnAction(e -> updateFilter.run());
+        publishFrom.valueProperty().addListener((o, ov, nv) -> updateFilter.run());
+        publishTo.valueProperty().addListener((o, ov, nv) -> updateFilter.run());
 
         // Borrow: require selection, show confirmation, then call BorrowService and refresh on success/error
         Button readSummaryBtn = new Button("Read Summary");
@@ -218,6 +317,40 @@ public final class AvailableBooksScreen {
             });
         });
 
+        Button borrowManyBtn = new Button("Borrow checked books");
+        borrowManyBtn.getStyleClass().add("primary-button");
+        borrowManyBtn.setOnAction(e -> {
+            List<Long> ids = allItems.stream().filter(BookRow::isBorrowSelected).map(BookRow::getBookId).distinct().toList();
+            if (ids.isEmpty()) {
+                runWithTimerPaused(inactivityTimer,
+                        () -> showAlert(Alert.AlertType.WARNING, "None selected", "Check one or more books in the Borrow column."));
+                return;
+            }
+            String titles = allItems.stream().filter(BookRow::isBorrowSelected).map(BookRow::getTitle)
+                    .collect(Collectors.joining("\n• ", "• ", ""));
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Borrow multiple");
+            confirm.setHeaderText("Borrow " + ids.size() + " book(s)?");
+            confirm.setContentText(titles);
+            runWithTimerPaused(inactivityTimer, () -> {
+                if (confirm.showAndWait().orElse(null) != ButtonType.OK) {
+                    return;
+                }
+                try {
+                    BorrowService.borrowMany(ids, currentUser.getId());
+                    allItems.forEach(r -> r.borrowSelectedProperty().set(false));
+                    showAlert(Alert.AlertType.INFORMATION, "Borrowed", "Selected books were borrowed.");
+                    refresh.run();
+                } catch (BorrowService.BorrowException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Borrow failed", ex.getMessage());
+                    refresh.run();
+                } catch (SQLException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Borrow failed", "A database error occurred.");
+                    refresh.run();
+                }
+            });
+        });
+
         Button myBorrowedBtn = new Button("My Borrowed Books");
         myBorrowedBtn.getStyleClass().add("secondary-button");
         myBorrowedBtn.setOnAction(e -> navigator.showMyBorrowedBooks(currentUser));
@@ -232,23 +365,28 @@ public final class AvailableBooksScreen {
         quickReviewBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         borrowBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
 
-        // Search field to filter by title/author
-        TextField searchField = new TextField();
-        searchField.setPromptText("Search by title or author...");
-        searchField.setMaxWidth(300);
-        searchField.textProperty().addListener((obs, oldText, newText) -> {
-            String query = newText == null ? "" : newText.trim().toLowerCase();
-            filteredItems.setPredicate(row -> {
-                if (query.isEmpty()) {
-                    return true;
-                }
-                return row.getTitle().toLowerCase().contains(query)
-                        || row.getAuthor().toLowerCase().contains(query);
-            });
-        });
+        HBox searchRow = new HBox(8,
+                new Label("Search:"), searchField,
+                new Label("Genre:"), genreFilter,
+                publishFrom, publishTo);
+        searchRow.setAlignment(Pos.CENTER_LEFT);
+        searchRow.setSpacing(10);
 
-        HBox searchRow = new HBox(8, new Label("Search:"), searchField);
-        searchRow.setAlignment(Pos.CENTER_RIGHT);
+        HBox recBox = new HBox(8);
+        recBox.setAlignment(Pos.CENTER_LEFT);
+        recBox.getChildren().add(new Label("Popular picks:"));
+        try {
+            for (Book rb : BookDao.findRecommendedAvailable(5)) {
+                CheckBox chip = new CheckBox(rb.getTitle());
+                chip.setUserData(rb.getId());
+                chip.selectedProperty().addListener((o, ov, nv) -> {
+                    allItems.stream().filter(r -> r.getBookId() == rb.getId()).findFirst()
+                            .ifPresent(r -> r.borrowSelectedProperty().set(Boolean.TRUE.equals(nv)));
+                });
+                recBox.getChildren().add(chip);
+            }
+        } catch (SQLException ignored) {
+        }
 
         Label loggedInLabel = new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
 
@@ -260,7 +398,12 @@ public final class AvailableBooksScreen {
         tableContainer.setPadding(new Insets(10));
 
         // Group primary and navigation actions
-        HBox leftActions = new HBox(10, readSummaryBtn, quickReviewBtn, borrowBtn);
+        Button profileBtn = new Button("Profile");
+        profileBtn.setOnAction(e -> navigator.showStudentStaffProfile(currentUser));
+        Button notifBtn = new Button("Notifications");
+        notifBtn.setOnAction(e -> navigator.showStudentStaffNotifications(currentUser));
+
+        HBox leftActions = new HBox(10, readSummaryBtn, quickReviewBtn, borrowBtn, borrowManyBtn, profileBtn, notifBtn);
         leftActions.setAlignment(Pos.CENTER_LEFT);
         HBox rightActions = new HBox(10, myBorrowedBtn, logoutBtn);
         rightActions.setAlignment(Pos.CENTER_RIGHT);
@@ -271,7 +414,7 @@ public final class AvailableBooksScreen {
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 
-        VBox content = new VBox(16, headerBox, searchRow, tableContainer, buttons);
+        VBox content = new VBox(16, headerBox, recBox, searchRow, tableContainer, buttons);
         content.setAlignment(Pos.TOP_CENTER);
         content.setPadding(new Insets(10));
         content.setMaxWidth(900);
@@ -594,18 +737,30 @@ public final class AvailableBooksScreen {
         private final long bookId;
         private final String title;
         private final String author;
+        private final String genre;
         private final String publishDateDisplay;
+        private final String publishDateIso;
         private final String availability;
         private final String summary;
+        private final BooleanProperty borrowSelected = new SimpleBooleanProperty(false);
 
         public BookRow(Book b) {
             this.bookId = b.getId();
             this.title = b.getTitle();
             this.author = b.getAuthorFullNameSnapshot();
-            this.publishDateDisplay = formatPublishDate(b.getPublishDate());
+            this.genre = b.getGenre() != null ? b.getGenre() : "";
+            String p = b.getPublishDate() != null ? b.getPublishDate() : Instant.now().toString();
+            this.publishDateIso = p;
+            this.publishDateDisplay = formatPublishDate(p);
             this.availability = b.getAvailability().name();
             this.summary = b.getSummary() != null ? b.getSummary() : "";
         }
+
+        public BooleanProperty borrowSelectedProperty() { return borrowSelected; }
+        public boolean isBorrowSelected() { return borrowSelected.get(); }
+
+        public String getGenre() { return genre; }
+        public String getPublishDateIso() { return publishDateIso; }
 
         /** Formats ISO-8601 publish date to MM/DD/YYYY for display; returns empty or raw substring on parse failure. */
         private static String formatPublishDate(String iso) {
@@ -630,3 +785,4 @@ public final class AvailableBooksScreen {
         public String getSummary() { return summary; }
     }
 }
+

@@ -20,9 +20,15 @@ public final class BookDao {
      */
     public static long insert(String title, long authorUserId, String authorFullNameSnapshot,
                              String genre, String summary, String filePath, String publishDate) throws SQLException {
+        return insert(title, authorUserId, authorFullNameSnapshot, genre, summary, filePath, publishDate, null);
+    }
+
+    public static long insert(String title, long authorUserId, String authorFullNameSnapshot,
+                             String genre, String summary, String filePath, String publishDate,
+                             String coverImagePath) throws SQLException {
         String sql = """
-            INSERT INTO books (title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'AVAILABLE')
+            INSERT INTO books (title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?)
             """;
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -33,6 +39,11 @@ public final class BookDao {
             ps.setString(5, summary);
             ps.setString(6, filePath);
             ps.setString(7, publishDate);
+            if (coverImagePath != null) {
+                ps.setString(8, coverImagePath);
+            } else {
+                ps.setNull(8, Types.VARCHAR);
+            }
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -48,7 +59,7 @@ public final class BookDao {
      */
     public static List<Book> findAllAvailable() throws SQLException {
         String sql = """
-            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability
+            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
             FROM books WHERE availability = 'AVAILABLE' ORDER BY publish_date DESC
             """;
         List<Book> list = new ArrayList<>();
@@ -67,7 +78,7 @@ public final class BookDao {
      */
     public static Optional<Book> findById(long id) throws SQLException {
         String sql = """
-            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability
+            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
             FROM books WHERE id = ?
             """;
         Connection conn = Database.getConnection();
@@ -95,6 +106,122 @@ public final class BookDao {
         }
     }
 
+    /**
+     * All catalog books (librarian maintenance).
+     */
+    public static List<Book> findAll() throws SQLException {
+        String sql = """
+            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
+            FROM books ORDER BY title COLLATE NOCASE
+            """;
+        List<Book> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Available books most often borrowed (popularity), for recommendations.
+     */
+    public static List<Book> findRecommendedAvailable(int limit) throws SQLException {
+        String sql = """
+            SELECT b.id, b.title, b.author_user_id, b.author_full_name_snapshot, b.genre, b.summary,
+                   b.file_path, b.publish_date, b.availability, b.cover_image_path
+            FROM books b
+            INNER JOIN (
+                SELECT book_id, COUNT(*) AS cnt FROM borrows GROUP BY book_id
+            ) pop ON pop.book_id = b.id
+            WHERE b.availability = 'AVAILABLE'
+            ORDER BY pop.cnt DESC
+            LIMIT ?
+            """;
+        List<Book> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public static List<Book> findByAuthorUserId(long authorUserId) throws SQLException {
+        String sql = """
+            SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
+            FROM books WHERE author_user_id = ? ORDER BY publish_date DESC
+            """;
+        List<Book> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, authorUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    public static void updateAuthorMetadata(long bookId, long authorUserId, String authorFullName,
+                                           String title, String genre, String summary) throws SQLException {
+        String sql = """
+            UPDATE books SET title = ?, genre = ?, summary = ?, author_full_name_snapshot = ?
+            WHERE id = ? AND author_user_id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setString(2, genre);
+            ps.setString(3, summary);
+            ps.setString(4, authorFullName);
+            ps.setLong(5, bookId);
+            ps.setLong(6, authorUserId);
+            if (ps.executeUpdate() == 0) {
+                throw new SQLException("Book not found or not owned by author.");
+            }
+        }
+    }
+
+    public static void updatePublishedFields(long id, String title, String genre, String summary,
+                                            String filePath, String coverImagePath) throws SQLException {
+        String sql = """
+            UPDATE books SET title = ?, genre = ?, summary = ?, file_path = ?, cover_image_path = ?
+            WHERE id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setString(2, genre);
+            ps.setString(3, summary);
+            ps.setString(4, filePath);
+            if (coverImagePath != null) {
+                ps.setString(5, coverImagePath);
+            } else {
+                ps.setNull(5, Types.VARCHAR);
+            }
+            ps.setLong(6, id);
+            ps.executeUpdate();
+        }
+    }
+
+    public static void deleteById(long id) throws SQLException {
+        String sql = "DELETE FROM books WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.executeUpdate();
+        }
+    }
+
     private static Book mapRow(ResultSet rs) throws SQLException {
         return new Book(
             rs.getLong("id"),
@@ -105,7 +232,8 @@ public final class BookDao {
             rs.getString("summary"),
             rs.getString("file_path"),
             rs.getString("publish_date"),
-            Availability.valueOf(rs.getString("availability"))
+            Availability.valueOf(rs.getString("availability")),
+            rs.getString("cover_image_path")
         );
     }
 }

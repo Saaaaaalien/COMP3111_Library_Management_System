@@ -9,8 +9,14 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.control.ContentDisplay;
 import org.example.app.Navigator;
+import org.example.db.NotificationDao;
 import org.example.domain.User;
+
+import java.sql.SQLException;
 
 import java.util.Optional;
 
@@ -132,6 +138,35 @@ public final class AuthorDashboardScreen {
         // Welcome message card
         VBox welcomeCard = createInfoCard();
 
+        HBox phase2Links = new HBox(12);
+        phase2Links.setAlignment(Pos.CENTER);
+        Button myBooksBtn = new Button("My Books");
+        myBooksBtn.getStyleClass().add("secondary-button");
+        myBooksBtn.setPrefWidth(140);
+        myBooksBtn.setOnAction(e -> navigator.showAuthorPublishedBooks(currentUser));
+
+        Button profileBtn = new Button("Profile");
+        profileBtn.getStyleClass().add("secondary-button");
+        profileBtn.setPrefWidth(140);
+        profileBtn.setOnAction(e -> navigator.showAuthorProfile(currentUser));
+
+        Button notifBtn = new Button("Notifications");
+        notifBtn.getStyleClass().add("secondary-button");
+        notifBtn.setPrefWidth(140);
+        try {
+            int n = NotificationDao.countUnread(currentUser.getId());
+            notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");
+            if (n > 0) {
+                Circle dot = new Circle(6, Color.web("#e74c3c"));
+                notifBtn.setGraphic(dot);
+                notifBtn.setContentDisplay(ContentDisplay.RIGHT);
+                notifBtn.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-background-color: white; -fx-text-fill: #2c3e50;");
+            }
+        } catch (SQLException ignored) {
+        }
+        notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
+        phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
+
         // Publish Book Card
         VBox publishCard = createPublishBookCard();
 
@@ -139,7 +174,7 @@ public final class AuthorDashboardScreen {
         Label bottomSpacer = new Label("");
         bottomSpacer.setPrefHeight(50);
 
-        content.getChildren().addAll(welcomeCard, publishCard, bottomSpacer);
+        content.getChildren().addAll(welcomeCard, phase2Links, publishCard, bottomSpacer);
 
         return content;
     }

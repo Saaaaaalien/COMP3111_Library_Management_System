@@ -1,7 +1,15 @@
 package org.example.app;
 
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.scene.image.Image;
 import org.example.domain.User;
 
 /**
@@ -17,84 +25,186 @@ public class Navigator {
     public Navigator(Stage stage) {
         this.stage = stage;
         this.stage.setTitle("E-Book Library System");
+        setAppIcon();
+        this.stage.sceneProperty().addListener((obs, oldScene, newScene) -> attachDevCrashShortcut(newScene));
+    }
+
+    private void setAppIcon() {
+        try {
+            String iconPath = "/icons/app-icon.png";
+            Image icon = new Image(getClass().getResourceAsStream(iconPath));
+            stage.getIcons().add(icon);
+        } catch (Exception e) {
+            System.err.println("Failed to load app icon: " + e.getMessage());
+        }
+    }
+
+    private void attachDevCrashShortcut(Scene scene) {
+        if (scene == null || !AppConfig.DEV_MODE) {
+            return;
+        }
+        var crashCombo = new KeyCodeCombination(KeyCode.X, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
+        scene.getAccelerators().put(crashCombo, SessionService::simulateCrash);
+        Object wrapped = scene.getProperties().get("devCrashOverlayInstalled");
+        if (Boolean.TRUE.equals(wrapped)) {
+            return;
+        }
+        Button crashBtn = new Button("Crash Test");
+        crashBtn.getStyleClass().add("secondary-button");
+        crashBtn.setOnAction(e -> SessionService.simulateCrash());
+        StackPane wrapper = new StackPane(scene.getRoot(), crashBtn);
+        StackPane.setAlignment(crashBtn, Pos.TOP_RIGHT);
+        StackPane.setMargin(crashBtn, new Insets(10));
+        scene.setRoot(wrapper);
+        scene.getProperties().put("devCrashOverlayInstalled", true);
     }
 
     public void showWelcome() {
+        SessionService.clear();
         Scene scene = org.example.ui.WelcomeScreen.create(this);
         stage.setScene(scene);
         stage.show();
     }
 
     public void showStudentStaffPortal() {
+        SessionService.save("STUDENT_PORTAL", 0);
         Scene scene = org.example.ui.StudentStaffEntryScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showStudentStaffLogin() {
+        SessionService.save("STUDENT_LOGIN", 0);
         Scene scene = org.example.ui.StudentStaffLoginScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showStudentStaffRegister() {
+        SessionService.save("STUDENT_REGISTER", 0);
         Scene scene = org.example.ui.StudentStaffRegisterScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showAvailableBooks(User studentOrStaff) {
+        SessionService.save("AVAILABLE_BOOKS", studentOrStaff.getId());
         Scene scene = org.example.ui.AvailableBooksScreen.create(this, studentOrStaff);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showMyBorrowedBooks(User studentOrStaff) {
+        SessionService.save("MY_BORROWS", studentOrStaff.getId());
         Scene scene = org.example.ui.MyBorrowedBooksScreen.create(this, studentOrStaff);
         stage.setScene(scene);
+        stage.show();
     }
 
-    //Tasks2
+    public void showStudentStaffProfile(User user) {
+        SessionService.save("PROFILE_STUDENT", user.getId());
+        Scene scene = org.example.ui.StudentStaffProfileScreen.create(this, user);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showStudentStaffNotifications(User user) {
+        SessionService.save("NOTIFICATIONS_STUDENT", user.getId());
+        Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user);
+        stage.setScene(scene);
+        stage.show();
+    }
+
     public void showAuthorPortal() {
+        SessionService.save("AUTHOR_PORTAL", 0);
         Scene scene = org.example.ui.AuthorEntryScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showAuthorLogin() {
+        SessionService.save("AUTHOR_LOGIN", 0);
         Scene scene = org.example.ui.AuthorLoginScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showAuthorRegister() {
+        SessionService.save("AUTHOR_REGISTER", 0);
         Scene scene = org.example.ui.AuthorRegisterScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showAuthorDashboard(User user) {
+        SessionService.save("AUTHOR_DASH", user.getId());
         Scene scene = org.example.ui.AuthorDashboardScreen.create(this, user);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showPublishBook(User user) {
+        SessionService.save("AUTHOR_PUBLISH", user.getId());
         Scene scene = org.example.ui.PublishBookScreen.create(this, user);
         stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showAuthorPublishedBooks(User user) {
+        SessionService.save("AUTHOR_PUBLISHED", user.getId());
+        Scene scene = org.example.ui.AuthorPublishedBooksScreen.create(this, user);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showAuthorProfile(User user) {
+        SessionService.save("AUTHOR_PROFILE", user.getId());
+        Scene scene = org.example.ui.AuthorProfileScreen.create(this, user);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showAuthorNotifications(User user) {
+        SessionService.save("AUTHOR_NOTIFICATIONS", user.getId());
+        Scene scene = org.example.ui.AuthorNotificationsScreen.create(this, user);
+        stage.setScene(scene);
+        stage.show();
     }
 
     public void showLibrarianPortal() {
+        SessionService.save("LIBRARIAN_PORTAL", 0);
         Scene scene = org.example.ui.LibrarianEntryScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showLibrarianLogin() {
+        SessionService.save("LIBRARIAN_LOGIN", 0);
         Scene scene = org.example.ui.LibrarianLoginScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showLibrarianRegister() {
+        SessionService.save("LIBRARIAN_REGISTER", 0);
         Scene scene = org.example.ui.LibrarianRegisterScreen.create(this);
         stage.setScene(scene);
+        stage.show();
     }
 
     public void showLibrarianApproval(User librarian) {
+        SessionService.save("LIBRARIAN_APPROVAL", librarian.getId());
         Scene scene = org.example.ui.LibrarianApprovalScreen.create(this, librarian);
         scene.setUserData(librarian);
         stage.setScene(scene);
+        stage.show();
+    }
+
+    public void showLibrarianCatalog(User librarian) {
+        SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
+        Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
+        stage.setScene(scene);
+        stage.show();
     }
 
     public Stage getStage() {

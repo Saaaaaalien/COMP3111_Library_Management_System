@@ -101,7 +101,7 @@ public final class BorrowDao {
     public static List<BorrowWithBook> findAllByBorrowerUserId(long borrowerUserId) throws SQLException {
         String sql = """
             SELECT b.id AS borrow_id, b.book_id, b.borrowed_at, b.returned_at, b.due_at,
-                   k.title, k.author_full_name_snapshot AS author
+                   k.title, k.author_full_name_snapshot AS author, k.file_path AS book_file_path
             FROM borrows b
             JOIN books k ON k.id = b.book_id
             WHERE b.borrower_user_id = ?
@@ -120,7 +120,8 @@ public final class BorrowDao {
                         rs.getString("author"),
                         rs.getString("borrowed_at"),
                         rs.getString("returned_at"),
-                        rs.getString("due_at")
+                        rs.getString("due_at"),
+                        rs.getString("book_file_path")
                     ));
                 }
             }
@@ -139,6 +140,97 @@ public final class BorrowDao {
             ps.setLong(2, id);
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Active borrows for a book (for removal notifications).
+     */
+    public static List<long[]> findActiveBorrowerPairsForBook(long bookId) throws SQLException {
+        String sql = """
+            SELECT id, borrower_user_id FROM borrows
+            WHERE book_id = ? AND (returned_at IS NULL OR returned_at = '')
+            """;
+        List<long[]> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, bookId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new long[] { rs.getLong("id"), rs.getLong("borrower_user_id") });
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Active borrows whose due_at is strictly before {@code nowIso} (ISO-8601 instant strings compare lexicographically).
+     */
+    public static List<Long> findOverdueActiveBorrowIds(String nowIso) throws SQLException {
+        String sql = """
+            SELECT id FROM borrows
+            WHERE (returned_at IS NULL OR returned_at = '')
+            AND due_at IS NOT NULL AND due_at != ''
+            AND due_at < ?
+            """;
+        List<Long> ids = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, nowIso);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getLong("id"));
+                }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Active borrows with a due date (for reminder notifications).
+     */
+    public static List<ActiveBorrowDueRow> findAllActiveWithDue() throws SQLException {
+        String sql = """
+            SELECT b.id AS borrow_id, b.borrower_user_id, b.book_id, b.due_at, k.title AS title
+            FROM borrows b
+            JOIN books k ON k.id = b.book_id
+            WHERE (b.returned_at IS NULL OR b.returned_at = '')
+            AND b.due_at IS NOT NULL AND b.due_at != ''
+            """;
+        List<ActiveBorrowDueRow> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new ActiveBorrowDueRow(
+                    rs.getLong("borrow_id"),
+                    rs.getLong("borrower_user_id"),
+                    rs.getLong("book_id"),
+                    rs.getString("due_at"),
+                    rs.getString("title")
+                ));
+            }
+        }
+        return list;
+    }
+
+    public record ActiveBorrowDueRow(long borrowId, long borrowerUserId, long bookId, String dueAt, String bookTitle) {}
+
+    public static int countActiveBorrowsForBook(long bookId) throws SQLException {
+        String sql = """
+            SELECT COUNT(*) FROM borrows
+            WHERE book_id = ? AND (returned_at IS NULL OR returned_at = '')
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, bookId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
     }
 
     private static Borrow mapRow(ResultSet rs) throws SQLException {

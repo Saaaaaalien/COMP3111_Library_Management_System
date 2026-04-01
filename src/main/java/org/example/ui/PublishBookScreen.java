@@ -11,19 +11,27 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.animation.PauseTransition;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
+import org.example.db.PublishDraftDao;
 import org.example.domain.User;
 import org.example.service.PublishService;
 
 import java.io.File;
+import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 
 public final class PublishBookScreen {
 
     private static File selectedBookFile;
+    private static File selectedCoverFile;
     private static Label fileNameLabel;
     private static TextField titleField;
     private static ListView<String> genreListView;
@@ -34,6 +42,7 @@ public final class PublishBookScreen {
     // Display components for selections
     private static Label selectedGenresLabel;
     private static Label fileDisplayLabel;
+    private static Label coverPathDisplay;
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -95,14 +104,15 @@ public final class PublishBookScreen {
                     titleField.getText().trim(),
                     genres,
                     descriptionArea.getText().trim(),
-                    selectedBookFile
+                    selectedBookFile,
+                    selectedCoverFile
             );
 
-            if (result.isSuccess()) {
-                showSuccess(result.getMessage());
+            if (result.success()) {
+                showSuccess(result.message());
                 clearForm();
             } else {
-                showError("Error", result.getMessage());
+                showError("Error", result.message());
             }
         });
 
@@ -150,6 +160,50 @@ public final class PublishBookScreen {
         if (cssResource != null) {
             scene.getStylesheets().add(cssResource.toExternalForm());
         }
+
+        try {
+            PublishDraftDao.findByAuthor(currentUser.getId()).ifPresent(d -> {
+                if (d.title() != null) {
+                    titleField.setText(d.title());
+                }
+                if (d.summary() != null) {
+                    descriptionArea.setText(d.summary());
+                }
+                if (d.filePath() != null && !d.filePath().isBlank()) {
+                    File draftFile = new File(d.filePath());
+                    if (draftFile.exists() && draftFile.canRead()) {
+                        selectedBookFile = draftFile;
+                        fileNameLabel.setText(draftFile.getName());
+                        fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                        fileDisplayLabel.setText(draftFile.getName() + " (" +
+                                formatFileSize(draftFile.length()) + ")");
+                        fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    }
+                }
+                if (d.genre() != null && !d.genre().isBlank()) {
+                    genreListView.getSelectionModel().clearSelection();
+                    for (String part : d.genre().split(",")) {
+                        String g = part.trim();
+                        int idx = AVAILABLE_GENRES.indexOf(g);
+                        if (idx >= 0) {
+                            genreListView.getSelectionModel().select(idx);
+                        }
+                    }
+                    updateSelectedGenresDisplay();
+                }
+            });
+        } catch (SQLException ignored) {
+        }
+
+        PauseTransition draftDebounce = new PauseTransition(Duration.seconds(1.2));
+        draftDebounce.setOnFinished(ev -> {
+            persistDraftQuietly();
+        });
+        Runnable bumpDraft = () -> draftDebounce.playFromStart();
+        titleField.textProperty().addListener((a, b, c) -> bumpDraft.run());
+        descriptionArea.textProperty().addListener((a, b, c) -> bumpDraft.run());
+        genreListView.getSelectionModel().getSelectedItems().addListener(
+                (javafx.collections.ListChangeListener<String>) c -> bumpDraft.run());
 
         return scene;
     }
@@ -218,6 +272,7 @@ public final class PublishBookScreen {
         clearGenreSelectionBtn.setOnAction(e -> {
             genreListView.getSelectionModel().clearSelection();
             updateSelectedGenresDisplay();
+            persistDraftQuietly();
         });
 
         // Spacer to push button to the right
@@ -299,6 +354,7 @@ public final class PublishBookScreen {
             fileNameLabel.setStyle("-fx-text-fill: #666;");
             fileDisplayLabel.setText("None");
             fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+            persistDraftQuietly();
         });
 
         fileDisplayBox.getChildren().addAll(selectedFileHeader, fileDisplayLabel, clearFileBtn);
@@ -358,6 +414,7 @@ public final class PublishBookScreen {
                     fileDisplayLabel.setText(selectedFile.getName() + " (" +
                             formatFileSize(selectedFile.length()) + ")");
                     fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    persistDraftQuietly();
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -366,6 +423,31 @@ public final class PublishBookScreen {
         });
 
         VBox fileSelectionBox = new VBox(8, fileBox, fileDisplayBox);
+
+        Label coverLabel = new Label("Cover image (optional, JPG/PNG ≤ 2MB)");
+        coverLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        Label coverPathLabel = new Label("None");
+        coverPathLabel.setStyle("-fx-text-fill: #666;");
+        coverPathDisplay = coverPathLabel;
+        Button coverBtn = new Button("Choose cover");
+        coverBtn.getStyleClass().add("secondary-button");
+        coverBtn.setOnAction(e -> {
+            Stage st = (Stage) coverBtn.getScene().getWindow();
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Cover image");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png"));
+            File f = fc.showOpenDialog(st);
+            if (f != null) {
+                if (f.length() > 2L * 1024 * 1024) {
+                    showError("Too large", "Cover must be at most 2MB.");
+                    return;
+                }
+                selectedCoverFile = f;
+                coverPathLabel.setText(f.getName());
+            }
+        });
+        HBox coverRow = new HBox(10, coverBtn, coverPathLabel);
+        VBox coverBox = new VBox(6, coverLabel, coverRow);
 
         // Required fields note
         Label requiredNote = new Label("* Required fields");
@@ -379,6 +461,7 @@ public final class PublishBookScreen {
                 genreLabel, genreBox,
                 descriptionLabel, descriptionArea,
                 fileLabel, fileSelectionBox,
+                coverBox,
                 requiredNote
         );
 
@@ -403,23 +486,29 @@ public final class PublishBookScreen {
     }
 
     private static boolean validateForm() {
-        if (titleField.getText().trim().isEmpty()) {
-            showError("Validation Error", "Book title is required");
-            return false;
+        List<String> errors = new java.util.ArrayList<>();
+
+        String title = titleField.getText();
+        if (title == null || title.trim().isEmpty()) {
+            errors.add("Book title is required");
         }
 
-        if (genreListView.getSelectionModel().getSelectedItems().isEmpty()) {
-            showError("Validation Error", "Please select at least one genre");
-            return false;
+        var selectedGenres = genreListView.getSelectionModel().getSelectedItems();
+        if (selectedGenres == null || selectedGenres.isEmpty()) {
+            errors.add("Please select at least one genre");
         }
 
-        if (descriptionArea.getText().trim().isEmpty()) {
-            showError("Validation Error", "Description is required");
-            return false;
+        String description = descriptionArea.getText();
+        if (description == null || description.trim().isEmpty()) {
+            errors.add("Description is required");
         }
 
         if (selectedBookFile == null) {
-            showError("Validation Error", "Please select a book file");
+            errors.add("Please select a book file");
+        }
+
+        if (!errors.isEmpty()) {
+            showError("Validation Error", String.join("\n", errors));
             return false;
         }
 
@@ -495,7 +584,24 @@ public final class PublishBookScreen {
         descPreview.setPrefRowCount(5);
         descPreview.setStyle("-fx-background-color: #f8fafc; -fx-border-color: #d0d7e2;");
 
-        previewBox.getChildren().addAll(titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        // Build preview area with cover image on the left
+        VBox details = new VBox(10, titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        details.setPrefWidth(420);
+
+        Image coverImg = null;
+        try {
+            if (selectedCoverFile != null) {
+                coverImg = new Image(selectedCoverFile.toURI().toString(), 120, 180, true, true);
+            }
+        } catch (Exception ignored) {}
+        if (coverImg == null || coverImg.isError()) {
+            var u = PublishBookScreen.class.getResource("/images/default-cover.png");
+            if (u != null) coverImg = new Image(u.toExternalForm(), 120, 180, true, true);
+        }
+        ImageView coverView = new ImageView(coverImg);
+
+        HBox previewWithCover = new HBox(20, coverView, details);
+        previewBox.getChildren().add(previewWithCover);
 
         Label confirmMsg = new Label("Are you sure you want to submit this book for approval?");
         confirmMsg.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 14px;");
@@ -548,6 +654,25 @@ public final class PublishBookScreen {
         fileDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
         selectedGenresLabel.setText("None selected");
         selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        selectedCoverFile = null;
+        if (coverPathDisplay != null) {
+            coverPathDisplay.setText("None");
+        }
+    }
+
+    private static void persistDraftQuietly() {
+        try {
+            String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+            PublishDraftDao.upsert(
+                    currentUser.getId(),
+                    titleField.getText(),
+                    genres,
+                    descriptionArea.getText(),
+                    selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
+                    Instant.now().toString()
+            );
+        } catch (SQLException ignored) {
+        }
     }
 
     private static String formatFileSize(long size) {

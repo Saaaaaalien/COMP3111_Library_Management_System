@@ -44,34 +44,32 @@ public final class Validators {
         }
     }
 
-    /**
-     * Validates password: minimum length.
-     *
-     * @throws ValidationException if invalid
-     */
-    public static void validatePassword(String password) throws ValidationException {
-        validateRequired(password, "Password");
-        if (password.length() < PASSWORD_MIN_LENGTH) {
-            throw new ValidationException("Password must be at least " + PASSWORD_MIN_LENGTH + " characters.");
-        }
-    }
 
     /**
      * Validates password strength: min 8 chars, at least one uppercase, one digit, one special character.
      * Call this in addition to validatePassword for strict validation.
      *
-     * @throws ValidationException if invalid
+     * @throws ValidationException if invalid (includes all unsatisfied requirements)
      */
     public static void validatePasswordStrength(String password) throws ValidationException {
-        validatePassword(password);
+        validateRequired(password, "Password");
+        StringBuilder errors = new StringBuilder();
+        
+        if (password.length() < PASSWORD_MIN_LENGTH) {
+            errors.append("• At least " + PASSWORD_MIN_LENGTH + " characters\n");
+        }
         if (!password.matches(".*[A-Z].*")) {
-            throw new ValidationException("Password must contain at least one uppercase letter.");
+            errors.append("• At least one uppercase letter\n");
         }
         if (!password.matches(".*[0-9].*")) {
-            throw new ValidationException("Password must contain at least one number.");
+            errors.append("• At least one number\n");
         }
         if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
-            throw new ValidationException("Password must contain at least one special character (e.g. !@#$%^&*).");
+            errors.append("• At least one special character (e.g. !@#$%^&*)\n");
+        }
+        
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Password must contain:\n" + errors.toString().trim());
         }
     }
 
