@@ -725,25 +725,46 @@ public final class PublishBookScreen {
         selectedGenresLabel.setText("None selected");
         selectedGenresLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
         selectedCoverFile = null;
+        if (coverNameLabel != null) {
+            coverNameLabel.setText("No file selected");
+            coverNameLabel.setStyle("-fx-text-fill: #666;");
+        }
         if (coverPathDisplay != null) {
             coverPathDisplay.setText("None");
+            coverPathDisplay.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
         }
     }
 
     private static void persistDraftQuietly() {
         try {
-            String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
+            String title = titleField != null ? titleField.getText() : null;
+            String genres = genreListView != null
+                    ? String.join(", ", genreListView.getSelectionModel().getSelectedItems())
+                    : null;
+            String summary = descriptionArea != null ? descriptionArea.getText() : null;
+            String filePath = selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null;
+            String coverPath = selectedCoverFile != null ? selectedCoverFile.getAbsolutePath() : null;
+
+            if (isBlank(title) && isBlank(genres) && isBlank(summary) && isBlank(filePath) && isBlank(coverPath)) {
+                PublishDraftDao.deleteForAuthor(currentUser.getId());
+                return;
+            }
+
             PublishDraftDao.upsert(
-                    currentUser.getId(),
-                    titleField.getText(),
-                    genres,
-                    descriptionArea.getText(),
-                    selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
-                    selectedCoverFile != null ? selectedCoverFile.getAbsolutePath() : null,
-                    Instant.now().toString()
+                currentUser.getId(),
+                title,
+                genres,
+                summary,
+                filePath,
+                coverPath,
+                Instant.now().toString()
             );
         } catch (SQLException ignored) {
         }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 
     private static String formatFileSize(long size) {

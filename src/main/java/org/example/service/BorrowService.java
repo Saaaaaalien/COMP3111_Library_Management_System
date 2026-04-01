@@ -104,7 +104,10 @@ public final class BorrowService {
                 throw new BorrowException("This book has already been returned.");
             }
             BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
-            BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            // If the catalog row was removed in legacy data, still allow return to complete.
+            if (BookDao.findById(borrow.getBookId()).isPresent()) {
+                BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            }
             clearReadingForBorrow(borrowId);
             conn.commit();
         } catch (BorrowException | SQLException e) {
@@ -137,7 +140,9 @@ public final class BorrowService {
                 return;
             }
             BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
-            BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            if (BookDao.findById(borrow.getBookId()).isPresent()) {
+                BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
+            }
             clearReadingForBorrow(borrowId);
             conn.commit();
         } catch (SQLException e) {
@@ -217,8 +222,29 @@ public final class BorrowService {
     }
 
     private static void clearReadingForBorrow(long borrowId) throws SQLException {
-        ReadingHighlightDao.deleteAllForBorrow(borrowId);
-        ReadingProgressDao.deleteForBorrow(borrowId);
+        try {
+            ReadingHighlightDao.deleteAllForBorrow(borrowId);
+        } catch (SQLException e) {
+            if (!isIgnorableReadingCleanupError(e)) {
+                throw e;
+            }
+        }
+        try {
+            ReadingProgressDao.deleteForBorrow(borrowId);
+        } catch (SQLException e) {
+            if (!isIgnorableReadingCleanupError(e)) {
+                throw e;
+            }
+        }
+    }
+
+    private static boolean isIgnorableReadingCleanupError(SQLException e) {
+        String msg = e.getMessage();
+        if (msg == null) return false;
+        String m = msg.toLowerCase();
+        return m.contains("no such table")
+                || m.contains("no such column")
+                || m.contains("has no column");
     }
 
     /** Rolls back the current transaction on the given connection; ignores rollback errors. */

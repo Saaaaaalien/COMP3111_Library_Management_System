@@ -71,16 +71,22 @@ public final class AuthorPublishedBooksScreen {
         private final String status; // APPROVED or REJECTED
         private final boolean isPending;
         private final String coverPath;
+        private final boolean hiddenFromCatalog;
 
         BookRow(Book b) {
+            this(b, false);
+        }
+
+        BookRow(Book b, boolean hiddenFromCatalog) {
             this.id = b.getId();
             this.pendingId = 0;
             this.title = b.getTitle();
             this.genre = b.getGenre();
             this.authorUserId = b.getAuthorUserId();
-            this.status = "APPROVED";
+            this.status = hiddenFromCatalog ? "READY_TO_DELETE" : "APPROVED";
             this.isPending = false;
             this.coverPath = b.getCoverImagePath();
+            this.hiddenFromCatalog = hiddenFromCatalog;
         }
 
         BookRow(PendingBook p) {
@@ -92,6 +98,7 @@ public final class AuthorPublishedBooksScreen {
             this.status = p.getStatus();
             this.isPending = true;
             this.coverPath = p.getCoverPath();
+            this.hiddenFromCatalog = false;
         }
 
         public long getId() { return id; }
@@ -102,6 +109,7 @@ public final class AuthorPublishedBooksScreen {
         public String getStatus() { return status; }
         public boolean isPending() { return isPending; }
         public String getCoverPath() { return coverPath; }
+        public boolean isHiddenFromCatalog() { return hiddenFromCatalog; }
     }
 
     public static Scene create(Navigator navigator, User user) {
@@ -183,16 +191,29 @@ public final class AuthorPublishedBooksScreen {
                 }
                 for (PendingBook p : pendings) {
                     if (p.getAuthorUserId() == user.getId()) {
+                        // Approved submissions are represented by real rows in books.
+                        // Hiding approved pending rows avoids duplicate/stale entries.
+                        if ("APPROVED".equalsIgnoreCase(p.getStatus())) {
+                            continue;
+                        }
                         bItems.add(new BookRow(p));
                     }
                 }
 
                 // Load published books by author, apply simple client-side search filtering
+                var hiddenBookIds = BookDao.findHiddenBookIdsByAuthor(user.getId());
                 for (Book b : BookDao.findByAuthorUserId(user.getId())) {
+                    boolean hidden = hiddenBookIds.contains(b.getId());
+                    if (hidden) {
+                        // Hidden books are only kept in the list while they are still actively borrowed.
+                        if (BorrowDao.countActiveBorrowsForBook(b.getId()) <= 0) {
+                            continue;
+                        }
+                    }
                     if (search == null || search.isEmpty() || b.getTitle().toLowerCase().contains(search) || (b.getGenre() != null && b.getGenre().toLowerCase().contains(search))) {
                         // Published books correspond to APPROVED status; only include when status filter allows it
                         if (status == null || "APPROVED".equalsIgnoreCase(status)) {
-                            bItems.add(new BookRow(b));
+                            bItems.add(new BookRow(b, hidden));
                         }
                     }
                 }
@@ -233,6 +254,10 @@ public final class AuthorPublishedBooksScreen {
                     Optional<PendingBook> opt = PendingDao.findById(r.getPendingId());
                     if (opt.isEmpty()) return;
                     PendingBook p = opt.get();
+                    if ("APPROVED".equalsIgnoreCase(p.getStatus())) {
+                        new Alert(Alert.AlertType.INFORMATION, "This approved submission is already in the catalog. Edit the published book row instead.").showAndWait();
+                        return;
+                    }
 
                     TextField tTitle = new TextField(p.getTitle());
                     TextField tGenre = new TextField(p.getGenre());
@@ -313,10 +338,6 @@ public final class AuthorPublishedBooksScreen {
 
                 } else {
                     // published book
-                    if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
-                        new Alert(Alert.AlertType.WARNING, "Cannot edit while someone has this book borrowed.").showAndWait();
-                        return;
-                    }
                     Optional<Book> opt = BookDao.findById(r.getId());
                     if (opt.isEmpty()) return;
                     Book bk = opt.get();
@@ -341,7 +362,7 @@ public final class AuthorPublishedBooksScreen {
                         if (f != null) tCover.setText(f.getAbsolutePath());
                     });
                     Alert form = new Alert(Alert.AlertType.CONFIRMATION);
-                    form.setTitle("Edit published book (submit changes)");
+                    form.setTitle("Edit published book");
                     form.getDialogPane().setContent(g);
                     form.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
                         String newTitle = tTitle.getText().trim();
@@ -365,37 +386,15 @@ public final class AuthorPublishedBooksScreen {
                                 new Alert(Alert.AlertType.INFORMATION, "No changes detected.").showAndWait();
                                 return;
                             }
-
-                            // Confirm with the author that changes will create a pending submission
-                            Alert confirmPending = new Alert(Alert.AlertType.CONFIRMATION);
-                            confirmPending.setTitle("Submit changes for approval");
-                            confirmPending.setHeaderText(null);
-                            confirmPending.setContentText("You have changed the book details. Submitting will create a pending submission and the changes will require librarian approval. Proceed?");
-                            Optional<ButtonType> confirmRes = confirmPending.showAndWait();
-                            if (confirmRes.isEmpty() || confirmRes.get() != ButtonType.OK) {
-                                return;
-                            }
-
-                            // Create a pending submission for approval based on edited details
-                            String filePath = bk.getFilePath();
-                            String fileName = "";
-                            long fileSize = 0L;
-                            String fileType = "pdf";
-                            try {
-                                java.nio.file.Path pth = java.nio.file.Paths.get(filePath);
-                                fileName = pth.getFileName().toString();
-                                fileSize = java.nio.file.Files.size(pth);
-                                String name = fileName.toLowerCase();
-                                int dot = name.lastIndexOf('.');
-                                if (dot > 0) fileType = name.substring(dot+1);
-                            } catch (Exception ignored) {}
-
-                            PendingBook np = new PendingBook(newTitle, user.getId(), user.getFullName(), newGenre, newSummary, fileName, filePath, fileSize, fileType);
-                            if (newCover != null) np.setCoverPath(newCover);
-                            np.setOriginalBookId(bk.getId());
-                            PendingDao.insert(np);
-
-                            new Alert(Alert.AlertType.INFORMATION, "Your changes have been submitted for librarian approval.").showAndWait();
+                            BookDao.updatePublishedFieldsIncludingLinked(
+                                    bk.getId(),
+                                    newTitle,
+                                    newGenre,
+                                    newSummary,
+                                    bk.getFilePath(),
+                                    newCover
+                            );
+                            new Alert(Alert.AlertType.INFORMATION, "Book details updated successfully.").showAndWait();
                             refresh.run();
                         } catch (SQLException ex) {
                             new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
@@ -434,7 +433,26 @@ public final class AuthorPublishedBooksScreen {
 
                 // published book deletion
                 if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
-                    new Alert(Alert.AlertType.WARNING, "Cannot delete while the book is borrowed.").showAndWait();
+                    if (r.isHiddenFromCatalog()) {
+                        new Alert(Alert.AlertType.INFORMATION,
+                                "This book is already hidden from catalog but cannot be permanently deleted yet because someone is still borrowing it.")
+                                .showAndWait();
+                        return;
+                    }
+                    new Alert(Alert.AlertType.CONFIRMATION,
+                            "This book is currently borrowed.\n\n" +
+                            "It cannot be permanently deleted now.\n" +
+                            "Do you want to remove it from catalog so no one else can borrow it?")
+                            .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                                try {
+                                    BookDao.hideFromCatalog(r.getId());
+                                    new Alert(Alert.AlertType.INFORMATION,
+                                            "Book removed from catalog. Existing borrowers can still return it.").showAndWait();
+                                    refresh.run();
+                                } catch (SQLException ex) {
+                                    new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
+                                }
+                            });
                     return;
                 }
                 new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog permanently?")

@@ -138,6 +138,21 @@ public final class AuthorNotificationsScreen {
             }
         });
 
+        Button readAllBtn = new Button("Mark all read");
+        readAllBtn.getStyleClass().add("secondary-button");
+        readAllBtn.setPrefWidth(140);
+        readAllBtn.setOnAction(e -> {
+            try {
+                int n = NotificationDao.markAllRead(user.getId(), Instant.now().toString());
+                if (n == 0) {
+                    new Alert(Alert.AlertType.INFORMATION, "No unread notifications to mark.").showAndWait();
+                }
+                refresh.run();
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not update all notifications.").showAndWait();
+            }
+        });
+
         Button archBtn = new Button("Archive");
         archBtn.getStyleClass().add("secondary-button");
         archBtn.setPrefWidth(140);
@@ -157,7 +172,7 @@ public final class AuthorNotificationsScreen {
 
         HBox back = new HBox(5, backBtn);
         HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
-        HBox actions = new HBox(5, readBtn, archBtn);
+        HBox actions = new HBox(5, readBtn, readAllBtn, archBtn);
         actions.setPadding(new Insets(16, 0, 0, 0));
 
         VBox listWrapper = new VBox(list);

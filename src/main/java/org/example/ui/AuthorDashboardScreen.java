@@ -280,7 +280,7 @@ public final class AuthorDashboardScreen {
         // Add click handlers to both card and button for better UX
         card.setOnMouseClicked(e -> {
             try {
-                if (PublishDraftDao.findByAuthor(currentUser.getId()).isPresent()) {
+                if (hasMeaningfulDraft()) {
                     Alert info = new Alert(Alert.AlertType.INFORMATION);
                     info.setTitle("Draft Loaded");
                     info.setHeaderText(null);
@@ -296,7 +296,7 @@ public final class AuthorDashboardScreen {
 
         publishBtn.setOnAction(e -> {
             try {
-                if (PublishDraftDao.findByAuthor(currentUser.getId()).isPresent()) {
+                if (hasMeaningfulDraft()) {
                     Alert info = new Alert(Alert.AlertType.INFORMATION);
                     info.setTitle("Draft Loaded");
                     info.setHeaderText(null);
@@ -313,5 +313,22 @@ public final class AuthorDashboardScreen {
         card.getChildren().addAll(titleLabel, descriptionLabel, publishBtn);
 
         return card;
+    }
+
+    private static boolean hasMeaningfulDraft() throws SQLException {
+        Optional<PublishDraftDao.Draft> draftOpt = PublishDraftDao.findByAuthor(currentUser.getId());
+        if (draftOpt.isEmpty()) {
+            return false;
+        }
+        PublishDraftDao.Draft d = draftOpt.get();
+        return !isBlank(d.title())
+                || !isBlank(d.genre())
+                || !isBlank(d.summary())
+                || !isBlank(d.filePath())
+                || !isBlank(d.coverPath());
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 }

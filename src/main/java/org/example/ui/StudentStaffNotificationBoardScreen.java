@@ -98,6 +98,19 @@ public final class StudentStaffNotificationBoardScreen {
             }
         });
 
+        Button readAllBtn = new Button("Mark all read");
+        readAllBtn.setOnAction(e -> {
+            try {
+                int n = NotificationDao.markAllRead(user.getId(), Instant.now().toString());
+                if (n == 0) {
+                    new Alert(Alert.AlertType.INFORMATION, "No unread notifications to mark.").showAndWait();
+                }
+                refresh.run();
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not update all notifications.").showAndWait();
+            }
+        });
+
         Button archBtn = new Button("Archive");
         archBtn.setOnAction(e -> {
             AppNotification n = list.getSelectionModel().getSelectedItem();
@@ -118,7 +131,7 @@ public final class StudentStaffNotificationBoardScreen {
 
         HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
-        HBox actions = new HBox(10, readBtn, archBtn, backBtn);
+        HBox actions = new HBox(10, readBtn, readAllBtn, archBtn, backBtn);
 
         VBox top = new VBox(8, title, filters, actions);
         top.setPadding(new Insets(10));

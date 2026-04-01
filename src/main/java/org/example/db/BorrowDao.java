@@ -101,9 +101,11 @@ public final class BorrowDao {
     public static List<BorrowWithBook> findAllByBorrowerUserId(long borrowerUserId) throws SQLException {
         String sql = """
             SELECT b.id AS borrow_id, b.book_id, b.borrowed_at, b.returned_at, b.due_at,
-                   k.title, k.author_full_name_snapshot AS author, k.file_path AS book_file_path
+                   COALESCE(k.title, '[Removed book]') AS title,
+                   COALESCE(k.author_full_name_snapshot, 'Unknown author') AS author,
+                   k.file_path AS book_file_path
             FROM borrows b
-            JOIN books k ON k.id = b.book_id
+            LEFT JOIN books k ON k.id = b.book_id
             WHERE b.borrower_user_id = ?
             ORDER BY b.borrowed_at DESC
             """;

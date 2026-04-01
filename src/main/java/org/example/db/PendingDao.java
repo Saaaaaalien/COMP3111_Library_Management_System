@@ -84,8 +84,8 @@ public final class PendingDao {
         String sql = """
             INSERT INTO pending_books (
                 title, author_user_id, author_full_name, genre, summary,
-                file_name, file_path, file_size, file_type, submitted_date, status, cover_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                file_name, file_path, file_size, file_type, submitted_date, status, cover_path, original_book_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         Connection conn = Database.getConnection();
@@ -106,6 +106,11 @@ public final class PendingDao {
                 ps.setString(12, book.getCoverPath());
             } else {
                 ps.setNull(12, Types.VARCHAR);
+            }
+            if (book.getOriginalBookId() > 0) {
+                ps.setLong(13, book.getOriginalBookId());
+            } else {
+                ps.setNull(13, Types.INTEGER);
             }
 
             ps.executeUpdate();

@@ -95,6 +95,7 @@ public final class Database {
                 review_notes TEXT,
                 reviewed_date TEXT,
                 cover_path TEXT,
+                original_book_id INTEGER,
                 FOREIGN KEY (author_user_id) REFERENCES users(id)
             )
             """);
@@ -127,6 +128,7 @@ public final class Database {
                     publish_date TEXT NOT NULL,
                     availability TEXT NOT NULL DEFAULT 'AVAILABLE',
                     cover_image_path TEXT,
+                    is_visible INTEGER NOT NULL DEFAULT 1,
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
@@ -205,6 +207,12 @@ public final class Database {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
         }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE pending_books ADD COLUMN original_book_id INTEGER");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
     }
 
     private static void migratePublishDraftsTable(Connection conn) throws SQLException {
@@ -219,6 +227,12 @@ public final class Database {
     private static void migrateBooksTable(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE books ADD COLUMN cover_image_path TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE books ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
