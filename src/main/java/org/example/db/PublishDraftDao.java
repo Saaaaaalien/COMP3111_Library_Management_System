@@ -8,20 +8,21 @@ import java.util.Optional;
  */
 public final class PublishDraftDao {
 
-    public record Draft(String title, String genre, String summary, String filePath, String updatedAt) {}
+    public record Draft(String title, String genre, String summary, String filePath, String coverPath, String updatedAt) {}
 
     private PublishDraftDao() {}
 
     public static void upsert(long authorUserId, String title, String genre, String summary,
-                             String filePath, String updatedAt) throws SQLException {
+                             String filePath, String coverPath, String updatedAt) throws SQLException {
         String sql = """
-            INSERT INTO publish_drafts (author_user_id, title, genre, summary, file_path, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO publish_drafts (author_user_id, title, genre, summary, file_path, cover_path, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(author_user_id) DO UPDATE SET
                 title = excluded.title,
                 genre = excluded.genre,
                 summary = excluded.summary,
                 file_path = excluded.file_path,
+                cover_path = excluded.cover_path,
                 updated_at = excluded.updated_at
             """;
         Connection conn = Database.getConnection();
@@ -35,13 +36,18 @@ public final class PublishDraftDao {
             } else {
                 ps.setNull(5, Types.VARCHAR);
             }
-            ps.setString(6, updatedAt);
+            if (coverPath != null) {
+                ps.setString(6, coverPath);
+            } else {
+                ps.setNull(6, Types.VARCHAR);
+            }
+            ps.setString(7, updatedAt);
             ps.executeUpdate();
         }
     }
 
     public static Optional<Draft> findByAuthor(long authorUserId) throws SQLException {
-        String sql = "SELECT title, genre, summary, file_path, updated_at FROM publish_drafts WHERE author_user_id = ?";
+        String sql = "SELECT title, genre, summary, file_path, cover_path, updated_at FROM publish_drafts WHERE author_user_id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, authorUserId);
@@ -52,6 +58,7 @@ public final class PublishDraftDao {
                         rs.getString("genre"),
                         rs.getString("summary"),
                         rs.getString("file_path"),
+                        rs.getString("cover_path"),
                         rs.getString("updated_at")
                     ));
                 }

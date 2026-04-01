@@ -2,19 +2,24 @@ package org.example.ui;
 
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
@@ -22,6 +27,7 @@ import org.example.db.PendingDao;
 import org.example.domain.Book;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
+import javafx.stage.FileChooser;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -39,212 +45,405 @@ public final class AuthorPublishedBooksScreen {
         private final String title;
         private final String genre;
         private final String status;
+        private final String coverPath;
 
         PendingRow(PendingBook p) {
             this.id = p.getId();
             this.title = p.getTitle();
             this.genre = p.getGenre();
             this.status = p.getStatus();
+            this.coverPath = p.getCoverPath();
         }
 
         public long getId() { return id; }
         public String getTitle() { return title; }
         public String getGenre() { return genre; }
         public String getStatus() { return status; }
+        public String getCoverPath() { return coverPath; }
     }
 
     public static class BookRow {
-        private final long id;
+        private final long id; // for published book rows, real book id; for pending rows this will be 0
+        private final long pendingId; // for pending rows, the pending_books.id; 0 for published rows
         private final String title;
         private final String genre;
-        private final String availability;
+        private final long authorUserId;
+        private final String status; // APPROVED or REJECTED
+        private final boolean isPending;
+        private final String coverPath;
 
         BookRow(Book b) {
             this.id = b.getId();
+            this.pendingId = 0;
             this.title = b.getTitle();
             this.genre = b.getGenre();
-            this.availability = b.getAvailability().name();
+            this.authorUserId = b.getAuthorUserId();
+            this.status = "APPROVED";
+            this.isPending = false;
+            this.coverPath = b.getCoverImagePath();
+        }
+
+        BookRow(PendingBook p) {
+            this.id = 0;
+            this.pendingId = p.getId();
+            this.title = p.getTitle();
+            this.genre = p.getGenre();
+            this.authorUserId = p.getAuthorUserId();
+            this.status = p.getStatus();
+            this.isPending = true;
+            this.coverPath = p.getCoverPath();
         }
 
         public long getId() { return id; }
+        public long getPendingId() { return pendingId; }
         public String getTitle() { return title; }
         public String getGenre() { return genre; }
-        public String getAvailability() { return availability; }
+        public long getAuthorUserId() { return authorUserId; }
+        public String getStatus() { return status; }
+        public boolean isPending() { return isPending; }
+        public String getCoverPath() { return coverPath; }
     }
 
     public static Scene create(Navigator navigator, User user) {
         Label head = new Label("My submissions & published books");
         head.getStyleClass().add("screen-title");
 
-        Label lp = new Label("Pending / reviewed submissions");
-        TableView<PendingRow> pendingTable = new TableView<>();
-        var pItems = FXCollections.<PendingRow>observableArrayList();
-        TableColumn<PendingRow, String> pc1 = new TableColumn<>("Title");
-        pc1.setCellValueFactory(new PropertyValueFactory<>("title"));
-        TableColumn<PendingRow, String> pc2 = new TableColumn<>("Genre");
-        pc2.setCellValueFactory(new PropertyValueFactory<>("genre"));
-        TableColumn<PendingRow, String> pc3 = new TableColumn<>("Status");
-        pc3.setCellValueFactory(new PropertyValueFactory<>("status"));
-        pendingTable.getColumns().addAll(List.of(pc1, pc2, pc3));
-        pendingTable.setItems(pItems);
-        pendingTable.setPrefHeight(180);
-
-        Label lb = new Label("Published in catalog");
+        // Unified book list (shows both published and submissions)
+        Label lb = new Label("My books & submissions");
         TableView<BookRow> bookTable = new TableView<>();
         var bItems = FXCollections.<BookRow>observableArrayList();
-        TableColumn<BookRow, String> bc1 = new TableColumn<>("Title");
-        bc1.setCellValueFactory(new PropertyValueFactory<>("title"));
+        TableColumn<BookRow, BookRow> bc1 = new TableColumn<>("Title");
+        bc1.setCellValueFactory(cd -> new javafx.beans.property.SimpleObjectProperty<>(cd.getValue()));
+        bc1.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
+            @Override
+            protected void updateItem(BookRow r, boolean empty) {
+                super.updateItem(r, empty);
+                if (empty || r == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    Image img = null;
+                    try {
+                        if (r.getCoverPath() != null && !r.getCoverPath().isBlank()) {
+                            img = new Image("file:" + r.getCoverPath(), 60, 90, true, true);
+                        }
+                    } catch (Exception ignored) {}
+                    if (img == null || img.isError()) {
+                        var u = AuthorPublishedBooksScreen.class.getResource("/images/default-cover.png");
+                        if (u != null) img = new Image(u.toExternalForm(), 60, 90, true, true);
+                    }
+                    ImageView iv = new ImageView(img);
+                    Label t = new Label(r.getTitle());
+                    Label g = new Label(r.getGenre());
+                    VBox v = new VBox(2, t, g);
+                    HBox h = new HBox(8, iv, v);
+                    setText(null);
+                    setGraphic(h);
+                }
+            }
+        });
         TableColumn<BookRow, String> bc2 = new TableColumn<>("Genre");
         bc2.setCellValueFactory(new PropertyValueFactory<>("genre"));
-        TableColumn<BookRow, String> bc3 = new TableColumn<>("Availability");
-        bc3.setCellValueFactory(new PropertyValueFactory<>("availability"));
+        TableColumn<BookRow, String> bc3 = new TableColumn<>("Status");
+        bc3.setCellValueFactory(new PropertyValueFactory<>("status"));
         bookTable.getColumns().addAll(List.of(bc1, bc2, bc3));
         bookTable.setItems(bItems);
-        bookTable.setPrefHeight(200);
+        // Make the table taller so the submission list can display more rows without scrolling
+        bookTable.setPrefHeight(Math.max(400, (int)Navigator.getPreferredHeight() - 240));
+
+        // Pending filters: status and search
+        TextField pendingSearchField = new TextField();
+        pendingSearchField.setPromptText("Search pending by title...");
+        pendingSearchField.setMaxWidth(300);
+
+        ComboBox<String> pendingStatus = new ComboBox<>(FXCollections.observableArrayList("ALL", "PENDING", "APPROVED", "REJECTED"));
+        pendingStatus.getSelectionModel().selectFirst();
+
+        HBox pendingFilters = new HBox(8, pendingSearchField, pendingStatus);
 
         Runnable refresh = () -> {
-            pItems.clear();
             bItems.clear();
             try {
-                for (PendingBook p : PendingDao.findAllByAuthorUserId(user.getId())) {
-                    pItems.add(new PendingRow(p));
+                String status = pendingStatus.getSelectionModel().getSelectedItem();
+                if (status != null && "ALL".equals(status)) status = null;
+                String search = pendingSearchField.getText();
+                if (search != null) search = search.trim().toLowerCase();
+
+                // Load pending/submission rows based on search & status
+                List<PendingBook> pendings;
+                if (status == null) {
+                    // 'ALL' selected: include all pending_books rows (PENDING/APPROVED/REJECTED)
+                    if (search == null || search.isEmpty()) {
+                        pendings = PendingDao.findAll();
+                    } else {
+                        pendings = PendingDao.searchAndFilter(search, null);
+                    }
+                } else {
+                    pendings = PendingDao.searchAndFilter(search == null || search.isEmpty() ? null : search, status);
                 }
+                for (PendingBook p : pendings) {
+                    if (p.getAuthorUserId() == user.getId()) {
+                        bItems.add(new BookRow(p));
+                    }
+                }
+
+                // Load published books by author, apply simple client-side search filtering
                 for (Book b : BookDao.findByAuthorUserId(user.getId())) {
-                    bItems.add(new BookRow(b));
+                    if (search == null || search.isEmpty() || b.getTitle().toLowerCase().contains(search) || (b.getGenre() != null && b.getGenre().toLowerCase().contains(search))) {
+                        // Published books correspond to APPROVED status; only include when status filter allows it
+                        if (status == null || "APPROVED".equalsIgnoreCase(status)) {
+                            bItems.add(new BookRow(b));
+                        }
+                    }
                 }
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, "Could not load data.").showAndWait();
             }
         };
         refresh.run();
+        pendingStatus.setOnAction(e -> refresh.run());
+        pendingSearchField.textProperty().addListener((a,b,c) -> refresh.run());
 
-        Button editPendingBtn = new Button("Edit pending");
-        editPendingBtn.setOnAction(e -> {
-            PendingRow r = pendingTable.getSelectionModel().getSelectedItem();
-            if (r == null || !"PENDING".equalsIgnoreCase(r.getStatus())) {
-                new Alert(Alert.AlertType.WARNING, "Select a row with status PENDING.").showAndWait();
+
+
+
+
+
+        Button backBtn = new Button("Back");
+        backBtn.getStyleClass().add("secondary-button");
+        backBtn.setPrefWidth(120);
+        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
+
+        // pbar removed - unified controls below
+
+        Button editBookBtn = new Button("Edit");
+        editBookBtn.getStyleClass().add("secondary-button");
+        editBookBtn.setPrefWidth(140);
+        editBookBtn.setOnAction(e -> {
+            BookRow r = bookTable.getSelectionModel().getSelectedItem();
+            if (r == null) return;
+            if (r.getAuthorUserId() != user.getId()) {
+                new Alert(Alert.AlertType.WARNING, "You can only edit your own books or submissions.").showAndWait();
                 return;
             }
+
             try {
-                Optional<PendingBook> opt = PendingDao.findById(r.getId());
-                if (opt.isEmpty()) {
-                    return;
-                }
-                PendingBook p = opt.get();
-                TextField tTitle = new TextField(p.getTitle());
-                TextField tGenre = new TextField(p.getGenre());
-                TextArea tSum = new TextArea(p.getSummary());
-                tSum.setPrefRowCount(5);
-                GridPane g = new GridPane();
-                g.setHgap(8);
-                g.setVgap(8);
-                g.addRow(0, new Label("Title"), tTitle);
-                g.addRow(1, new Label("Genre"), tGenre);
-                g.addRow(2, new Label("Summary"), tSum);
-                Alert form = new Alert(Alert.AlertType.CONFIRMATION);
-                form.setTitle("Edit pending book");
-                form.getDialogPane().setContent(g);
-                form.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
-                    try {
-                        PendingDao.updatePendingSubmission(
-                                p.getId(), user.getId(),
-                                tTitle.getText().trim(),
-                                tGenre.getText().trim(),
-                                tSum.getText().trim(),
-                                p.getFileName(), p.getFilePath(), p.getFileSize(), p.getFileType(),
-                                p.getCoverPath()
-                        );
-                        refresh.run();
-                    } catch (SQLException ex) {
-                        new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
-                    }
-                });
-            } catch (SQLException ex) {
-                new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
-            }
-        });
+                if (r.isPending()) {
+                    // pending submission (could be PENDING or REJECTED)
+                    Optional<PendingBook> opt = PendingDao.findById(r.getPendingId());
+                    if (opt.isEmpty()) return;
+                    PendingBook p = opt.get();
 
-        Button delPendingBtn = new Button("Delete pending");
-        delPendingBtn.setOnAction(e -> {
-            PendingRow r = pendingTable.getSelectionModel().getSelectedItem();
-            if (r == null || !"PENDING".equalsIgnoreCase(r.getStatus())) {
-                new Alert(Alert.AlertType.WARNING, "Select a PENDING submission to delete.").showAndWait();
-                return;
-            }
-            new Alert(Alert.AlertType.CONFIRMATION, "Delete this pending submission?")
-                    .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                    TextField tTitle = new TextField(p.getTitle());
+                    TextField tGenre = new TextField(p.getGenre());
+                    TextArea tSum = new TextArea(p.getSummary());
+                    tSum.setPrefRowCount(5);
+                    TextField tCover = new TextField(p.getCoverPath() == null ? "" : p.getCoverPath());
+                    Button browseCover = new Button("Browse");
+                    GridPane g = new GridPane();
+                    g.setHgap(8);
+                    g.setVgap(8);
+                    g.addRow(0, new Label("Title"), tTitle);
+                    g.addRow(1, new Label("Genre"), tGenre);
+                    g.addRow(2, new Label("Summary"), tSum);
+                    g.addRow(3, new Label("Cover"), new HBox(8, tCover, browseCover));
+                    browseCover.setOnAction(ev -> {
+                        FileChooser fc = new FileChooser();
+                        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+                        java.io.File f = fc.showOpenDialog(null);
+                        if (f != null) tCover.setText(f.getAbsolutePath());
+                    });
+                    Alert form = new Alert(Alert.AlertType.CONFIRMATION);
+                    form.setTitle("Edit submission");
+                    form.getDialogPane().setContent(g);
+                    form.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                        String newTitle = tTitle.getText().trim();
+                        String newGenre = tGenre.getText().trim();
+                        if (newTitle.isEmpty() || newGenre.isEmpty()) {
+                            new Alert(Alert.AlertType.WARNING, "Title and Genre must not be empty.").showAndWait();
+                            return;
+                        }
                         try {
-                            PendingDao.deletePending(r.getId(), user.getId());
+                            // Check for changes before updating
+                            String origTitle = p.getTitle() == null ? "" : p.getTitle().trim();
+                            String origGenre = p.getGenre() == null ? "" : p.getGenre().trim();
+                            String origSummary = p.getSummary() == null ? "" : p.getSummary().trim();
+                            String origCover = p.getCoverPath() == null ? null : p.getCoverPath().trim();
+                            String newSummary = tSum.getText().trim();
+                            String newCover = tCover.getText().trim().isEmpty() ? null : tCover.getText().trim();
+                            boolean changed = !newTitle.equals(origTitle)
+                                    || !newGenre.equals(origGenre)
+                                    || !newSummary.equals(origSummary)
+                                    || ((origCover == null && newCover != null) || (origCover != null && !origCover.equals(newCover)));
+                            if (!changed) {
+                                new Alert(Alert.AlertType.INFORMATION, "No changes detected.").showAndWait();
+                                return;
+                            }
+
+                            if ("PENDING".equalsIgnoreCase(p.getStatus())) {
+                                PendingDao.updatePendingSubmission(
+                                        p.getId(), user.getId(),
+                                        newTitle, newGenre, newSummary,
+                                        p.getFileName(), p.getFilePath(), p.getFileSize(), p.getFileType(),
+                                        newCover
+                                );
+                            } else {
+                                // REJECTED - create a fresh pending submission based on edited fields
+                                PendingBook np = new PendingBook(
+                                        newTitle,
+                                        user.getId(),
+                                        user.getFullName(),
+                                        newGenre,
+                                        newSummary,
+                                        p.getFileName() != null ? p.getFileName() : "",
+                                        p.getFilePath() != null ? p.getFilePath() : "",
+                                        p.getFileSize(),
+                                        p.getFileType() != null ? p.getFileType() : "pdf"
+                                );
+                                if (newCover != null) np.setCoverPath(newCover);
+                                PendingDao.insert(np);
+                                // optionally remove old rejected row
+                                try { PendingDao.deleteByIdForAuthor(p.getId(), user.getId()); } catch (Exception ignored) {}
+                            }
                             refresh.run();
                         } catch (SQLException ex) {
                             new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
                         }
                     });
-        });
 
-        Button editBookBtn = new Button("Edit published (metadata)");
-        editBookBtn.setOnAction(e -> {
-            BookRow r = bookTable.getSelectionModel().getSelectedItem();
-            if (r == null) {
-                return;
-            }
-            try {
-                if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
-                    new Alert(Alert.AlertType.WARNING,
-                            "Cannot edit while someone has this book borrowed.").showAndWait();
-                    return;
-                }
-                Optional<Book> opt = BookDao.findById(r.getId());
-                if (opt.isEmpty()) {
-                    return;
-                }
-                Book bk = opt.get();
-                TextField tTitle = new TextField(bk.getTitle());
-                TextField tGenre = new TextField(bk.getGenre());
-                TextArea tSum = new TextArea(bk.getSummary());
-                tSum.setPrefRowCount(5);
-                GridPane g = new GridPane();
-                g.setHgap(8);
-                g.setVgap(8);
-                g.addRow(0, new Label("Title"), tTitle);
-                g.addRow(1, new Label("Genre"), tGenre);
-                g.addRow(2, new Label("Summary"), tSum);
-                Alert form = new Alert(Alert.AlertType.CONFIRMATION);
-                form.setTitle("Edit published book");
-                form.getDialogPane().setContent(g);
-                form.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
-                    try {
-                        BookDao.updateAuthorMetadata(
-                                bk.getId(), user.getId(), user.getFullName(),
-                                tTitle.getText().trim(),
-                                tGenre.getText().trim(),
-                                tSum.getText().trim()
-                        );
-                        refresh.run();
-                    } catch (SQLException ex) {
-                        new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
+                } else {
+                    // published book
+                    if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
+                        new Alert(Alert.AlertType.WARNING, "Cannot edit while someone has this book borrowed.").showAndWait();
+                        return;
                     }
-                });
+                    Optional<Book> opt = BookDao.findById(r.getId());
+                    if (opt.isEmpty()) return;
+                    Book bk = opt.get();
+
+                    TextField tTitle = new TextField(bk.getTitle());
+                    TextField tGenre = new TextField(bk.getGenre());
+                    TextArea tSum = new TextArea(bk.getSummary());
+                    tSum.setPrefRowCount(5);
+                    TextField tCover = new TextField(bk.getCoverImagePath() == null ? "" : bk.getCoverImagePath());
+                    Button browseCover = new Button("Browse");
+                    GridPane g = new GridPane();
+                    g.setHgap(8);
+                    g.setVgap(8);
+                    g.addRow(0, new Label("Title"), tTitle);
+                    g.addRow(1, new Label("Genre"), tGenre);
+                    g.addRow(2, new Label("Summary"), tSum);
+                    g.addRow(3, new Label("Cover"), new HBox(8, tCover, browseCover));
+                    browseCover.setOnAction(ev -> {
+                        FileChooser fc = new FileChooser();
+                        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+                        java.io.File f = fc.showOpenDialog(null);
+                        if (f != null) tCover.setText(f.getAbsolutePath());
+                    });
+                    Alert form = new Alert(Alert.AlertType.CONFIRMATION);
+                    form.setTitle("Edit published book (submit changes)");
+                    form.getDialogPane().setContent(g);
+                    form.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                        String newTitle = tTitle.getText().trim();
+                        String newGenre = tGenre.getText().trim();
+                        String newSummary = tSum.getText().trim();
+                        String newCover = tCover.getText().trim().isEmpty() ? null : tCover.getText().trim();
+                        if (newTitle.isEmpty() || newGenre.isEmpty()) {
+                            new Alert(Alert.AlertType.WARNING, "Title and Genre must not be empty.").showAndWait();
+                            return;
+                        }
+                        try {
+                            String origTitle = bk.getTitle() == null ? "" : bk.getTitle().trim();
+                            String origGenre = bk.getGenre() == null ? "" : bk.getGenre().trim();
+                            String origSummary = bk.getSummary() == null ? "" : bk.getSummary().trim();
+                            String origCover = bk.getCoverImagePath() == null ? null : bk.getCoverImagePath().trim();
+                            boolean changed = !newTitle.equals(origTitle)
+                                    || !newGenre.equals(origGenre)
+                                    || !newSummary.equals(origSummary)
+                                    || ((origCover == null && newCover != null) || (origCover != null && !origCover.equals(newCover)));
+                            if (!changed) {
+                                new Alert(Alert.AlertType.INFORMATION, "No changes detected.").showAndWait();
+                                return;
+                            }
+
+                            // Confirm with the author that changes will create a pending submission
+                            Alert confirmPending = new Alert(Alert.AlertType.CONFIRMATION);
+                            confirmPending.setTitle("Submit changes for approval");
+                            confirmPending.setHeaderText(null);
+                            confirmPending.setContentText("You have changed the book details. Submitting will create a pending submission and the changes will require librarian approval. Proceed?");
+                            Optional<ButtonType> confirmRes = confirmPending.showAndWait();
+                            if (confirmRes.isEmpty() || confirmRes.get() != ButtonType.OK) {
+                                return;
+                            }
+
+                            // Create a pending submission for approval based on edited details
+                            String filePath = bk.getFilePath();
+                            String fileName = "";
+                            long fileSize = 0L;
+                            String fileType = "pdf";
+                            try {
+                                java.nio.file.Path pth = java.nio.file.Paths.get(filePath);
+                                fileName = pth.getFileName().toString();
+                                fileSize = java.nio.file.Files.size(pth);
+                                String name = fileName.toLowerCase();
+                                int dot = name.lastIndexOf('.');
+                                if (dot > 0) fileType = name.substring(dot+1);
+                            } catch (Exception ignored) {}
+
+                            PendingBook np = new PendingBook(newTitle, user.getId(), user.getFullName(), newGenre, newSummary, fileName, filePath, fileSize, fileType);
+                            if (newCover != null) np.setCoverPath(newCover);
+                            np.setOriginalBookId(bk.getId());
+                            PendingDao.insert(np);
+
+                            new Alert(Alert.AlertType.INFORMATION, "Your changes have been submitted for librarian approval.").showAndWait();
+                            refresh.run();
+                        } catch (SQLException ex) {
+                            new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
+                        }
+                    });
+                }
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
             }
         });
 
-        Button delBookBtn = new Button("Delete published");
+        Button delBookBtn = new Button("Delete");
+        delBookBtn.getStyleClass().add("secondary-button");
+        delBookBtn.setPrefWidth(140);
         delBookBtn.setOnAction(e -> {
             BookRow r = bookTable.getSelectionModel().getSelectedItem();
-            if (r == null) {
+            if (r == null) return;
+            if (r.getAuthorUserId() != user.getId()) {
+                new Alert(Alert.AlertType.WARNING, "You can only delete your own books.").showAndWait();
                 return;
             }
+
             try {
+                if (r.isPending()) {
+                    // allow delete of pending (PENDING) or rejected
+                    new Alert(Alert.AlertType.CONFIRMATION, "Delete this submission permanently?").showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                        try {
+                            PendingDao.deleteByIdForAuthor(r.getPendingId(), user.getId());
+                            refresh.run();
+                        } catch (SQLException ex) {
+                            new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
+                        }
+                    });
+                    return;
+                }
+
+                // published book deletion
                 if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
-                    new Alert(Alert.AlertType.WARNING,
-                            "Cannot delete while the book is borrowed.").showAndWait();
+                    new Alert(Alert.AlertType.WARNING, "Cannot delete while the book is borrowed.").showAndWait();
                     return;
                 }
                 new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog permanently?")
                         .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
                             try {
+                                // Remove any pending edits that reference this book to avoid re-creating it later
+                                try {
+                                    PendingDao.deleteByOriginalBookId(r.getId());
+                                } catch (SQLException ignored) {}
                                 BookDao.deleteById(r.getId());
                                 refresh.run();
                             } catch (SQLException ex) {
@@ -256,16 +455,31 @@ public final class AuthorPublishedBooksScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
+        HBox bbar = new HBox(10, editBookBtn, delBookBtn);
+        bbar.setAlignment(Pos.CENTER_LEFT);
+        bbar.setPadding(new Insets(16, 0, 0, 0));
 
-        HBox pbar = new HBox(8, editPendingBtn, delPendingBtn);
-        HBox bbar = new HBox(8, editBookBtn, delBookBtn);
+        HBox bottomBar = new HBox(10, backBtn);
+        bottomBar.setAlignment(Pos.CENTER_LEFT);
+        bottomBar.setPadding(new Insets(16, 0, 0, 0));
 
-        VBox root = new VBox(12, head, lp, pendingTable, pbar, lb, bookTable, bbar, backBtn);
-        root.setPadding(new Insets(16));
+        HBox searchBox = pendingFilters; // reuse existing search/filter controls
 
-        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
+        VBox contentRoot = new VBox(12, head, searchBox, lb, bookTable);
+        contentRoot.setPadding(new Insets(16));
+
+        ScrollPane scrollPane = new ScrollPane(contentRoot);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(false);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: white;");
+
+        // Buttons stay fixed below the scrollable list so the list can grow taller
+        VBox main = new VBox(12, scrollPane, bbar, bottomBar);
+        main.setPadding(new Insets(0, 16, 16, 16));
+
+        Scene scene = new Scene(main, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         var css = AuthorPublishedBooksScreen.class.getResource("/app.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());

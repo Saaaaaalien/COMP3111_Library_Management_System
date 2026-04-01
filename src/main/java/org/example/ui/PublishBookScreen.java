@@ -16,6 +16,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
 import org.example.db.PublishDraftDao;
 import org.example.domain.User;
@@ -41,6 +43,7 @@ public final class PublishBookScreen {
     private static Label selectedGenresLabel;
     private static Label fileDisplayLabel;
     private static Label coverPathDisplay;
+    private static Label coverNameLabel;
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -78,7 +81,10 @@ public final class PublishBookScreen {
         Button backBtn = new Button("Back");
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setPrefWidth(150);
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(currentUser));
+        backBtn.setOnAction(e -> {
+            persistDraftQuietly();
+            navigator.showAuthorDashboard(currentUser);
+        });
 
         buttonBox.getChildren().addAll(submitBtn, backBtn);
 
@@ -150,6 +156,8 @@ public final class PublishBookScreen {
                         mainContent.setMaxWidth(width - 100);
                     }
                 });
+                // Persist draft when the window is being closed so cover/book selection isn't lost
+                newWindow.setOnCloseRequest(ev -> persistDraftQuietly());
             }
         });
 
@@ -188,6 +196,20 @@ public final class PublishBookScreen {
                         }
                     }
                     updateSelectedGenresDisplay();
+                }
+                if (d.coverPath() != null && !d.coverPath().isBlank()) {
+                    File draftCover = new File(d.coverPath());
+                    if (draftCover.exists() && draftCover.canRead()) {
+                        selectedCoverFile = draftCover;
+                        if (coverPathDisplay != null) {
+                            coverPathDisplay.setText(draftCover.getName() + " (" + formatFileSize(draftCover.length()) + ")");
+                            coverPathDisplay.setStyle("-fx-text-fill: #27ae60;");
+                        }
+                        if (coverNameLabel != null) {
+                            coverNameLabel.setText(draftCover.getName());
+                            coverNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                        }
+                    }
                 }
             });
         } catch (SQLException ignored) {
@@ -424,29 +446,79 @@ public final class PublishBookScreen {
 
         Label coverLabel = new Label("Cover image (optional, JPG/PNG ≤ 2MB)");
         coverLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
-        Label coverPathLabel = new Label("None");
-        coverPathLabel.setStyle("-fx-text-fill: #666;");
-        coverPathDisplay = coverPathLabel;
+
+        // Short name next to the button (like fileNameLabel)
         Button coverBtn = new Button("Choose cover");
         coverBtn.getStyleClass().add("secondary-button");
+        coverBtn.setPrefWidth(120);
+
+        coverNameLabel = new Label("No file selected");
+        coverNameLabel.setStyle("-fx-text-fill: #666;");
+        coverNameLabel.setPadding(new Insets(0, 0, 0, 5));
+
+        HBox coverRow = new HBox(10, coverBtn, coverNameLabel);
+        coverRow.setAlignment(Pos.CENTER_LEFT);
+
+        // Detailed display with clear button (matches file display)
+        HBox coverDisplayBox = new HBox(15);
+        coverDisplayBox.setAlignment(Pos.CENTER_LEFT);
+        coverDisplayBox.setPadding(new Insets(5, 0, 5, 0));
+
+        Label selectedCoverHeader = new Label("Selected cover:");
+        selectedCoverHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-font-size: 12px;");
+
+        Label coverDisplayLabel = new Label("None");
+        coverDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+        coverDisplayLabel.setWrapText(true);
+        HBox.setHgrow(coverDisplayLabel, Priority.ALWAYS);
+
+        // Keep the shared reference used elsewhere pointing to the detailed display
+        coverPathDisplay = coverDisplayLabel;
+
+        Button clearCoverBtn = new Button("Clear");
+        clearCoverBtn.getStyleClass().add("secondary-button");
+        clearCoverBtn.setPrefWidth(80);
+        clearCoverBtn.setPrefHeight(30);
+        clearCoverBtn.setOnAction(e -> {
+            selectedCoverFile = null;
+            if (coverNameLabel != null) {
+                coverNameLabel.setText("No file selected");
+                coverNameLabel.setStyle("-fx-text-fill: #666;");
+            }
+            coverDisplayLabel.setText("None");
+            coverDisplayLabel.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
+            persistDraftQuietly();
+        });
+
+        coverDisplayBox.getChildren().addAll(selectedCoverHeader, coverDisplayLabel, clearCoverBtn);
+
+        // File chooser action with proper owner window and validation
         coverBtn.setOnAction(e -> {
-            Stage st = (Stage) coverBtn.getScene().getWindow();
-            FileChooser fc = new FileChooser();
-            fc.setTitle("Cover image");
-            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png"));
-            File f = fc.showOpenDialog(st);
-            if (f != null) {
-                if (f.length() > 2L * 1024 * 1024) {
-                    showError("Too large", "Cover must be at most 2MB.");
-                    return;
+            try {
+                Stage ownerStage = (Stage) coverBtn.getScene().getWindow();
+                FileChooser fc = new FileChooser();
+                fc.setTitle("Cover image");
+                fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png"));
+                File f = fc.showOpenDialog(ownerStage);
+                if (f != null) {
+                    if (f.length() > 2L * 1024 * 1024) {
+                        showError("Too large", "Cover must be at most 2MB.");
+                        return;
+                    }
+                    selectedCoverFile = f;
+                    coverNameLabel.setText(f.getName());
+                    coverNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    coverDisplayLabel.setText(f.getName() + " (" + formatFileSize(f.length()) + ")");
+                    coverDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    persistDraftQuietly();
                 }
-                selectedCoverFile = f;
-                coverPathLabel.setText(f.getName());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                showError("Error", "Could not open file chooser: " + ex.getMessage());
             }
         });
-        HBox coverRow = new HBox(10, coverBtn, coverPathLabel);
-        VBox coverBox = new VBox(6, coverLabel, coverRow);
 
+        VBox coverBox = new VBox(6, coverLabel, coverRow, coverDisplayBox);
         // Required fields note
         Label requiredNote = new Label("* Required fields");
         requiredNote.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11px;");
@@ -582,7 +654,24 @@ public final class PublishBookScreen {
         descPreview.setPrefRowCount(5);
         descPreview.setStyle("-fx-background-color: #f8fafc; -fx-border-color: #d0d7e2;");
 
-        previewBox.getChildren().addAll(titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        // Build preview area with cover image on the left
+        VBox details = new VBox(10, titleRow, authorRow, genresBox, fileRow, descHeader, descPreview);
+        details.setPrefWidth(420);
+
+        Image coverImg = null;
+        try {
+            if (selectedCoverFile != null) {
+                coverImg = new Image(selectedCoverFile.toURI().toString(), 120, 180, true, true);
+            }
+        } catch (Exception ignored) {}
+        if (coverImg == null || coverImg.isError()) {
+            var u = PublishBookScreen.class.getResource("/images/default-cover.png");
+            if (u != null) coverImg = new Image(u.toExternalForm(), 120, 180, true, true);
+        }
+        ImageView coverView = new ImageView(coverImg);
+
+        HBox previewWithCover = new HBox(20, coverView, details);
+        previewBox.getChildren().add(previewWithCover);
 
         Label confirmMsg = new Label("Are you sure you want to submit this book for approval?");
         confirmMsg.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 14px;");
@@ -650,6 +739,7 @@ public final class PublishBookScreen {
                     genres,
                     descriptionArea.getText(),
                     selectedBookFile != null ? selectedBookFile.getAbsolutePath() : null,
+                    selectedCoverFile != null ? selectedCoverFile.getAbsolutePath() : null,
                     Instant.now().toString()
             );
         } catch (SQLException ignored) {

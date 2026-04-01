@@ -12,6 +12,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import org.example.app.Navigator;
 import org.example.service.AuthService;
+import org.example.app.DraftService;
+import java.util.Map;
 import org.example.util.ValidationException;
 
 import java.sql.SQLException;
@@ -44,6 +46,43 @@ public final class AuthorRegisterScreen {
         TextField bioField = new TextField();
         bioField.setMaxWidth(280);
 
+        // Load draft if present (password is not persisted for security)
+        Map<String, String> draft = DraftService.loadDraft("AUTHOR_REGISTER");
+        if (draft.containsKey("username")) usernameField.setText(draft.get("username"));
+        if (draft.containsKey("firstName")) firstNameField.setText(draft.get("firstName"));
+        if (draft.containsKey("lastName")) lastNameField.setText(draft.get("lastName"));
+        if (draft.containsKey("bio")) bioField.setText(draft.get("bio"));
+
+        // Persist draft on change (best-effort). Do NOT save passwords.
+        usernameField.textProperty().addListener((obs, oldV, newV) ->
+                DraftService.saveDraft("AUTHOR_REGISTER", Map.of(
+                        "username", newV == null ? "" : newV,
+                        "firstName", firstNameField.getText() == null ? "" : firstNameField.getText(),
+                        "lastName", lastNameField.getText() == null ? "" : lastNameField.getText(),
+                        "bio", bioField.getText() == null ? "" : bioField.getText()
+                )));
+        firstNameField.textProperty().addListener((obs, oldV, newV) ->
+                DraftService.saveDraft("AUTHOR_REGISTER", Map.of(
+                        "username", usernameField.getText() == null ? "" : usernameField.getText(),
+                        "firstName", newV == null ? "" : newV,
+                        "lastName", lastNameField.getText() == null ? "" : lastNameField.getText(),
+                        "bio", bioField.getText() == null ? "" : bioField.getText()
+                )));
+        lastNameField.textProperty().addListener((obs, oldV, newV) ->
+                DraftService.saveDraft("AUTHOR_REGISTER", Map.of(
+                        "username", usernameField.getText() == null ? "" : usernameField.getText(),
+                        "firstName", firstNameField.getText() == null ? "" : firstNameField.getText(),
+                        "lastName", newV == null ? "" : newV,
+                        "bio", bioField.getText() == null ? "" : bioField.getText()
+                )));
+        bioField.textProperty().addListener((obs, oldV, newV) ->
+                DraftService.saveDraft("AUTHOR_REGISTER", Map.of(
+                        "username", usernameField.getText() == null ? "" : usernameField.getText(),
+                        "firstName", firstNameField.getText() == null ? "" : firstNameField.getText(),
+                        "lastName", lastNameField.getText() == null ? "" : lastNameField.getText(),
+                        "bio", newV == null ? "" : newV
+                )));
+
         Label passwordLabel = new Label("Password:");
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Min 8 chars, 1 uppercase, 1 number, 1 special character");
@@ -66,6 +105,8 @@ public final class AuthorRegisterScreen {
             String password = passwordField.getText();
             try {
                 AuthService.registerAuthor(username, firstName, lastName, password, bio);
+                // Clear draft on success
+                DraftService.clearDraft("AUTHOR_REGISTER");
                 showAlert(Alert.AlertType.INFORMATION, "Registration successful",
                         "You can now log in with your author username and password.");
                 navigator.showAuthorLogin();
@@ -78,7 +119,10 @@ public final class AuthorRegisterScreen {
 
         Button backBtn = new Button("Back");
         backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showAuthorPortal());
+        backBtn.setOnAction(e -> {
+            DraftService.clearDraft("AUTHOR_REGISTER");
+            navigator.showAuthorPortal();
+        });
 
         VBox usernameBox = new VBox(5, usernameLabel, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
