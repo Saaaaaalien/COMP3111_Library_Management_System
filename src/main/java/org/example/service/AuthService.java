@@ -81,7 +81,13 @@ public final class AuthService {
         }
 
         String fullName = firstName.trim() + " " + lastName.trim();
-        return insertUser(trimmedUsername, fullName, password, role, null, null);
+        long newUserId = insertUser(trimmedUsername, fullName, password, role, null, null);
+        try {
+            NotificationService.notifyLibrariansUserRegistered(newUserId, trimmedUsername, role.name());
+        } catch (SQLException ignored) {
+            // Non-critical – don't fail the registration
+        }
+        return newUserId;
     }
 
     /**
@@ -142,6 +148,16 @@ public final class AuthService {
 
         String fullName = firstName.trim() + " " + lastName.trim();
         insertUser(trimmedUsername, fullName, password, Role.AUTHOR, bio, null);
+        try {
+            // Notify librarians about the new author registration
+            org.example.db.UserDao.findByUsername(trimmedUsername).ifPresent(u -> {
+                try {
+                    NotificationService.notifyLibrariansUserRegistered(u.getId(), trimmedUsername, "AUTHOR");
+                } catch (SQLException ignored) {}
+            });
+        } catch (SQLException ignored) {
+            // Non-critical
+        }
     }
 
     /**
