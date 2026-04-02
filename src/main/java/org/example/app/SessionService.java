@@ -39,7 +39,14 @@ public final class SessionService {
                              Long bookId,
                              Integer pageIndex0,
                              Integer zoomPercent) {}
-    public record RestoreResult(boolean restored, boolean fallbackToWelcome, String message) {}
+    public enum RestoreOutcome {
+        NONE,
+        SUCCESS,
+        FAILURE,
+        PARTIAL
+    }
+
+    public record RestoreResult(RestoreOutcome outcome, String message) {}
 
     public static void save(String route, long userId) {
         save(route, userId, null, null, null);
@@ -136,25 +143,6 @@ public final class SessionService {
                     pageIndex0,
                     zoomPercent
             ));
-            String route = mr.group(1);
-            long userId = Long.parseLong(mu.group(1));
-
-            Long borrowId = null;
-            Matcher mb = BORROW_P.matcher(raw);
-            if (mb.find()) {
-                borrowId = Long.parseLong(mb.group(1));
-            }
-            Long bookId = null;
-            Matcher mk = BOOK_P.matcher(raw);
-            if (mk.find()) {
-                bookId = Long.parseLong(mk.group(1));
-            }
-            String parentRoute = null;
-            Matcher mp = PARENT_P.matcher(raw);
-            if (mp.find()) {
-                parentRoute = mp.group(1);
-            }
-            return Optional.of(new Snapshot(route, userId, borrowId, bookId, parentRoute));
         } catch (Exception e) {
             return Optional.empty();
         }
@@ -190,13 +178,17 @@ public final class SessionService {
             }
             User user = u.get();
             boolean restored = applyProtectedRoute(navigator, snapshot, user);
-            if (!restored) {
-                navigator.showWelcome();
-                return new RestoreResult(false, true, "Session restore failed: invalid route for user role.");
+            if (restored) {
+                return new RestoreResult(
+                        RestoreOutcome.SUCCESS,
+                        "Your last session was restored successfully."
+                );
             }
             navigator.showHomeForUser(user);
-            return new RestoreResult(RestoreOutcome.PARTIAL,
-                    "The previous screen could not be restored. Your portal home was opened instead.");
+            return new RestoreResult(
+                    RestoreOutcome.PARTIAL,
+                    "The previous screen could not be restored. Your portal home was opened instead."
+            );
         } catch (Exception e) {
             clear();
             navigator.showWelcome();
@@ -242,7 +234,6 @@ public final class SessionService {
     private static boolean applyProtectedRoute(Navigator navigator, Snapshot snapshot, User user) {
         String route = snapshot.route();
         Role role = user.getRole();
-        String route = snap.route();
         switch (route) {
             case "AVAILABLE_BOOKS" -> {
                 if (role == Role.STUDENT || role == Role.STAFF) {
@@ -269,43 +260,6 @@ public final class SessionService {
                 if (role == Role.STUDENT || role == Role.STAFF) {
                     navigator.showStudentStaffNotifications(user);
                 } else {
-                    return false;
-                }
-            }
-            case "PDF_READER" -> {
-                if (role != Role.STUDENT && role != Role.STAFF) {
-                    return false;
-                }
-                Long bid = snap.borrowId();
-                Long bookId = snap.bookId();
-                if (bid == null || bookId == null) {
-                    return false;
-                }
-                try {
-                    Optional<Borrow> borOpt = BorrowDao.findById(bid);
-                    if (borOpt.isEmpty()) {
-                        return false;
-                    }
-                    Borrow b = borOpt.get();
-                    if (b.getBorrowerUserId() != user.getId() || b.getBookId() != bookId) {
-                        return false;
-                    }
-                    if (b.getReturnedAt() != null && !b.getReturnedAt().isEmpty()) {
-                        return false;
-                    }
-                    Optional<Book> bookOpt = BookDao.findById(bookId);
-                    if (bookOpt.isEmpty()) {
-                        return false;
-                    }
-                    Book book = bookOpt.get();
-                    String parent = snap.parentRoute() != null ? snap.parentRoute() : "MY_BORROWS";
-                    if ("AVAILABLE_BOOKS".equals(parent)) {
-                        navigator.showAvailableBooks(user);
-                    } else {
-                        navigator.showMyBorrowedBooks(user);
-                    }
-                    PdfReaderScreen.open(navigator, user, bid, bookId, book.getTitle(), book.getFilePath(), parent);
-                } catch (Exception e) {
                     return false;
                 }
             }
@@ -386,5 +340,18 @@ public final class SessionService {
             }
         }
         return true;
+    }
+
+    private static String escapeJson(String input) {
+        if (input == null) {
+            return "";
+        }
+        // Minimal escaping for our simple JSON-string usage.
+        return input
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n")
+                .replace("\t", "\\t");
     }
 }

@@ -177,7 +177,7 @@ public final class MyBorrowedBooksScreen {
                 return;
             }
             PdfReaderScreen.open(navigator, currentUser, selected.getBorrowId(), selected.getBookId(),
-                    selected.getTitle(), selected.getFilePath(), "MY_BORROWS");
+                    selected.getTitle(), selected.getFilePath());
         });
 
         Button profileBtn = new Button("Manage Profile");

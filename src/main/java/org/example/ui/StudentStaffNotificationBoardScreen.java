@@ -15,7 +15,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.util.Pair;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
 import org.example.domain.AppNotification;
@@ -73,8 +72,10 @@ public final class StudentStaffNotificationBoardScreen {
 
         Runnable refresh = () -> {
             try {
-                Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
-                String cat = sel == null ? "ALL" : sel.getValue();
+                String cat = category.getSelectionModel().getSelectedItem();
+                if (cat == null || cat.isBlank()) {
+                    cat = "ALL";
+                }
                 var rows = NotificationDao.findForUserFiltered(
                         user.getId(),
                         cat,
