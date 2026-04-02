@@ -288,6 +288,7 @@ public final class PdfReaderScreen {
         final boolean[] suppressNavGuard = {false};
         final boolean[] closingGuard = {false};
         final boolean[] highlightBridgeInjected = {false};
+        final String[] lastPersistedHighlightKey = {null};
 
         Runnable pushPdfFragment = () -> {
             try {
@@ -435,13 +436,65 @@ public final class PdfReaderScreen {
         saveHighlightBtn.setOnAction(e -> {
             try {
                 Object result = webEngine.executeScript("saveSelectionAsHighlight()");
-                if (Boolean.FALSE.equals(result)) {
+                if (!Boolean.TRUE.equals(result)) {
                     Alert a = new Alert(Alert.AlertType.WARNING);
                     a.setTitle("Save Highlight");
                     a.setHeaderText(null);
                     a.setContentText("No text selection found (or reader not ready yet).");
                     a.showAndWait();
+                    return;
                 }
+
+                Object textObj = webEngine.executeScript("window.__lastSelectionText || ''");
+                Object rectsObj = webEngine.executeScript("window.__lastSelectionRectsJson || '[]'");
+                Object pageNumObj = webEngine.executeScript("window.__lastSelectionPageNumber || 0");
+
+                String text = textObj == null ? "" : String.valueOf(textObj);
+                String rectsJson = rectsObj == null ? "[]" : String.valueOf(rectsObj);
+                rectsJson = rectsJson == null ? "[]" : rectsJson.trim();
+                if (rectsJson.isEmpty()) rectsJson = "[]";
+
+                int pageNumber = 0;
+                if (pageNumObj instanceof Number n) {
+                    pageNumber = n.intValue();
+                } else if (pageNumObj != null) {
+                    try {
+                        pageNumber = Integer.parseInt(pageNumObj.toString());
+                    } catch (Exception ignored) {}
+                }
+                if (pageNumber <= 0) {
+                    // Fallback: use current UI page if the JS snapshot page number is missing.
+                    pageNumber = currentPage[0] + 1;
+                }
+
+                String trimmedText = text.trim();
+                if (trimmedText.isEmpty()) {
+                    Alert a = new Alert(Alert.AlertType.WARNING);
+                    a.setTitle("Save Highlight");
+                    a.setHeaderText(null);
+                    a.setContentText("No text selection found (or reader not ready yet).");
+                    a.showAndWait();
+                    return;
+                }
+
+                int pageIndex0 = Math.max(0, pageNumber - 1);
+
+                // De-dup: repeated clicks shouldn't insert multiple identical rows.
+                String dedupeKey = pageNumber + "|" + trimmedText + "|" + rectsJson;
+                if (dedupeKey.equals(lastPersistedHighlightKey[0])) {
+                    return;
+                }
+
+                ReadingHighlightDao.insert(
+                        borrowId,
+                        user.getId(),
+                        pageIndex0,
+                        trimmedText,
+                        rectsJson,
+                        Instant.now().toString()
+                );
+                lastPersistedHighlightKey[0] = dedupeKey;
+
             } catch (Exception ignored) {
                 // reader shell not fully initialized yet
             }

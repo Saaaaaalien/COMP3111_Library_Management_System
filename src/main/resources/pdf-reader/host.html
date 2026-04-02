@@ -212,6 +212,11 @@
       lastSelectionText = text;
       lastSelectionRectsJson = JSON.stringify(rectRatios || []);
       hasLastSelection = true;
+
+      // Expose snapshot for Java persistence (avoid JS->Java bridge flakiness).
+      window.__lastSelectionText = lastSelectionText;
+      window.__lastSelectionRectsJson = lastSelectionRectsJson;
+      window.__lastSelectionPageNumber = lastSelectionPageNumber;
     } catch (e) {
       // best-effort only
     }
@@ -438,19 +443,15 @@
           div.style.height = (r.height * h) + 'px';
           textLayer.appendChild(div);
         }
-
-        if (window.javaBridge && typeof window.javaBridge.onHighlight === 'function') {
-          window.javaBridge.onHighlight(text, currentPageNumber, rectsJson);
-          return true;
-        }
       } catch (e) {
         // best-effort only
       }
 
-      if (window.javaBridge && typeof window.javaBridge.onHighlight === 'function') {
-        window.javaBridge.onHighlight(text, currentPageNumber, rectsJson);
-        return true;
-      }
+      // Update window snapshot so Java can persist reliably.
+      window.__lastSelectionText = text;
+      window.__lastSelectionRectsJson = rectsJson;
+      window.__lastSelectionPageNumber = currentPageNumber;
+      return true;
     } catch (e) {
       // Never break selection/rendering.
     }
@@ -489,6 +490,13 @@
   function applyHighlightsForPage(highlightTexts, rectsJsons) {
     // Always clear previous (current page render).
     clearSelectionHighlightRects();
+    // Also clear any previous token-based highlight styling on spans.
+    // Geometry-only mode must not leave stale classes behind across re-renders.
+    for (const s of Array.from(textLayer.querySelectorAll('span'))) {
+      s.classList.remove('saved-highlight');
+      s.classList.remove('saved-highlight-fallback');
+      s.classList.remove('saved-highlight-partial');
+    }
 
     let any = false;
     if (rectsJsons && Array.isArray(rectsJsons) && rectsJsons.length > 0) {
@@ -524,11 +532,10 @@
       }
     }
 
-    // Legacy fallback: token-based span highlighting.
-    // If geometry succeeded, apply subtle fallback so highlights still show even if geometry slightly misaligns.
-    if (any) {
-      applyHighlightsToTextLayer(highlightTexts || [], true /* subtle */);
-    } else {
+    // IMPORTANT: Geometry (rect overlays) should be the source of truth.
+    // If we successfully applied rects, do NOT run token-based fallback,
+    // otherwise very short tokens can light up unrelated spans.
+    if (!any) {
       applyHighlightsToTextLayer(highlightTexts || [], false /* subtle */);
     }
   }
@@ -560,8 +567,8 @@
       const cleaned = clean(t);
       if (!cleaned) continue;
       for (const tok of cleaned.split(/\s+/g)) {
-        // Allow short words too; PDF.js tokenization can split differently than user selection.
-        if (tok && tok.length >= 1) tokens.add(tok);
+        // Tighten matching to avoid highlighting unrelated spans on common short tokens.
+        if (tok && tok.length >= 3) tokens.add(tok);
       }
     }
 

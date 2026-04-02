@@ -104,8 +104,8 @@ public final class StudentStaffProfileScreen {
         saveBtn.setOnAction(e -> {
             try {
                 Validators.validateFullName(nameField.getText());
-                UserDao.updateFullName(user.getId(), nameField.getText().trim());
-                UserDao.updateAvatarPath(user.getId(), selectedAvatarPath[0]);
+                String trimmedFullName = nameField.getText().trim();
+                String avatarPath = selectedAvatarPath[0];
                 String current = currentPw.getText();
                 String newPassword = pw1.getText();
                 String confirm = pw2.getText();
@@ -140,11 +140,17 @@ public final class StudentStaffProfileScreen {
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(newPassword, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
+                    // Only update name/avatar after password change validation succeeds.
+                    UserDao.updateFullName(user.getId(), trimmedFullName);
+                    UserDao.updateAvatarPath(user.getId(), avatarPath);
                     new Alert(Alert.AlertType.INFORMATION, "Password updated. Please sign in again.").showAndWait();
                     navigator.showStudentStaffPortal();
                     return;
                 }
 
+                // No password change requested; safe to persist name/avatar now.
+                UserDao.updateFullName(user.getId(), trimmedFullName);
+                UserDao.updateAvatarPath(user.getId(), avatarPath);
                 new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAvailableBooks(refreshed);
