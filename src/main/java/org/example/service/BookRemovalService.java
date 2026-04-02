@@ -2,6 +2,7 @@ package org.example.service;
 
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
+import org.example.db.PendingDao;
 import org.example.domain.Book;
 
 import java.sql.SQLException;
@@ -10,7 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Removes a catalog book: notifies active borrowers, returns loans, deletes the row.
+ * Removes a catalog book: notifies active borrowers, returns loans, and hides the catalog entry
+ * while keeping borrow history for student/staff and librarian records.
  */
 public final class BookRemovalService {
 
@@ -35,6 +37,13 @@ public final class BookRemovalService {
             NotificationService.notifyBorrowerBookRemovedFromCatalog(borrowerId, title);
             BorrowService.returnBorrowAsSystem(borrowId);
         }
-        BookDao.deleteById(bookId);
+        // Prevent librarian from approving/rejecting stale edit submissions for a book
+        // that is no longer part of the catalog.
+        PendingDao.deleteByOriginalBookId(bookId);
+        // Also delete unlinked approved/rejected submissions (legacy rows with original_book_id = 0/NULL)
+        // so a librarian cannot "approve again" and recreate the catalog entry.
+        PendingDao.deleteUnlinkedApprovedOrRejectedForAuthorTitle(book.getAuthorUserId(), title);
+        // Soft-remove so that borrow history rows remain joinable / displayable.
+        BookDao.removeFromCatalogButKeepHistory(bookId);
     }
 }

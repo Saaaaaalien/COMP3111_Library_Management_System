@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.example.app.Navigator;
+import org.example.db.BookDao;
 import org.example.db.PendingDao;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
@@ -210,6 +211,18 @@ public final class LibrarianApprovalScreen {
         card.setPadding(new Insets(15));
         card.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-border-radius: 5;");
 
+        // If this submission is an edit of a published book that has been removed from the catalog,
+        // the librarian should not be able to approve/reject it.
+        boolean lockDecision = false;
+        if (book.getOriginalBookId() > 0) {
+            try {
+                lockDecision = !BookDao.isVisible(book.getOriginalBookId());
+            } catch (SQLException ignored) {
+                // Best-effort UI locking; backend guard in PendingDao still enforces correctness.
+                lockDecision = false;
+            }
+        }
+
         // Book details
         Label titleLbl = new Label("Title: " + book.getTitle());
         titleLbl.setStyle("-fx-font-size: 13; -fx-font-weight: bold;");
@@ -294,11 +307,13 @@ public final class LibrarianApprovalScreen {
             Button approveBtn = new Button("Approve");
             approveBtn.getStyleClass().add("primary-button");
             approveBtn.setMinWidth(100);
+            approveBtn.setDisable(lockDecision);
             approveBtn.setOnAction(e -> handleApprove(mainContent, book, reviewNotesArea.getText()));
 
             Button rejectBtn = new Button("Reject");
             rejectBtn.getStyleClass().add("secondary-button");
             rejectBtn.setMinWidth(100);
+            rejectBtn.setDisable(lockDecision);
             rejectBtn.setOnAction(e -> handleReject(mainContent, book, reviewNotesArea.getText()));
 
             HBox buttonBox = new HBox(10, approveBtn, rejectBtn);
@@ -312,11 +327,13 @@ public final class LibrarianApprovalScreen {
             Button approveBtn = new Button("Approve");
             approveBtn.getStyleClass().add("primary-button");
             approveBtn.setMinWidth(100);
+            approveBtn.setDisable(lockDecision);
             approveBtn.setOnAction(e -> handleApprove(mainContent, book, ""));
 
             Button rejectBtn = new Button("Reject");
             rejectBtn.getStyleClass().add("secondary-button");
             rejectBtn.setMinWidth(100);
+            rejectBtn.setDisable(lockDecision);
             rejectBtn.setOnAction(e -> handleReject(mainContent, book, ""));
 
             HBox buttonBox = new HBox(10, approveBtn, rejectBtn);

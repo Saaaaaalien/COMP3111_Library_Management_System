@@ -205,10 +205,8 @@ public final class AuthorPublishedBooksScreen {
                 for (Book b : BookDao.findByAuthorUserId(user.getId())) {
                     boolean hidden = hiddenBookIds.contains(b.getId());
                     if (hidden) {
-                        // Hidden books are only kept in the list while they are still actively borrowed.
-                        if (BorrowDao.countActiveBorrowsForBook(b.getId()) <= 0) {
-                            continue;
-                        }
+                        // Removed/deleted books must not be shown anywhere except borrow record screens.
+                        continue;
                     }
                     if (search == null || search.isEmpty() || b.getTitle().toLowerCase().contains(search) || (b.getGenre() != null && b.getGenre().toLowerCase().contains(search))) {
                         // Published books correspond to APPROVED status; only include when status filter allows it
@@ -444,14 +442,20 @@ public final class AuthorPublishedBooksScreen {
                             .showAndWait();
                     return;
                 }
-                new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog permanently?")
+                new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog?")
                         .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
                             try {
                                 // Remove any pending edits that reference this book to avoid re-creating it later
                                 try {
                                     PendingDao.deleteByOriginalBookId(r.getId());
                                 } catch (SQLException ignored) {}
-                                BookDao.deleteById(r.getId());
+                                // Also remove legacy/unlinked reviewed submissions for this title+author
+                                // so the librarian can't approve them later and recreate the catalog row.
+                                try {
+                                    PendingDao.deleteUnlinkedApprovedOrRejectedForAuthorTitle(user.getId(), r.getTitle());
+                                } catch (SQLException ignored) {}
+                                // Soft-remove so student/staff borrow history stays visible.
+                                BookDao.removeFromCatalogButKeepHistory(r.getId());
                                 refresh.run();
                             } catch (SQLException ex) {
                                 new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
