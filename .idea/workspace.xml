@@ -4,34 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="fix edit my books">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/SessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/SessionService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BookDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BookDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingHighlightDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingHighlightDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingProgressDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingProgressDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/NotificationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/NotificationService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorProfileScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorProfileScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PdfReaderScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/PdfReaderScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffNotificationBoardScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffNotificationBoardScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffProfileScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffProfileScreen.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/PdfReaderUtil.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/app.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/app.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/fxml/AuthorDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/AuthorDashboard.fxml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/fxml/LibrarianDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/LibrarianDashboard.fxml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/fxml/Login.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/Login.fxml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/fxml/Register.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/Register.fxml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/fxml/StudentStaffDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/StudentStaffDashboard.fxml" afterDir="false" />
-    </list>
+    <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="fix edit my books" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -100,7 +73,6 @@
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "task1",
     "junie.onboarding.icon.badge.shown": "true",
-    "git-widget-placeholder": "task2",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/images",
     "node.js.detected.package.eslint": "true",

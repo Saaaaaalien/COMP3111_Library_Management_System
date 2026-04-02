@@ -165,7 +165,7 @@ public final class AuthorProfileScreen {
                         throw new ValidationException("New passwords do not match.");
                     }
                     String salt = PasswordHasher.generateSalt();
-                    String hash = PasswordHasher.hash(newPassword, salt);
+                    String hash = PasswordHasher.hash(np, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
                     new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showAuthorPortal();

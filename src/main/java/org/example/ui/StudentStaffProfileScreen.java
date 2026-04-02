@@ -54,46 +54,6 @@ public final class StudentStaffProfileScreen {
         Label title = new Label("My Profile");
         title.getStyleClass().add("screen-title");
 
-        // ── Profile picture ──────────────────────────────────────────────────
-        ImageView avatarView = new ImageView();
-        avatarView.setFitWidth(80);
-        avatarView.setFitHeight(80);
-        avatarView.setPreserveRatio(true);
-        avatarView.setStyle("-fx-border-color: #ccc; -fx-border-width: 1;");
-        if (user.getAvatarPath() != null && new File(user.getAvatarPath()).exists()) {
-            avatarView.setImage(new Image(new File(user.getAvatarPath()).toURI().toString()));
-        }
-
-        // Holds the pending (not-yet-saved) avatar file chosen this session
-        final File[] pendingAvatar = {null};
-
-        Label avatarStatusLbl = new Label("");
-        avatarStatusLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #555;");
-
-        Button uploadAvatarBtn = new Button("\uD83D\uDDBC Upload Picture");
-        uploadAvatarBtn.getStyleClass().add("secondary-button");
-        uploadAvatarBtn.setOnAction(e -> {
-            FileChooser fc = new FileChooser();
-            fc.setTitle("Choose Profile Picture");
-            fc.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter("Images (JPG, PNG, GIF)", "*.jpg", "*.jpeg", "*.png", "*.gif"));
-            File chosen = fc.showOpenDialog(null);
-            if (chosen == null) return;
-            // Validate size (max 2 MB)
-            if (chosen.length() > 2 * 1024 * 1024) {
-                new Alert(Alert.AlertType.WARNING,
-                        "Image is too large. Maximum allowed size is 2 MB.").showAndWait();
-                return;
-            }
-            pendingAvatar[0] = chosen;
-            avatarView.setImage(new Image(chosen.toURI().toString()));
-            avatarStatusLbl.setText("New picture selected (not saved yet): " + chosen.getName());
-        });
-
-        HBox avatarRow = new HBox(12, avatarView,
-                new VBox(6, uploadAvatarBtn, avatarStatusLbl));
-        avatarRow.setAlignment(Pos.CENTER_LEFT);
-
         // ── Name field ───────────────────────────────────────────────────────
         TextField nameField = new TextField(user.getFullName());
         nameField.setMaxWidth(320);
@@ -213,8 +173,6 @@ public final class StudentStaffProfileScreen {
                 navigator.showAvailableBooks(refreshed);
             } catch (ValidationException ex) {
                 new Alert(Alert.AlertType.WARNING, ex.getMessage()).showAndWait();
-            } catch (IOException ex) {
-                new Alert(Alert.AlertType.ERROR, "Could not save profile picture: " + ex.getMessage()).showAndWait();
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, "Update failed: " + ex.getMessage()).showAndWait();
             }
