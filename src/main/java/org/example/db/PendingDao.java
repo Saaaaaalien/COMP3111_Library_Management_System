@@ -84,8 +84,8 @@ public final class PendingDao {
         String sql = """
             INSERT INTO pending_books (
                 title, author_user_id, author_full_name, genre, summary,
-                file_name, file_path, file_size, file_type, submitted_date, status, cover_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                file_name, file_path, file_size, file_type, submitted_date, status, cover_path, original_book_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         Connection conn = Database.getConnection();
@@ -106,6 +106,11 @@ public final class PendingDao {
                 ps.setString(12, book.getCoverPath());
             } else {
                 ps.setNull(12, Types.VARCHAR);
+            }
+            if (book.getOriginalBookId() > 0) {
+                ps.setLong(13, book.getOriginalBookId());
+            } else {
+                ps.setNull(13, Types.INTEGER);
             }
 
             ps.executeUpdate();
@@ -186,6 +191,12 @@ public final class PendingDao {
             Optional<PendingBook> pending = findById(bookId);
             if (pending.isPresent()) {
                 PendingBook p = pending.get();
+
+                // If this submission is an edit of a published book that has been removed from the catalog,
+                // the librarian should not be able to approve it.
+                if (p.getOriginalBookId() > 0 && !org.example.db.BookDao.isVisible(p.getOriginalBookId())) {
+                    throw new SQLException("Cannot approve: the original book has been removed from the catalog.");
+                }
                 String publishDate = Instant.now().toString();
 
                 // If the uploaded file is not PDF, convert it to PDF so the reader can open it later.
@@ -226,7 +237,9 @@ public final class PendingDao {
                         p.getCoverPath()
                     );
                 } else {
-                    BookDao.insert(
+                    // New submission: insert a new book row and then link this pending submission
+                    // back to the created catalog book so we can prevent "approve again" after removal.
+                    long newBookId = BookDao.insert(
                         p.getTitle(),
                         p.getAuthorUserId(),
                         p.getAuthorFullName(),
@@ -236,6 +249,12 @@ public final class PendingDao {
                         publishDate,
                         p.getCoverPath()
                     );
+                    String linkSql = "UPDATE pending_books SET original_book_id = ? WHERE id = ?";
+                    try (PreparedStatement ps2 = conn.prepareStatement(linkSql)) {
+                        ps2.setLong(1, newBookId);
+                        ps2.setLong(2, bookId);
+                        ps2.executeUpdate();
+                    }
                 }
             }
 
@@ -258,6 +277,15 @@ public final class PendingDao {
      * Reject a pending book submission
      */
     public static void rejectPendingBook(long bookId, String reviewNotes, String rejectionReason) throws SQLException {
+        // Load row to ensure we are not rejecting an edit of a removed catalog book.
+        Optional<PendingBook> pending = findById(bookId);
+        if (pending.isPresent()) {
+            PendingBook p = pending.get();
+            if (p.getOriginalBookId() > 0 && !org.example.db.BookDao.isVisible(p.getOriginalBookId())) {
+                throw new SQLException("Cannot reject: the original book has been removed from the catalog.");
+            }
+        }
+
         String sql = """
             UPDATE pending_books
             SET status = 'REJECTED', reviewed_date = ?, review_notes = ?, rejection_reason = ?
@@ -507,6 +535,29 @@ public final class PendingDao {
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, originalBookId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Delete old/unlinked approved or rejected submissions for a removed book.
+     * <p>
+     * Older rows may have {@code original_book_id} = 0/NULL even for the initial submission.
+     * When a catalog book is removed, we also need to remove those stale submissions so
+     * the librarian can't approve them again and recreate the catalog entry.
+     */
+    public static void deleteUnlinkedApprovedOrRejectedForAuthorTitle(long authorUserId, String title) throws SQLException {
+        String sql = """
+            DELETE FROM pending_books
+            WHERE author_user_id = ?
+              AND title = ?
+              AND (original_book_id IS NULL OR original_book_id = 0)
+              AND status IN ('APPROVED', 'REJECTED')
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, authorUserId);
+            ps.setString(2, title);
             ps.executeUpdate();
         }
     }

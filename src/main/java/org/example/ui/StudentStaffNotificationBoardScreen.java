@@ -15,6 +15,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.Pair;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
 import org.example.domain.AppNotification;
@@ -72,7 +73,8 @@ public final class StudentStaffNotificationBoardScreen {
 
         Runnable refresh = () -> {
             try {
-                String cat = category.getSelectionModel().getSelectedItem();
+                Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
+                String cat = sel == null ? "ALL" : sel.getValue();
                 var rows = NotificationDao.findForUserFiltered(
                         user.getId(),
                         cat,
@@ -105,6 +107,19 @@ public final class StudentStaffNotificationBoardScreen {
             }
         });
 
+        Button readAllBtn = new Button("Mark all read");
+        readAllBtn.setOnAction(e -> {
+            try {
+                int n = NotificationDao.markAllRead(user.getId(), Instant.now().toString());
+                if (n == 0) {
+                    new Alert(Alert.AlertType.INFORMATION, "No unread notifications to mark.").showAndWait();
+                }
+                refresh.run();
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not update all notifications.").showAndWait();
+            }
+        });
+
         Button archBtn = new Button("Archive");
         archBtn.getStyleClass().add("secondary-button");
         archBtn.setOnAction(e -> {
@@ -132,7 +147,7 @@ public final class StudentStaffNotificationBoardScreen {
 
         HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
-        HBox actions = new HBox(10, readBtn, archBtn, backBtn);
+        HBox actions = new HBox(10, readBtn, readAllBtn, archBtn, backBtn);
 
         VBox top = new VBox(8, title, filters, actions);
         top.setPadding(new Insets(10));

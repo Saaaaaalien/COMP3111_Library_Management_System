@@ -1,5 +1,18 @@
 package org.example.ui;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
+
+import org.example.app.Navigator;
+import org.example.db.UserDao;
+import org.example.domain.User;
+import org.example.security.PasswordHasher;
+import org.example.util.ValidationException;
+import org.example.util.Validators;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -7,6 +20,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -40,11 +54,53 @@ public final class StudentStaffProfileScreen {
         Label title = new Label("My Profile");
         title.getStyleClass().add("screen-title");
 
+        // ── Profile picture ──────────────────────────────────────────────────
+        ImageView avatarView = new ImageView();
+        avatarView.setFitWidth(80);
+        avatarView.setFitHeight(80);
+        avatarView.setPreserveRatio(true);
+        avatarView.setStyle("-fx-border-color: #ccc; -fx-border-width: 1;");
+        if (user.getAvatarPath() != null && new File(user.getAvatarPath()).exists()) {
+            avatarView.setImage(new Image(new File(user.getAvatarPath()).toURI().toString()));
+        }
+
+        // Holds the pending (not-yet-saved) avatar file chosen this session
+        final File[] pendingAvatar = {null};
+
+        Label avatarStatusLbl = new Label("");
+        avatarStatusLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #555;");
+
+        Button uploadAvatarBtn = new Button("\uD83D\uDDBC Upload Picture");
+        uploadAvatarBtn.getStyleClass().add("secondary-button");
+        uploadAvatarBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Choose Profile Picture");
+            fc.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Images (JPG, PNG, GIF)", "*.jpg", "*.jpeg", "*.png", "*.gif"));
+            File chosen = fc.showOpenDialog(null);
+            if (chosen == null) return;
+            // Validate size (max 2 MB)
+            if (chosen.length() > 2 * 1024 * 1024) {
+                new Alert(Alert.AlertType.WARNING,
+                        "Image is too large. Maximum allowed size is 2 MB.").showAndWait();
+                return;
+            }
+            pendingAvatar[0] = chosen;
+            avatarView.setImage(new Image(chosen.toURI().toString()));
+            avatarStatusLbl.setText("New picture selected (not saved yet): " + chosen.getName());
+        });
+
+        HBox avatarRow = new HBox(12, avatarView,
+                new VBox(6, uploadAvatarBtn, avatarStatusLbl));
+        avatarRow.setAlignment(Pos.CENTER_LEFT);
+
+        // ── Name field ───────────────────────────────────────────────────────
         TextField nameField = new TextField(user.getFullName());
         nameField.setMaxWidth(320);
 
+        // ── Password fields ──────────────────────────────────────────────────
         PasswordField currentPw = new PasswordField();
-        currentPw.setPromptText("Current password (required to set a new password)");
+        currentPw.setPromptText("Current password (required to save any changes)");
         currentPw.setMaxWidth(320);
         PasswordField pw1 = new PasswordField();
         pw1.setPromptText("New password (leave blank to keep current)");
@@ -99,6 +155,7 @@ public final class StudentStaffProfileScreen {
         hint.setWrapText(true);
         hint.setMaxWidth(360);
 
+        // ── Save button ──────────────────────────────────────────────────────
         Button saveBtn = new Button("Save");
         saveBtn.getStyleClass().add("primary-button");
         saveBtn.setOnAction(e -> {
@@ -156,6 +213,8 @@ public final class StudentStaffProfileScreen {
                 navigator.showAvailableBooks(refreshed);
             } catch (ValidationException ex) {
                 new Alert(Alert.AlertType.WARNING, ex.getMessage()).showAndWait();
+            } catch (IOException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not save profile picture: " + ex.getMessage()).showAndWait();
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, "Update failed: " + ex.getMessage()).showAndWait();
             }
@@ -193,8 +252,11 @@ public final class StudentStaffProfileScreen {
         form.setAlignment(Pos.CENTER);
         form.setPadding(new Insets(24));
 
+        ScrollPane scroll = new ScrollPane(form);
+        scroll.setFitToWidth(true);
+
         BorderPane root = new BorderPane();
-        root.setCenter(form);
+        root.setCenter(scroll);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 

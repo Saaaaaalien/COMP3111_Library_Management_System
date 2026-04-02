@@ -5,9 +5,17 @@ import org.example.domain.BorrowWithBook;
 import org.example.security.CryptoUtil;
 
 import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import org.example.domain.Borrow;
+import org.example.domain.BorrowWithBook;
 
 /**
  * Data access for borrows table.
@@ -102,9 +110,11 @@ public final class BorrowDao {
     public static List<BorrowWithBook> findAllByBorrowerUserId(long borrowerUserId) throws SQLException {
         String sql = """
             SELECT b.id AS borrow_id, b.book_id, b.borrowed_at, b.returned_at, b.due_at,
-                   k.title, k.author_full_name_snapshot AS author, k.file_path AS book_file_path
+                   COALESCE(k.title, '[Removed book]') AS title,
+                   COALESCE(k.author_full_name_snapshot, 'Unknown author') AS author,
+                   k.file_path AS book_file_path
             FROM borrows b
-            JOIN books k ON k.id = b.book_id
+            LEFT JOIN books k ON k.id = b.book_id
             WHERE b.borrower_user_id = ?
             ORDER BY b.borrowed_at DESC
             """;
@@ -217,6 +227,71 @@ public final class BorrowDao {
 
     public record ActiveBorrowDueRow(long borrowId, long borrowerUserId, long bookId, String dueAt, String bookTitle) {}
 
+    /**
+     * Returns every borrow record in the system joined with the book title and the
+     * borrower's username + full name.  Used by the librarian "Borrow Records" screen.
+     * Ordered by borrowed_at DESC (most recent first).
+     */
+    public static List<BorrowRecord> findAllWithBorrower() throws SQLException {
+        String sql = """
+            SELECT
+                b.id           AS borrow_id,
+                b.borrowed_at,
+                b.returned_at,
+                b.due_at,
+                COALESCE(k.title, '[Removed book]')                 AS book_title,
+                COALESCE(k.author_full_name_snapshot, 'Unknown')    AS book_author,
+                COALESCE(u.username, '[Deleted user]')              AS borrower_username,
+                COALESCE(u.full_name, '')                           AS borrower_full_name
+            FROM borrows b
+            LEFT JOIN books  k ON k.id = b.book_id
+            LEFT JOIN users  u ON u.id = b.borrower_user_id
+            ORDER BY b.borrowed_at DESC
+            """;
+        List<BorrowRecord> list = new ArrayList<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new BorrowRecord(
+                    rs.getLong("borrow_id"),
+                    rs.getString("book_title"),
+                    rs.getString("book_author"),
+                    rs.getString("borrower_username"),
+                    rs.getString("borrower_full_name"),
+                    rs.getString("borrowed_at"),
+                    rs.getString("returned_at"),
+                    rs.getString("due_at")
+                ));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * A flattened read-only view of a borrow row for the librarian records screen.
+     */
+    public record BorrowRecord(
+        long borrowId,
+        String bookTitle,
+        String bookAuthor,
+        String borrowerUsername,
+        String borrowerFullName,
+        String borrowedAt,
+        String returnedAt,
+        String dueAt
+    ) {
+        /** True when the book has not been returned yet. */
+        public boolean isActive() {
+            return returnedAt == null || returnedAt.isBlank();
+        }
+
+        /** True when active and the due date has already passed. */
+        public boolean isOverdue(String nowIso) {
+            return isActive() && dueAt != null && !dueAt.isBlank() && dueAt.compareTo(nowIso) < 0;
+        }
+    }
+
     public static int countActiveBorrowsForBook(long bookId) throws SQLException {
         String sql = """
             SELECT COUNT(*) FROM borrows
@@ -232,6 +307,49 @@ public final class BorrowDao {
             }
         }
         return 0;
+    }
+
+    /**
+     * Removes all borrow rows for a book (active or returned) and any linked reading rows,
+     * so {@link BookDao#deleteById(long)} does not fail on the borrows→books foreign key.
+     * Ignores missing {@code reading_*} tables (lazy schema).
+     */
+    public static void deleteAllBorrowsForBook(long bookId) throws SQLException {
+        Connection conn = Database.getConnection();
+        List<Long> borrowIds = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement("SELECT id FROM borrows WHERE book_id = ?")) {
+            ps.setLong(1, bookId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    borrowIds.add(rs.getLong(1));
+                }
+            }
+        }
+        for (long borrowId : borrowIds) {
+            try {
+                ReadingHighlightDao.deleteAllForBorrow(borrowId);
+            } catch (SQLException e) {
+                if (!isNoSuchTable(e)) {
+                    throw e;
+                }
+            }
+            try {
+                ReadingProgressDao.deleteForBorrow(borrowId);
+            } catch (SQLException e) {
+                if (!isNoSuchTable(e)) {
+                    throw e;
+                }
+            }
+        }
+        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM borrows WHERE book_id = ?")) {
+            ps.setLong(1, bookId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static boolean isNoSuchTable(SQLException e) {
+        String msg = e.getMessage();
+        return msg != null && msg.toLowerCase().contains("no such table");
     }
 
     private static Borrow mapRow(ResultSet rs) throws SQLException {

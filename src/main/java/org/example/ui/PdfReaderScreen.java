@@ -25,6 +25,7 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import org.example.app.AppConfig;
 import org.example.app.Navigator;
 import org.example.app.SessionService;
 import org.example.db.BorrowDao;

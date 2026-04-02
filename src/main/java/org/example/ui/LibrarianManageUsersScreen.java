@@ -1,8 +1,11 @@
 package org.example.ui;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.example.app.Navigator;
 import org.example.db.UserDao;
@@ -15,6 +18,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
@@ -38,6 +42,9 @@ public final class LibrarianManageUsersScreen {
     // Persistent search/filter state
     private static String currentSearchTerm = "";
     private static String currentRoleFilter = "";
+
+    // Tracks which user IDs are selected for bulk actions
+    private static final Set<Long> selectedBulkIds = new LinkedHashSet<>();
 
     public static Scene create(Navigator navigator, User librarian) {
         // Reset state each time the screen is opened fresh
@@ -84,14 +91,29 @@ public final class LibrarianManageUsersScreen {
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
 
+        Button myProfileBtn = new Button("My Profile");
+        myProfileBtn.getStyleClass().add("secondary-button");
+        myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
+
+        Button borrowRecordsBtn = new Button("Borrow Records");
+        borrowRecordsBtn.getStyleClass().add("secondary-button");
+        borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
+
+        Button notificationsBtn = new Button("🔔 Notifications");
+        notificationsBtn.getStyleClass().add("secondary-button");
+        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
+        HBox footerBtns = new HBox(10, borrowRecordsBtn, notificationsBtn, myProfileBtn, backBtn);
+        footerBtns.setAlignment(Pos.CENTER_RIGHT);
+
         VBox footerBox = new VBox();
         footerBox.setPadding(new Insets(15, 20, 15, 20));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
-        footerBox.getChildren().add(backBtn);
+        footerBox.getChildren().add(footerBtns);
 
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
@@ -145,6 +167,7 @@ public final class LibrarianManageUsersScreen {
 
     private static void loadUsers(VBox container, User librarian) {
         container.getChildren().clear();
+        selectedBulkIds.clear();
         try {
             List<User> users = queryUsers();
             if (users.isEmpty()) {
@@ -153,12 +176,53 @@ public final class LibrarianManageUsersScreen {
                 container.getChildren().add(empty);
                 return;
             }
+
+            // ── Count label ─────────────────────────────────────────────
             Label countLbl = new Label("Results: " + users.size() + " user(s)");
             countLbl.setStyle("-fx-font-size: 12; -fx-text-fill: #555;");
             container.getChildren().add(countLbl);
 
+            // ── Collect CheckBoxes for Select-All wiring ─────────────────
+            List<CheckBox> allCheckBoxes = new ArrayList<>();
+
+            // ── Bulk action bar ──────────────────────────────────────────
+            Button selectAllBtn    = new Button("\u2611 Select All");
+            selectAllBtn.getStyleClass().add("secondary-button");
+
+            Button deselectAllBtn  = new Button("\u2610 Deselect All");
+            deselectAllBtn.getStyleClass().add("secondary-button");
+
+            Button bulkDeactivateBtn = new Button("\u26D4 Bulk Deactivate");
+            bulkDeactivateBtn.getStyleClass().add("secondary-button");
+            bulkDeactivateBtn.setStyle("-fx-text-fill: #d9534f;");
+            bulkDeactivateBtn.setOnAction(e -> handleBulkDeactivate(container, librarian, users));
+
+            Button bulkReactivateBtn = new Button("\u2705 Bulk Reactivate");
+            bulkReactivateBtn.getStyleClass().add("secondary-button");
+            bulkReactivateBtn.setStyle("-fx-text-fill: #4caf50;");
+            bulkReactivateBtn.setOnAction(e -> handleBulkReactivate(container, librarian, users));
+
+            selectAllBtn.setOnAction(e -> {
+                for (CheckBox cb : allCheckBoxes) cb.setSelected(true);
+            });
+            deselectAllBtn.setOnAction(e -> {
+                for (CheckBox cb : allCheckBoxes) cb.setSelected(false);
+            });
+
+            HBox bulkBar = new HBox(10,
+                    new Label("Bulk Actions:"),
+                    selectAllBtn, deselectAllBtn,
+                    new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                    bulkDeactivateBtn, bulkReactivateBtn);
+            bulkBar.setAlignment(Pos.CENTER_LEFT);
+            bulkBar.setPadding(new Insets(8));
+            bulkBar.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #e0e0e0;"
+                    + " -fx-border-width: 1; -fx-border-radius: 4;");
+            container.getChildren().add(bulkBar);
+
+            // ── Build cards ──────────────────────────────────────────────
             for (User u : users) {
-                container.getChildren().add(buildUserCard(u, librarian, container));
+                container.getChildren().add(buildUserCard(u, librarian, container, allCheckBoxes));
             }
         } catch (SQLException ex) {
             Label err = new Label("Error loading users: " + ex.getMessage());
@@ -183,10 +247,26 @@ public final class LibrarianManageUsersScreen {
 
     // ── Build a single user card ──────────────────────────────────────────
 
-    private static VBox buildUserCard(User user, User librarian, VBox container) {
+    /**
+     * @param allCheckBoxes mutable list — this card's selection CheckBox is
+     *                      appended so the bulk bar can select/deselect all.
+     */
+    private static VBox buildUserCard(User user, User librarian, VBox container,
+                                      List<CheckBox> allCheckBoxes) {
         VBox card = new VBox(8);
         card.setPadding(new Insets(14));
         card.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-border-radius: 5;");
+
+        // ── Bulk-selection CheckBox ──────────────────────────────────────
+        CheckBox selectBox = new CheckBox("Select for bulk action");
+        selectBox.setStyle("-fx-font-size: 11; -fx-text-fill: #555;");
+        selectBox.setSelected(selectedBulkIds.contains(user.getId()));
+        selectBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal) selectedBulkIds.add(user.getId());
+            else        selectedBulkIds.remove(user.getId());
+        });
+        card.getChildren().add(selectBox);
+        allCheckBoxes.add(selectBox);
 
         // ── Header row: username + status badge ──
         Label usernameLbl = new Label(user.getUsername());
@@ -418,6 +498,120 @@ public final class LibrarianManageUsersScreen {
                 showError("Reactivation Failed", "A database error occurred: " + ex.getMessage());
             }
         }
+    }
+
+    // ── Bulk deactivate / reactivate ──────────────────────────────────────
+
+    /**
+     * Deactivates all currently selected ACTIVE users in one go.
+     * Skips the librarian's own account and already-deactivated accounts.
+     */
+    private static void handleBulkDeactivate(VBox container, User librarian, List<User> allUsers) {
+        List<User> targets = new ArrayList<>();
+        for (User u : allUsers) {
+            if (selectedBulkIds.contains(u.getId()) && u.isActive()) {
+                if (u.getId() == librarian.getId()) continue; // cannot self-deactivate
+                targets.add(u);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showError("No Eligible Users Selected",
+                    "Please select at least one active user (other than yourself) to deactivate.");
+            return;
+        }
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("You are about to DEACTIVATE the following ")
+           .append(targets.size()).append(" account(s):\n\n");
+        for (int i = 0; i < targets.size(); i++) {
+            msg.append("  ").append(i + 1).append(". ")
+               .append(targets.get(i).getUsername())
+               .append(" (").append(formatRole(targets.get(i).getRole())).append(")\n");
+        }
+        msg.append("\nThese users will no longer be able to log in until reactivated. Proceed?");
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Bulk Deactivation");
+        confirm.setHeaderText("Bulk Deactivate \u2014 " + targets.size() + " account(s)");
+        confirm.setContentText(msg.toString());
+        confirm.getDialogPane().setPrefWidth(480);
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) return;
+
+        List<String> failed = new ArrayList<>();
+        for (User u : targets) {
+            try {
+                UserDao.setActive(u.getId(), false);
+            } catch (SQLException ex) {
+                failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
+            }
+        }
+
+        if (failed.isEmpty()) {
+            showSuccess("Bulk Deactivation Complete",
+                    targets.size() + " account(s) have been deactivated.");
+        } else {
+            showError("Bulk Deactivation Partially Failed",
+                    "The following accounts could not be deactivated:\n" + String.join("\n", failed));
+        }
+        loadUsers(container, librarian);
+    }
+
+    /**
+     * Reactivates all currently selected INACTIVE users in one go.
+     */
+    private static void handleBulkReactivate(VBox container, User librarian, List<User> allUsers) {
+        List<User> targets = new ArrayList<>();
+        for (User u : allUsers) {
+            if (selectedBulkIds.contains(u.getId()) && !u.isActive()) {
+                targets.add(u);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showError("No Eligible Users Selected",
+                    "Please select at least one deactivated user to reactivate.");
+            return;
+        }
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("You are about to REACTIVATE the following ")
+           .append(targets.size()).append(" account(s):\n\n");
+        for (int i = 0; i < targets.size(); i++) {
+            msg.append("  ").append(i + 1).append(". ")
+               .append(targets.get(i).getUsername())
+               .append(" (").append(formatRole(targets.get(i).getRole())).append(")\n");
+        }
+        msg.append("\nThese users will regain the ability to log in. Proceed?");
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Bulk Reactivation");
+        confirm.setHeaderText("Bulk Reactivate \u2014 " + targets.size() + " account(s)");
+        confirm.setContentText(msg.toString());
+        confirm.getDialogPane().setPrefWidth(480);
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) return;
+
+        List<String> failed = new ArrayList<>();
+        for (User u : targets) {
+            try {
+                UserDao.setActive(u.getId(), true);
+            } catch (SQLException ex) {
+                failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
+            }
+        }
+
+        if (failed.isEmpty()) {
+            showSuccess("Bulk Reactivation Complete",
+                    targets.size() + " account(s) have been reactivated.");
+        } else {
+            showError("Bulk Reactivation Partially Failed",
+                    "The following accounts could not be reactivated:\n" + String.join("\n", failed));
+        }
+        loadUsers(container, librarian);
     }
 
     // ── Alert helpers ─────────────────────────────────────────────────────

@@ -8,12 +8,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.Pair;
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
 import org.example.domain.AppNotification;
@@ -22,7 +22,7 @@ import org.example.service.NotificationService;
 
 import java.sql.SQLException;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.util.List;
 
 /**
  * Author notification board with category filter and search.
@@ -30,6 +30,14 @@ import java.time.ZoneId;
 public final class AuthorNotificationsScreen {
 
     private AuthorNotificationsScreen() {}
+
+    private static final List<Pair<String, String>> AUTHOR_CATEGORY_FILTERS = List.of(
+            new Pair<>("All categories", "ALL"),
+            new Pair<>("Book accepted", NotificationService.CAT_AUTHOR_APPROVED),
+            new Pair<>("Book rejected", NotificationService.CAT_AUTHOR_REJECTED),
+            new Pair<>("Book removed (librarian)", NotificationService.CAT_AUTHOR_BOOK_REMOVED),
+            new Pair<>("Announcements", NotificationService.CAT_ANNOUNCEMENT)
+    );
 
     public static Scene create(Navigator navigator, User user) {
         Button backBtn = new Button("Back");
@@ -42,12 +50,21 @@ public final class AuthorNotificationsScreen {
         Label title = new Label("Author notifications");
         title.getStyleClass().add("screen-title");
 
-        ComboBox<String> category = new ComboBox<>(FXCollections.observableArrayList(
-                "ALL",
-                NotificationService.CAT_AUTHOR_APPROVED,
-                NotificationService.CAT_AUTHOR_REJECTED,
-                NotificationService.CAT_ANNOUNCEMENT
-        ));
+        ComboBox<Pair<String, String>> category = new ComboBox<>(FXCollections.observableArrayList(AUTHOR_CATEGORY_FILTERS));
+        category.setButtonCell(new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Pair<String, String> item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getKey());
+            }
+        });
+        category.setCellFactory(lv -> new javafx.scene.control.ListCell<>() {
+            @Override
+            protected void updateItem(Pair<String, String> item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getKey());
+            }
+        });
         category.getSelectionModel().selectFirst();
 
         TextField search = new TextField();
@@ -56,60 +73,12 @@ public final class AuthorNotificationsScreen {
         CheckBox showArchived = new CheckBox("Show archived");
 
         ListView<AppNotification> list = new ListView<>();
-        list.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(AppNotification n, boolean empty) {
-                super.updateItem(n, empty);
-                if (empty || n == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    String ts = n.getCreatedAt();
-                    String when = ts;
-                    try {
-                        when = Instant.parse(ts).atZone(ZoneId.systemDefault()).toLocalDateTime().toString();
-                    } catch (Exception ignored) {}
-
-                    boolean unread = !n.isRead();
-                    javafx.scene.shape.Circle dot = null;
-                    if (unread) {
-                        dot = new javafx.scene.shape.Circle(6, javafx.scene.paint.Color.web("#e74c3c"));
-                    }
-
-                    Label catLbl = new Label("[" + n.getCategory() + "] ");
-                    catLbl.setStyle("-fx-text-fill: #7f8c8d;");
-                    Label titleLbl = new Label(n.getTitle());
-                    // Always bold the message title for visibility; indicate unread with color
-                    titleLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
-                    if (unread) {
-                        titleLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #1f406e;");
-                    }
-                    HBox titleBox = new HBox(4, catLbl, titleLbl);
-                    Label body = new Label(n.getBody());
-                    body.setWrapText(true);
-                    Label meta = new Label(when + "  [P" + n.getPriority() + "]");
-
-                    VBox v = new VBox(4, titleBox, body, meta);
-                    v.setMaxWidth(Double.MAX_VALUE);
-
-                    HBox h;
-                    if (dot != null) {
-                        h = new HBox(10, dot, v);
-                    } else {
-                        h = new HBox(10, v);
-                    }
-                    h.setStyle("-fx-padding: 8;");
-                    javafx.scene.layout.HBox.setHgrow(v, javafx.scene.layout.Priority.ALWAYS);
-
-                    setText(null);
-                    setGraphic(h);
-                }
-            }
-        });
+        list.setCellFactory(lv -> NotificationListCellFactory.create());
 
         Runnable refresh = () -> {
             try {
-                String cat = category.getSelectionModel().getSelectedItem();
+                Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
+                String cat = sel == null ? "ALL" : sel.getValue();
                 list.setItems(FXCollections.observableArrayList(
                         NotificationDao.findForUserFiltered(user.getId(), cat, search.getText(), showArchived.isSelected())
                 ));
@@ -138,6 +107,21 @@ public final class AuthorNotificationsScreen {
             }
         });
 
+        Button readAllBtn = new Button("Mark all read");
+        readAllBtn.getStyleClass().add("secondary-button");
+        readAllBtn.setPrefWidth(140);
+        readAllBtn.setOnAction(e -> {
+            try {
+                int n = NotificationDao.markAllRead(user.getId(), Instant.now().toString());
+                if (n == 0) {
+                    new Alert(Alert.AlertType.INFORMATION, "No unread notifications to mark.").showAndWait();
+                }
+                refresh.run();
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not update all notifications.").showAndWait();
+            }
+        });
+
         Button archBtn = new Button("Archive");
         archBtn.getStyleClass().add("secondary-button");
         archBtn.setPrefWidth(140);
@@ -157,7 +141,7 @@ public final class AuthorNotificationsScreen {
 
         HBox back = new HBox(5, backBtn);
         HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
-        HBox actions = new HBox(5, readBtn, archBtn);
+        HBox actions = new HBox(5, readBtn, readAllBtn, archBtn);
         actions.setPadding(new Insets(16, 0, 0, 0));
 
         VBox listWrapper = new VBox(list);

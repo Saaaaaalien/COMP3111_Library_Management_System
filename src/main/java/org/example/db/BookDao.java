@@ -6,8 +6,10 @@ import org.example.security.CryptoUtil;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Data access for books table (published books).
@@ -62,7 +64,7 @@ public final class BookDao {
     public static List<Book> findAllAvailable() throws SQLException {
         String sql = """
             SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
-            FROM books WHERE availability = 'AVAILABLE' ORDER BY publish_date DESC
+            FROM books WHERE availability = 'AVAILABLE' AND is_visible = 1 ORDER BY publish_date DESC
             """;
         List<Book> list = new ArrayList<>();
         Connection conn = Database.getConnection();
@@ -114,7 +116,9 @@ public final class BookDao {
     public static List<Book> findAll() throws SQLException {
         String sql = """
             SELECT id, title, author_user_id, author_full_name_snapshot, genre, summary, file_path, publish_date, availability, cover_image_path
-            FROM books ORDER BY title COLLATE NOCASE
+            FROM books
+            WHERE is_visible = 1
+            ORDER BY title COLLATE NOCASE
             """;
         List<Book> list = new ArrayList<>();
         Connection conn = Database.getConnection();
@@ -282,6 +286,21 @@ public final class BookDao {
         return list;
     }
 
+    public static Set<Long> findHiddenBookIdsByAuthor(long authorUserId) throws SQLException {
+        String sql = "SELECT id FROM books WHERE author_user_id = ? AND is_visible = 0";
+        Set<Long> ids = new HashSet<>();
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, authorUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getLong("id"));
+                }
+            }
+        }
+        return ids;
+    }
+
     public static void updateAuthorMetadata(long bookId, long authorUserId, String authorFullName,
                                            String title, String genre, String summary) throws SQLException {
         String sql = """
@@ -325,12 +344,103 @@ public final class BookDao {
         }
     }
 
+    /**
+     * Updates a published book and any legacy duplicate rows that represent the same logical book.
+     * Matching strategy:
+     * - always update the selected id
+     * - also update rows with same author_user_id + file_path as the selected id
+     */
+    public static void updatePublishedFieldsIncludingLinked(long id, String title, String genre, String summary,
+                                                            String filePath, String coverImagePath) throws SQLException {
+        String sql = """
+            UPDATE books
+            SET title = ?, genre = ?, summary = ?, file_path = ?, cover_image_path = ?
+            WHERE id = ?
+               OR (
+                   author_user_id = (SELECT author_user_id FROM books WHERE id = ?)
+                   AND file_path = (SELECT file_path FROM books WHERE id = ?)
+               )
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setString(2, genre);
+            ps.setString(3, summary);
+            ps.setString(4, filePath);
+            if (coverImagePath != null) {
+                ps.setString(5, coverImagePath);
+            } else {
+                ps.setNull(5, Types.VARCHAR);
+            }
+            ps.setLong(6, id);
+            ps.setLong(7, id);
+            ps.setLong(8, id);
+            int n = ps.executeUpdate();
+            if (n == 0) {
+                throw new SQLException("Book not found.");
+            }
+        }
+    }
+
     public static void deleteById(long id) throws SQLException {
+        BorrowDao.deleteAllBorrowsForBook(id);
         String sql = "DELETE FROM books WHERE id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
             ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Removes a published book from the catalog while keeping borrow history.
+     * <p>
+     * This is implemented by hiding the book row (so it won't appear in available/recommended listings)
+     * and marking it as unavailable (so new borrows can't be created), while leaving existing rows in
+     * {@code borrows} intact for student/staff and librarian record screens.
+     */
+    public static void removeFromCatalogButKeepHistory(long id) throws SQLException {
+        String sql = """
+            UPDATE books
+            SET is_visible = 0,
+                availability = ?
+            WHERE id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, Availability.BORROWED.name());
+            ps.setLong(2, id);
+            if (ps.executeUpdate() == 0) {
+                throw new SQLException("Book not found.");
+            }
+        }
+    }
+
+    public static void hideFromCatalog(long id) throws SQLException {
+        String sql = "UPDATE books SET is_visible = 0 WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            if (ps.executeUpdate() == 0) {
+                throw new SQLException("Book not found.");
+            }
+        }
+    }
+
+    /**
+     * @return true if the book exists and is visible in catalog listings; false otherwise.
+     */
+    public static boolean isVisible(long id) throws SQLException {
+        String sql = "SELECT is_visible FROM books WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return false;
+                }
+                return rs.getInt("is_visible") == 1;
+            }
         }
     }
 

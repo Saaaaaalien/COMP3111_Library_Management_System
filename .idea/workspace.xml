@@ -38,7 +38,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="149" />
+    <option name="cachedIndexableFilesCount" value="154" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -50,7 +50,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="phase2_task2" />
+        <entry key="$PROJECT_DIR$" value="master" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -100,6 +100,7 @@
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "task1",
     "junie.onboarding.icon.badge.shown": "true",
+    "git-widget-placeholder": "task2",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/images",
     "node.js.detected.package.eslint": "true",
@@ -169,6 +170,7 @@
       <workItem from="1774977436891" duration="172000" />
       <workItem from="1775000383119" duration="3613000" />
       <workItem from="1775007537175" duration="1459000" />
+      <workItem from="1775042027942" duration="6032000" />
     </task>
     <task id="LOCAL-00001" summary="phase 1 basic">
       <option name="closed" value="true" />
@@ -362,7 +364,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775018937790</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="fix edit my books">
+      <option name="closed" value="true" />
+      <created>1775019261492</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1775019261492</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -379,7 +389,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="phase2_task2" />
+                        <option value="task2" />
                       </list>
                     </value>
                   </entry>

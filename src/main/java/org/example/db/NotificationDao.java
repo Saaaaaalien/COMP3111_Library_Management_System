@@ -148,6 +148,27 @@ public final class NotificationDao {
         }
     }
 
+    /**
+     * Marks all unread, non-archived notifications as read for a user.
+     *
+     * @return number of rows updated
+     */
+    public static int markAllRead(long userId, String readAt) throws SQLException {
+        String sql = """
+            UPDATE notifications
+            SET read_at = ?
+            WHERE user_id = ?
+              AND (read_at IS NULL OR read_at = '')
+              AND (archived_at IS NULL OR archived_at = '')
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, readAt);
+            ps.setLong(2, userId);
+            return ps.executeUpdate();
+        }
+    }
+
     public static void archive(long id, long userId, String archivedAt) throws SQLException {
         String sql = "UPDATE notifications SET archived_at = ? WHERE id = ? AND user_id = ?";
         Connection conn = Database.getConnection();
