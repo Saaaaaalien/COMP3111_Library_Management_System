@@ -1,5 +1,9 @@
 package org.example.app;
 
+import org.example.db.BookDao;
+import org.example.db.BorrowDao;
+import org.example.domain.Book;
+import org.example.domain.Borrow;
 import org.example.domain.User;
 
 import javafx.geometry.Insets;
@@ -122,6 +126,53 @@ public class Navigator {
         stage.show();
     }
 
+    public void showPdfReader(User user,
+                                Long borrowId,
+                                Long bookId,
+                                Integer pageIndex0Override,
+                                Integer zoomPercentOverride) {
+        // Crash recovery route: if state or DB rows are missing, fall back to home.
+        try {
+            if (borrowId == null || bookId == null) {
+                showWelcome();
+                return;
+            }
+            long borrowId0 = borrowId;
+            long bookId0 = bookId;
+
+            Borrow borrow = BorrowDao.findById(borrowId0).orElse(null);
+            if (borrow == null || borrow.getBorrowerUserId() != user.getId() || borrow.getBookId() != bookId0) {
+                showWelcome();
+                return;
+            }
+            Book book = BookDao.findById(bookId0).orElse(null);
+            if (book == null) {
+                showWelcome();
+                return;
+            }
+
+            // Ensure the underlying screen is the user's "My Borrowed Books" so
+            // the PDF reader appears on top of it (both for normal and crash recovery restores).
+            // This does not overwrite session.json because we are not calling SessionService.save here.
+            Scene borrowedScene = org.example.ui.MyBorrowedBooksScreen.create(this, user);
+            stage.setScene(borrowedScene);
+            stage.show();
+
+            org.example.ui.PdfReaderScreen.open(
+                    this,
+                    user,
+                    borrowId0,
+                    bookId0,
+                    book.getTitle(),
+                    book.getFilePath(),
+                    pageIndex0Override,
+                    zoomPercentOverride
+            );
+        } catch (Exception ignored) {
+            showWelcome();
+        }
+    }
+
     public void showStudentStaffProfile(User user) {
         SessionService.save("PROFILE_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffProfileScreen.create(this, user);
@@ -130,8 +181,12 @@ public class Navigator {
     }
 
     public void showStudentStaffNotifications(User user) {
+        showStudentStaffNotifications(user, false);
+    }
+
+    public void showStudentStaffNotifications(User user, boolean returnToBorrowedBooks) {
         SessionService.save("NOTIFICATIONS_STUDENT", user.getId());
-        Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user);
+        Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user, returnToBorrowedBooks);
         stage.setScene(scene);
         stage.show();
     }

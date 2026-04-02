@@ -24,7 +24,8 @@ import org.example.service.NotificationService;
 
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.List;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Notification board for students and staff.
@@ -33,32 +34,18 @@ public final class StudentStaffNotificationBoardScreen {
 
     private StudentStaffNotificationBoardScreen() {}
 
-    private static final List<Pair<String, String>> STAFF_CATEGORY_FILTERS = List.of(
-            new Pair<>("All categories", "ALL"),
-            new Pair<>("Due date reminders", NotificationService.CAT_DUE_REMINDER),
-            new Pair<>("Book removed from catalog", NotificationService.CAT_BOOK_REMOVED),
-            new Pair<>("Announcements", NotificationService.CAT_ANNOUNCEMENT)
-    );
-
-    public static Scene create(Navigator navigator, User user) {
+    public static Scene create(Navigator navigator, User user, boolean returnToBorrowedBooks) {
         Label title = new Label("Notifications");
         title.getStyleClass().add("screen-title");
 
-        ComboBox<Pair<String, String>> category = new ComboBox<>(FXCollections.observableArrayList(STAFF_CATEGORY_FILTERS));
-        category.setButtonCell(new ListCell<>() {
-            @Override
-            protected void updateItem(Pair<String, String> item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.getKey());
-            }
-        });
-        category.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(Pair<String, String> item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.getKey());
-            }
-        });
+        ComboBox<String> category = new ComboBox<>(FXCollections.observableArrayList(
+                "ALL",
+                NotificationService.CAT_DUE_REMINDER,
+                NotificationService.CAT_BOOK_REMOVED,
+                NotificationService.CAT_ANNOUNCEMENT,
+                NotificationService.CAT_BORROW_EVENT,
+                NotificationService.CAT_RETURN_EVENT
+        ));
         category.getSelectionModel().selectFirst();
 
         TextField search = new TextField();
@@ -68,7 +55,21 @@ public final class StudentStaffNotificationBoardScreen {
         CheckBox showArchived = new CheckBox("Show archived");
 
         ListView<AppNotification> list = new ListView<>();
-        list.setCellFactory(lv -> NotificationListCellFactory.create());
+        list.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(AppNotification n, boolean empty) {
+                super.updateItem(n, empty);
+                if (empty || n == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    String rd = n.isRead() ? "read" : "unread";
+                    String created = formatCreatedAt(n.getCreatedAt());
+                    setText("[" + n.getCategory() + "] " + n.getTitle() + " (" + rd + ")\n"
+                            + "Time: " + created + "\n" + n.getBody());
+                }
+            }
+        });
 
         Runnable refresh = () -> {
             try {
@@ -92,6 +93,7 @@ public final class StudentStaffNotificationBoardScreen {
         showArchived.setOnAction(e -> refresh.run());
 
         Button readBtn = new Button("Mark read");
+        readBtn.getStyleClass().add("primary-button");
         readBtn.setOnAction(e -> {
             AppNotification n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
@@ -119,6 +121,7 @@ public final class StudentStaffNotificationBoardScreen {
         });
 
         Button archBtn = new Button("Archive");
+        archBtn.getStyleClass().add("secondary-button");
         archBtn.setOnAction(e -> {
             AppNotification n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
@@ -134,7 +137,13 @@ public final class StudentStaffNotificationBoardScreen {
 
         Button backBtn = new Button("Back");
         backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showAvailableBooks(user));
+        backBtn.setOnAction(e -> {
+            if (returnToBorrowedBooks) {
+                navigator.showMyBorrowedBooks(user);
+            } else {
+                navigator.showAvailableBooks(user);
+            }
+        });
 
         HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
@@ -155,5 +164,21 @@ public final class StudentStaffNotificationBoardScreen {
             scene.getStylesheets().add(css.toExternalForm());
         }
         return scene;
+    }
+
+    public static Scene create(Navigator navigator, User user) {
+        // Default behavior: if no explicit return target is provided,
+        // return to Available Books (consistent with typical entry point).
+        return create(navigator, user, false);
+    }
+
+    private static String formatCreatedAt(String iso) {
+        if (iso == null || iso.isBlank()) return "Unknown";
+        try {
+            return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    .format(Instant.parse(iso).atZone(ZoneId.systemDefault()));
+        } catch (Exception ex) {
+            return iso;
+        }
     }
 }

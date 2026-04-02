@@ -166,6 +166,35 @@ public final class Database {
                     FOREIGN KEY (borrower_user_id) REFERENCES users(id)
                 )
                 """);
+                // Reading progress (bookmarks / last page) for an active/closed borrow.
+                // ReadingProgressDao expects an ON CONFLICT(borrow_id) upsert.
+                st.execute("""
+                    CREATE TABLE IF NOT EXISTS reading_progress (
+                        borrow_id INTEGER PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        book_id INTEGER NOT NULL,
+                        last_page INTEGER NOT NULL,
+                        viewer_payload TEXT,
+                        updated_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                    """);
+
+                // Highlight records tied to a borrow/page.
+                // ReadingHighlightDao inserts rows with an auto-generated id.
+                st.execute("""
+                    CREATE TABLE IF NOT EXISTS reading_highlights (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        borrow_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        page_index INTEGER NOT NULL,
+                        highlight_text TEXT NOT NULL,
+                        highlight_rects_json TEXT,
+                        created_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                    """);
+                migrateReadingHighlightsTable(conn);
             st.execute("""
                 CREATE TABLE IF NOT EXISTS publish_drafts (
                     author_user_id INTEGER PRIMARY KEY,
@@ -182,6 +211,19 @@ public final class Database {
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
             migrateBooksTable(conn);
+        }
+    }
+
+    private static void migrateReadingHighlightsTable(Connection conn) throws SQLException {
+        // Older DBs may have reading_highlights without the geometry column.
+        // Geometry is stored as JSON array of normalized rects.
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE reading_highlights ADD COLUMN highlight_rects_json TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null) return;
+            // Ignore duplicate-column failures.
+            if (msg.toLowerCase().contains("duplicate")) return;
         }
     }
 

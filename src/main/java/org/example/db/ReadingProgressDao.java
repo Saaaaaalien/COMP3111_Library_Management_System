@@ -25,6 +25,26 @@ public final class ReadingProgressDao {
         return Optional.empty();
     }
 
+    /**
+     * Bookmark / progress lookup scoped to both borrow and user.
+     * This prevents mismatched borrowId from reading another user's progress.
+     */
+    public static Optional<Integer> getLastPage(long borrowId, long userId) throws SQLException {
+        //noinspection SqlNoDataSourceInspection
+        String sql = "SELECT last_page FROM reading_progress WHERE borrow_id = ? AND user_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, borrowId);
+            ps.setLong(2, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(rs.getInt("last_page"));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     public static void upsert(long borrowId, long userId, long bookId, int lastPage,
                            String viewerPayload, String updatedAt) throws SQLException {
         //noinspection SqlNoDataSourceInspection

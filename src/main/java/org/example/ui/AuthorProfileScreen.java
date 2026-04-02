@@ -165,14 +165,14 @@ public final class AuthorProfileScreen {
                         throw new ValidationException("New passwords do not match.");
                     }
                     String salt = PasswordHasher.generateSalt();
-                    String hash = PasswordHasher.hash(np, salt);
+                    String hash = PasswordHasher.hash(newPassword, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
                     new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showAuthorPortal();
                     return;
                 }
 
-                new Alert(Alert.AlertType.INFORMATION, "Profile saved.").showAndWait();
+                new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAuthorDashboard(refreshed);
             } catch (ValidationException ex) {
@@ -180,7 +180,7 @@ public final class AuthorProfileScreen {
             } catch (IOException ex) {
                 new Alert(Alert.AlertType.ERROR, "Could not save profile picture: " + ex.getMessage()).showAndWait();
             } catch (SQLException ex) {
-                new Alert(Alert.AlertType.ERROR, "Could not save.").showAndWait();
+                new Alert(Alert.AlertType.ERROR, "Update failed: " + ex.getMessage()).showAndWait();
             }
         });
 

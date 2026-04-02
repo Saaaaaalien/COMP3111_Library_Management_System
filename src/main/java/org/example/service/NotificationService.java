@@ -24,6 +24,8 @@ public final class NotificationService {
     public static final String CAT_DUE_REMINDER = "DUE_REMINDER";
     public static final String CAT_BOOK_REMOVED = "BOOK_REMOVED";
     public static final String CAT_ANNOUNCEMENT = "ANNOUNCEMENT";
+    public static final String CAT_BORROW_EVENT = "BORROW_EVENT";
+    public static final String CAT_RETURN_EVENT = "RETURN_EVENT";
     public static final String CAT_AUTHOR_APPROVED = "AUTHOR_APPROVED";
     public static final String CAT_AUTHOR_REJECTED = "AUTHOR_REJECTED";
     /** Librarian removed the author's book from the catalog. */
@@ -100,6 +102,38 @@ public final class NotificationService {
             Instant.now().toString(),
             9,
             null
+        );
+    }
+
+    public static void notifyBorrowSuccess(long borrowerUserId, String bookTitle, String dueAt) throws SQLException {
+        String body = "You borrowed \"" + bookTitle + "\" successfully.";
+        if (dueAt != null && !dueAt.isBlank()) {
+            body += "\nDue date: " + dueAt;
+        }
+        NotificationDao.insert(
+                borrowerUserId,
+                CAT_BORROW_EVENT,
+                "Borrow confirmed",
+                body,
+                Instant.now().toString(),
+                1,
+                null
+        );
+    }
+
+    public static void notifyReturnSuccess(long borrowerUserId, String bookTitle, boolean autoReturn) throws SQLException {
+        String title = autoReturn ? "Book auto-returned" : "Return confirmed";
+        String body = autoReturn
+                ? "Your borrow for \"" + bookTitle + "\" expired and was auto-returned."
+                : "You returned \"" + bookTitle + "\" successfully.";
+        NotificationDao.insert(
+                borrowerUserId,
+                CAT_RETURN_EVENT,
+                title,
+                body,
+                Instant.now().toString(),
+                autoReturn ? 3 : 1,
+                null
         );
     }
 

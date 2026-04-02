@@ -30,6 +30,24 @@ public final class BookPreviewUtil {
     private BookPreviewUtil() {}
 
     /**
+     * Returns the number of pages in a PDF on disk, or 0 if missing or not a readable PDF.
+     * Used by the borrowed-book WebView reader (PDFBox stays scoped to book-file utilities / preview flows).
+     */
+    public static int getPdfPageCount(Path path) {
+        if (path == null || !Files.isRegularFile(path) || !Files.isReadable(path)) {
+            return 0;
+        }
+        if (!path.toString().toLowerCase().endsWith(".pdf")) {
+            return 0;
+        }
+        try (PDDocument doc = Loader.loadPDF(path.toFile())) {
+            return doc.getNumberOfPages();
+        } catch (IOException e) {
+            return 0;
+        }
+    }
+
+    /**
      * Reads a preview of the book content from the file at the given path.
      * Supported formats: .txt (plain text), .pdf (PDFBox), .docx and .doc (Apache POI).
      * Returns null if the format is unsupported, the file is missing/unreadable, or extraction fails.

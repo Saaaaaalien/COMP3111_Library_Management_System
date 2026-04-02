@@ -43,7 +43,7 @@
 }
 
 .button-bar {
-    -fx-alignment: center-right;
+    -fx-alignment: center-left;
     -fx-spacing: 10;
 }
 
@@ -51,7 +51,7 @@
 .portal-button,
 .primary-button,
 .secondary-button {
-    -fx-min-width: 220px;
+    -fx-min-width: 120px;
     -fx-padding: 10 20;
 }
 
