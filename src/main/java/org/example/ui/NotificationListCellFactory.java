@@ -1,5 +1,11 @@
 package org.example.ui;
 
+import java.time.Instant;
+import java.time.ZoneId;
+
+import org.example.domain.AppNotification;
+import org.example.service.NotificationService;
+
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -8,10 +14,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import org.example.domain.AppNotification;
-
-import java.time.Instant;
-import java.time.ZoneId;
 
 /**
  * Shared list cell for in-app notifications: red dot + left accent for unread; muted read rows.
@@ -39,19 +41,31 @@ public final class NotificationListCellFactory {
                 } catch (Exception ignored) {
                 }
 
-                boolean unread = !n.isRead();
+                boolean unread  = !n.isRead();
+                boolean urgent  = NotificationService.isUrgentHighlight(n);
 
-                Circle dot = unread ? new Circle(6, Color.web("#e74c3c")) : null;
+                Circle dot = unread ? new Circle(6, Color.web(urgent ? "#e67e22" : "#e74c3c")) : null;
+
+                // ⚠ URGENT badge (shown for high-priority items regardless of read state)
+                Label urgentBadge = null;
+                if (urgent) {
+                    urgentBadge = new Label("\u26A0 URGENT");
+                    urgentBadge.setStyle(
+                            "-fx-background-color: #e67e22; -fx-text-fill: white;"
+                            + " -fx-font-size: 9; -fx-font-weight: bold;"
+                            + " -fx-padding: 2 6 2 6; -fx-background-radius: 8;");
+                }
 
                 Label catLbl = new Label("[" + n.getCategory() + "] ");
                 catLbl.setStyle("-fx-text-fill: #7f8c8d;");
 
                 Label titleLbl = new Label(n.getTitle());
                 titleLbl.setStyle(unread
-                        ? "-fx-font-weight: bold; -fx-text-fill: #2c3e50;"
+                        ? "-fx-font-weight: bold; -fx-text-fill: " + (urgent ? "#c0392b" : "#2c3e50") + ";"
                         : "-fx-font-weight: normal; -fx-text-fill: #616161;");
 
-                HBox titleBox = new HBox(8, catLbl, titleLbl);
+                HBox titleBox = new HBox(6, catLbl, titleLbl);
+                if (urgentBadge != null) titleBox.getChildren().add(urgentBadge);
                 titleBox.setAlignment(Pos.CENTER_LEFT);
 
                 Label body = new Label(n.getBody());
@@ -67,17 +81,16 @@ public final class NotificationListCellFactory {
                 HBox h = dot != null ? new HBox(10, dot, v) : new HBox(10, v);
                 HBox.setHgrow(v, Priority.ALWAYS);
 
-                if (unread) {
-                    h.setStyle("-fx-padding: 8; -fx-background-color: #f4f9ff; "
-                            + "-fx-border-color: #e74c3c; -fx-border-width: 0 0 0 4; "
-                            + "-fx-background-radius: 4;");
-                    setStyle("-fx-background-color: #f4f9ff;");
-                } else {
-                    h.setStyle("-fx-padding: 8; -fx-background-color: #fafafa; "
-                            + "-fx-border-color: #e0e0e0; -fx-border-width: 0 0 0 4; "
-                            + "-fx-background-radius: 4;");
-                    setStyle("-fx-background-color: #fafafa;");
-                }
+                // Accent colour: orange for urgent, red for plain unread, grey for read
+                String accentColor = urgent ? "#e67e22" : (unread ? "#e74c3c" : "#e0e0e0");
+                String bgColor     = urgent ? (unread ? "#fff8f0" : "#fffbf5")
+                                           : (unread ? "#f4f9ff" : "#fafafa");
+
+                h.setStyle("-fx-padding: 8; -fx-background-color: " + bgColor + ";"
+                        + " -fx-border-color: " + accentColor + ";"
+                        + " -fx-border-width: 0 0 0 4;"
+                        + " -fx-background-radius: 4;");
+                setStyle("-fx-background-color: " + bgColor + ";");
 
                 setText(null);
                 setGraphic(h);

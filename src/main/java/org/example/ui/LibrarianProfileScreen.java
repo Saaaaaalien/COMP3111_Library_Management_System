@@ -1,5 +1,11 @@
 package org.example.ui;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 
 import org.example.app.Navigator;
@@ -18,10 +24,13 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 /**
  * Task 3.5 – Librarian "Manage Own Profile" screen.
@@ -94,6 +103,113 @@ public final class LibrarianProfileScreen {
         );
         detailsSection.setPadding(new Insets(20));
         detailsSection.setStyle(
+            "-fx-background-color: #ffffff;" +
+            "-fx-border-color: #e0e0e0;" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 6;" +
+            "-fx-background-radius: 6;"
+        );
+
+        // ── Profile Picture section ───────────────────────────────────────────
+        Label avatarSectionLbl = new Label("Profile Picture");
+        avatarSectionLbl.setStyle("-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+
+        Label avatarHintLbl = new Label("Accepted formats: JPG, PNG, GIF  •  Max size: 2 MB");
+        avatarHintLbl.setStyle("-fx-text-fill: #777; -fx-font-size: 11;");
+
+        // Preview pane
+        ImageView avatarView = new ImageView();
+        avatarView.setFitWidth(100);
+        avatarView.setFitHeight(100);
+        avatarView.setPreserveRatio(true);
+        avatarView.setStyle("-fx-border-color: #ccc; -fx-border-width: 1;");
+        // Load existing avatar if present
+        String existingAvatar = librarian.getAvatarPath();
+        if (existingAvatar != null && !existingAvatar.isBlank()) {
+            File existingFile = new File(existingAvatar);
+            if (existingFile.exists()) {
+                avatarView.setImage(new Image(existingFile.toURI().toString()));
+            }
+        }
+
+        Label avatarPathLbl = new Label(existingAvatar != null && !existingAvatar.isBlank()
+                ? new File(existingAvatar).getName() : "No picture set");
+        avatarPathLbl.setStyle("-fx-font-size: 11; -fx-text-fill: #555;");
+
+        Label avatarErrorLbl = new Label("");
+        avatarErrorLbl.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11;");
+
+        Button chooseAvatarBtn = new Button("Choose Image…");
+        chooseAvatarBtn.getStyleClass().add("secondary-button");
+        // Holds the chosen (validated) file so the Save button can use it
+        final File[] chosenAvatar = {null};
+        chooseAvatarBtn.setOnAction(e -> {
+            avatarErrorLbl.setText("");
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Profile Picture");
+            chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Image files (JPG, PNG, GIF)",
+                            "*.jpg", "*.jpeg", "*.png", "*.gif"));
+            File selected = chooser.showOpenDialog(null);
+            if (selected == null) return; // cancelled
+
+            // Validate size ≤ 2 MB
+            if (selected.length() > 2 * 1024 * 1024) {
+                avatarErrorLbl.setText("File is too large. Maximum allowed size is 2 MB.");
+                return;
+            }
+            // Validate extension
+            String name = selected.getName().toLowerCase();
+            if (!name.endsWith(".jpg") && !name.endsWith(".jpeg")
+                    && !name.endsWith(".png") && !name.endsWith(".gif")) {
+                avatarErrorLbl.setText("Unsupported format. Please choose a JPG, PNG, or GIF file.");
+                return;
+            }
+            chosenAvatar[0] = selected;
+            avatarView.setImage(new Image(selected.toURI().toString()));
+            avatarPathLbl.setText(selected.getName());
+        });
+
+        Button saveAvatarBtn = new Button("Save Picture");
+        saveAvatarBtn.getStyleClass().add("primary-button");
+        saveAvatarBtn.setOnAction(e -> {
+            avatarErrorLbl.setText("");
+            if (chosenAvatar[0] == null) {
+                avatarErrorLbl.setText("Please choose an image file first.");
+                return;
+            }
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Save \"" + chosenAvatar[0].getName() + "\" as your profile picture?",
+                    ButtonType.YES, ButtonType.CANCEL);
+            confirm.setTitle("Confirm Profile Picture");
+            confirm.setHeaderText(null);
+            confirm.showAndWait().ifPresent(btn -> {
+                if (btn != ButtonType.YES) return;
+                try {
+                    // Copy to application data directory next to the JAR
+                    Path avatarsDir = Paths.get(System.getProperty("user.home"), ".libraryapp", "avatars");
+                    Files.createDirectories(avatarsDir);
+                    String ext = chosenAvatar[0].getName().substring(chosenAvatar[0].getName().lastIndexOf('.'));
+                    Path dest = avatarsDir.resolve("user_" + librarian.getId() + ext);
+                    Files.copy(chosenAvatar[0].toPath(), dest, StandardCopyOption.REPLACE_EXISTING);
+                    UserDao.updateAvatarPath(librarian.getId(), dest.toString());
+                    Alert success = new Alert(Alert.AlertType.INFORMATION, "Profile picture updated successfully.");
+                    success.setTitle("Success"); success.setHeaderText(null); success.showAndWait();
+                    // Refresh screen with updated user
+                    UserDao.findById(librarian.getId()).ifPresent(navigator::showLibrarianProfile);
+                } catch (IOException | SQLException ex) {
+                    avatarErrorLbl.setText("Failed to save picture: " + ex.getMessage());
+                }
+            });
+        });
+
+        HBox avatarPreviewRow = new HBox(16, avatarView,
+                new VBox(8, avatarPathLbl, chooseAvatarBtn, saveAvatarBtn, avatarErrorLbl));
+        avatarPreviewRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox avatarSection = new VBox(10, avatarSectionLbl, avatarHintLbl, avatarPreviewRow);
+        avatarSection.setPadding(new Insets(20));
+        avatarSection.setStyle(
             "-fx-background-color: #ffffff;" +
             "-fx-border-color: #e0e0e0;" +
             "-fx-border-width: 1;" +
@@ -187,7 +303,7 @@ public final class LibrarianProfileScreen {
         );
 
         // ── Center content ────────────────────────────────────────────────────
-        VBox centerContent = new VBox(16, detailsSection, pwSection);
+        VBox centerContent = new VBox(16, detailsSection, avatarSection, pwSection);
         centerContent.setPadding(new Insets(20));
 
         javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(centerContent);
