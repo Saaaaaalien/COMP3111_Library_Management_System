@@ -68,7 +68,12 @@ public final class BorrowService {
             long borrowId = BorrowDao.insert(bookId, borrowerUserId, borrowedAt, dueAt);
             conn.commit();
             var created = BorrowDao.findById(borrowId);
-            return created.orElseThrow(() -> new SQLException("Borrow inserted but could not be read back"));
+            Borrow b = created.orElseThrow(() -> new SQLException("Borrow inserted but could not be read back"));
+            try {
+                NotificationService.notifyBorrowSuccess(borrowerUserId, book.getTitle(), b.getDueAt());
+            } catch (SQLException ignored) {
+            }
+            return b;
         } catch (BorrowException | SQLException e) {
             rollback(conn);
             throw e;
@@ -105,8 +110,28 @@ public final class BorrowService {
             }
             BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
             BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
-            clearReadingForBorrow(borrowId);
             conn.commit();
+            // Clear any progress/highlights best-effort. Availability update must stay committed.
+            try {
+                clearReadingForBorrow(borrowId);
+                conn.commit();
+            } catch (SQLException ignored) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ignored2) {
+                    // ignore
+                }
+            }
+            try {
+                BookDao.findById(borrow.getBookId())
+                        .ifPresent(book -> {
+                            try {
+                                NotificationService.notifyReturnSuccess(borrowerUserId, book.getTitle(), false);
+                            } catch (SQLException ignored) {
+                            }
+                        });
+            } catch (SQLException ignored) {
+            }
         } catch (BorrowException | SQLException e) {
             rollback(conn);
             throw e;
@@ -138,8 +163,28 @@ public final class BorrowService {
             }
             BorrowDao.updateReturnedAt(borrowId, Instant.now().toString());
             BookDao.updateAvailability(borrow.getBookId(), Availability.AVAILABLE);
-            clearReadingForBorrow(borrowId);
             conn.commit();
+            // Clear any progress/highlights best-effort. Availability update must stay committed.
+            try {
+                clearReadingForBorrow(borrowId);
+                conn.commit();
+            } catch (SQLException ignored) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ignored2) {
+                    // ignore
+                }
+            }
+            try {
+                BookDao.findById(borrow.getBookId())
+                        .ifPresent(book -> {
+                            try {
+                                NotificationService.notifyReturnSuccess(borrow.getBorrowerUserId(), book.getTitle(), true);
+                            } catch (SQLException ignored) {
+                            }
+                        });
+            } catch (SQLException ignored) {
+            }
         } catch (SQLException e) {
             rollback(conn);
             throw e;
@@ -204,6 +249,17 @@ public final class BorrowService {
                 created.add(BorrowDao.findById(borrowId).orElseThrow(() -> new SQLException("Borrow missing after insert")));
             }
             conn.commit();
+            for (Borrow b : created) {
+                try {
+                    BookDao.findById(b.getBookId()).ifPresent(book -> {
+                        try {
+                            NotificationService.notifyBorrowSuccess(borrowerUserId, book.getTitle(), b.getDueAt());
+                        } catch (SQLException ignored) {
+                        }
+                    });
+                } catch (SQLException ignored) {
+                }
+            }
             return created;
         } catch (BorrowException | SQLException e) {
             rollback(conn);

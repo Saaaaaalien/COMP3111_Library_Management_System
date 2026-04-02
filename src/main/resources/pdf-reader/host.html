@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>PDF Reader</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #525659; }
+
+    #wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #525659;
+    }
+
+    #scroller {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      justify-content: center; /* center page horizontally */
+      align-items: flex-start;
+      padding: 12px;
+    }
+
+    #page-host {
+      position: relative;
+      /* dimensions set by JS */
+      z-index: 1;
+    }
+
+    #pdf-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      /* canvas is never the selection surface */
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Selectable text like Preview selection. */
+    #text-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+      pointer-events: auto;
+      user-select: text;
+      /* Required by pdf.js text layer code to align properly. */
+      --scale-factor: 1;
+      overflow: hidden;
+      transform-origin: 0 0;
+    }
+
+    /* pdf.js creates <span> absolutely positioned inside .textLayer */
+    #text-layer span {
+      position: absolute;
+      transform-origin: 0 0;
+      white-space: pre;
+      color: transparent;
+    }
+
+    /* Visual representation of saved highlights. */
+    #text-layer span.saved-highlight {
+      background-color: rgba(255, 235, 59, 0.75) !important;
+      /* Keep the text itself visually transparent; highlight is just background. */
+      color: transparent !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
+    }
+
+    /* Very subtle text fallback (used when geometry overlays might not align). */
+    #text-layer span.saved-highlight-fallback {
+      background-color: rgba(255, 235, 59, 0.18) !important;
+      color: transparent !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.12);
+    }
+
+    /* Partial highlight for saved selection feedback. */
+    #text-layer span.saved-highlight-partial {
+      background-color: transparent !important;
+      color: transparent !important;
+      /* The JS sets --hl-left (px) and --hl-width (px). */
+      background-image: linear-gradient(to right,
+        rgba(255, 235, 59, 0) 0px,
+        rgba(255, 235, 59, 0) var(--hl-left, 0px),
+        rgba(255, 235, 59, 0.75) var(--hl-left, 0px),
+        rgba(255, 235, 59, 0.75) calc(var(--hl-left, 0px) + var(--hl-width, 0px)),
+        rgba(255, 235, 59, 0) calc(var(--hl-left, 0px) + var(--hl-width, 0px)),
+        rgba(255, 235, 59, 0) 100%
+      ) !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.35);
+    }
+
+    /* Exact selection overlay for instant feedback (only selected area). */
+    #text-layer .selection-highlight-rect {
+      position: absolute;
+      pointer-events: none;
+      z-index: 3;
+      background-color: rgba(255, 235, 59, 0.18) !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 200, 0, 0.18);
+    }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="scroller">
+    <div id="page-host">
+      <canvas id="pdf-canvas"></canvas>
+      <div id="text-layer" class="textLayer" aria-label="PDF text layer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF.js fallback when JavaFX WebView's built-in PDF plug-in can't render local PDFs -->
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+  // Worker for PDF.js (needed for parsing/rendering)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  const canvas = document.getElementById('pdf-canvas');
+  const ctx = canvas.getContext('2d');
+  const textLayer = document.getElementById('text-layer');
+  const pageHost = document.getElementById('page-host');
+
+  let pdfDoc = null;
+  let loadedUrl = null;
+  let activeScale = 1;
+  let activeRenderToken = 0;
+  // 1-based page number currently rendered (used for highlight callbacks).
+  let currentPageNumber = 1;
+  // Pending highlights to apply right after a page's text layer is rendered.
+  // rectsJsons: list of JSON strings; each JSON is an array of normalized rects:
+  // [{left, top, width, height}] where each value is in [0..1] relative to text-layer size.
+  let pendingHighlightsForPage = { pageNumber: null, texts: [], rectsJsons: [] };
+  let textDivs = [];
+  let textDivProperties = new WeakMap();
+  let textContentItemsStr = [];
+
+  // Used to approximate highlight substring widths for partial highlighting.
+  const measureCanvas = document.createElement('canvas');
+  const measureCtx = measureCanvas.getContext('2d');
+
+  // Client-side de-dupe so repeated clicks on the same selection don't stack overlays.
+  // This is purely for instant visual feedback; DB dedupe is not implemented.
+  let lastSavedHighlightKey = null;
+
+  // Because clicking "Save Highlight" collapses selection, we snapshot the selection
+  // whenever it changes, and then "Save Highlight" uses the stored snapshot.
+  let lastSelectionPageNumber = null;
+  let lastSelectionText = '';
+  let lastSelectionRectsJson = '[]';
+  let hasLastSelection = false;
+
+  function clamp01(x) {
+    return Math.max(0, Math.min(1, x));
+  }
+
+  function round4(x) {
+    return Math.round(x * 10000) / 10000;
+  }
+
+  function snapshotSelection() {
+    try {
+      // Assume invalid until proven otherwise.
+      hasLastSelection = false;
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (!sel || sel.rangeCount === 0) {
+        lastSelectionText = '';
+        lastSelectionRectsJson = '[]';
+        lastSelectionPageNumber = null;
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      const text = sel.toString().trim();
+      if (!text) {
+        lastSelectionText = '';
+        lastSelectionRectsJson = '[]';
+        lastSelectionPageNumber = null;
+        return;
+      }
+
+      // Compute normalized rect ratios in the text layer's coordinate space.
+      const layerRect = textLayer.getBoundingClientRect();
+      const w = layerRect.width || 1;
+      const h = layerRect.height || 1;
+
+      let rects = range.getClientRects ? Array.from(range.getClientRects()) : [];
+      let rectRatios = rects.map((r) => ({
+        left: clamp01(round4((r.left - layerRect.left) / w)),
+        top: clamp01(round4((r.top - layerRect.top) / h)),
+        width: clamp01(round4(r.width / w)),
+        height: clamp01(round4(r.height / h))
+      }));
+
+      // Fallback: some WebView selections can return empty client rects.
+      if (!rectRatios || rectRatios.length === 0) {
+        const selRect = range.getBoundingClientRect ? range.getBoundingClientRect() : null;
+        if (selRect) {
+          rectRatios = [{
+            left: clamp01(round4((selRect.left - layerRect.left) / w)),
+            top: clamp01(round4((selRect.top - layerRect.top) / h)),
+            width: clamp01(round4(selRect.width / w)),
+            height: clamp01(round4(selRect.height / h))
+          }];
+        }
+      }
+
+      lastSelectionPageNumber = currentPageNumber;
+      lastSelectionText = text;
+      lastSelectionRectsJson = JSON.stringify(rectRatios || []);
+      hasLastSelection = true;
+    } catch (e) {
+      // best-effort only
+    }
+  }
+
+  // Capture selection immediately when user finishes dragging/selecting.
+  document.addEventListener('selectionchange', () => {
+    snapshotSelection();
+  });
+
+  // Some WebView selections don't trigger `selectionchange` reliably.
+  // Snapshot on mouseup/keyup as well, after the selection has settled.
+  document.addEventListener('mouseup', () => {
+    setTimeout(() => snapshotSelection(), 0);
+  }, true);
+  document.addEventListener('keyup', () => {
+    setTimeout(() => snapshotSelection(), 0);
+  }, true);
+
+  // Polling fallback: JavaFX WebView selection events can be inconsistent.
+  // Poll periodically while reader is open to keep lastSelection fresh.
+  setInterval(() => {
+    try {
+      snapshotSelection();
+    } catch (e) {
+      // ignore
+    }
+  }, 200);
+
+  function measureTextWidthForSpan(span, text) {
+    const style = window.getComputedStyle(span);
+    // Build a font string compatible with CanvasRenderingContext2D.measureText.
+    // Note: pdf.js spans typically use normal font styles, but we still include style.
+    const fontStyle = style.fontStyle || 'normal';
+    const fontWeight = style.fontWeight || 'normal';
+    const fontSize = style.fontSize || '16px';
+    const fontFamily = style.fontFamily || 'sans-serif';
+    measureCtx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
+    return measureCtx.measureText(String(text || '')).width;
+  }
+
+  function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function clearTextLayer() {
+    while (textLayer.firstChild) {
+      textLayer.removeChild(textLayer.firstChild);
+    }
+  }
+
+  async function renderTextLayer(pageProxy, viewport) {
+    // Use PDF.js built-in text layer rendering (positioning) so selection mapping matches the canvas.
+    // This mirrors what the PDF.js viewer does internally.
+    clearTextLayer();
+    textDivs = [];
+    textDivProperties = new WeakMap();
+    textContentItemsStr = [];
+
+    // streamTextContent gives a ReadableStream that TextLayer can consume.
+    const textContentSource = pageProxy.streamTextContent({
+      includeMarkedContent: true,
+      // Keep coordinates stable; normalization differences can affect selection mapping.
+      disableNormalization: true
+    });
+
+    const task = pdfjsLib.renderTextLayer({
+      textContentSource,
+      container: textLayer,
+      viewport: viewport,
+      textDivs: textDivs,
+      textDivProperties: textDivProperties,
+      textContentItemsStr: textContentItemsStr,
+      isOffscreenCanvasSupported: true
+    });
+
+    // Wait until the layer is ready. This is important for selection to work immediately.
+    await task.promise;
+  }
+
+  // Main entry from Java code.
+  // url: http://127.0.0.1:PORT/pdf
+  // pageNumber: 1-based
+  // zoomPercent: 100 = 1.0 scale
+  async function setPdfUrlAndPage(url, pageNumber, zoomPercent) {
+    const token = ++activeRenderToken;
+    if (!url) return;
+
+    const z = Number(zoomPercent);
+    const scale = clamp(isFinite(z) ? z / 100.0 : 1.0, 0.25, 8.0);
+    activeScale = scale;
+
+    if (!pdfDoc || loadedUrl !== url) {
+      loadedUrl = url;
+      pdfDoc = await pdfjsLib.getDocument(url).promise;
+    }
+
+    const pageNum = clamp(Number(pageNumber) || 1, 1, pdfDoc.numPages || 1);
+    currentPageNumber = pageNum;
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scale });
+
+    // Size the page host + ensure canvas and text overlay are in the same CSS pixel space.
+    // Avoid any implicit CSS scaling by explicitly setting element style sizes.
+    pageHost.style.width = viewport.width + 'px';
+    pageHost.style.height = viewport.height + 'px';
+
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    canvas.style.width = viewport.width + 'px';
+    canvas.style.height = viewport.height + 'px';
+
+    textLayer.style.width = viewport.width + 'px';
+    textLayer.style.height = viewport.height + 'px';
+    textLayer.style.setProperty('--scale-factor', String(scale));
+
+    // Render page to canvas
+    const renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+    await renderTask.promise;
+    if (token !== activeRenderToken) return;
+
+    // Render selectable text layer on top of the canvas.
+    await renderTextLayer(page, viewport);
+
+    if (token !== activeRenderToken) return;
+
+    // Apply saved highlights for this page (if the backend injected them).
+    if (pendingHighlightsForPage.pageNumber === pageNum) {
+      applyHighlightsForPage(pendingHighlightsForPage.texts || [], pendingHighlightsForPage.rectsJsons || []);
+      pendingHighlightsForPage.pageNumber = null;
+      pendingHighlightsForPage.texts = [];
+      pendingHighlightsForPage.rectsJsons = [];
+    } else {
+      // Clear highlights from the previous page render (legacy fallback).
+      applyHighlightsToTextLayer([]);
+    }
+  }
+
+  function isBlockedExternalHref(href) {
+    if (!href) return false;
+    // Block common external navigations.
+    return href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:');
+  }
+
+  // Prevent hyperlinks inside the PDF from navigating away from the reader.
+  // This keeps the user on the same page (and re-renders the PDF if needed).
+  document.addEventListener('click', function (e) {
+    try {
+      const a = e.target && e.target.closest ? e.target.closest('a') : null;
+      if (!a || !a.href) return;
+      if (isBlockedExternalHref(a.href)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    } catch (err) {
+      // ignore; never break selection/rendering
+    }
+  }, true);
+
+  // Also block window.open for external links.
+  (function () {
+    const originalOpen = window.open;
+    window.open = function (url) {
+      try {
+        if (isBlockedExternalHref(String(url))) {
+          return null;
+        }
+      } catch (err) {
+        // ignore
+      }
+      return originalOpen.apply(this, arguments);
+    };
+  })();
+
+  /**
+   * Called by Java when the user clicks "Save Highlight".
+   * Persists the current text selection into the backend (via JS->Java bridge).
+   */
+  function saveSelectionAsHighlight() {
+    try {
+      // Clicking the button can collapse selection before we read it.
+      // Snapshot immediately here to make the feature robust.
+      snapshotSelection();
+
+      if (!hasLastSelection) return false;
+      if (lastSelectionPageNumber !== currentPageNumber) return false;
+
+      const text = lastSelectionText;
+      const rectsJson = lastSelectionRectsJson || '[]';
+      let rectRatios = [];
+      try {
+        rectRatios = JSON.parse(rectsJson);
+        if (!Array.isArray(rectRatios)) rectRatios = [];
+      } catch (e) {
+        rectRatios = [];
+      }
+
+      if (!text || !text.trim()) return false;
+
+      // Immediately render an overlay for the currently selected region.
+      // This gives exact visual feedback (no "whole span" effects).
+      try {
+        const layerRect = textLayer.getBoundingClientRect();
+        const w = layerRect.width || 1;
+        const h = layerRect.height || 1;
+
+        const highlightKey = currentPageNumber + '|' + text + '|' + rectsJson;
+
+        // De-dupe: repeated clicks on the same selection shouldn't stack overlays.
+        if (highlightKey === lastSavedHighlightKey) {
+          return true;
+        }
+        lastSavedHighlightKey = highlightKey;
+
+        // Render overlays after de-dupe.
+        for (const r of rectRatios) {
+          const div = document.createElement('div');
+          div.className = 'selection-highlight-rect';
+          // Position relative to textLayer (same coordinate space under the WebView).
+          div.style.left = (r.left * w) + 'px';
+          div.style.top = (r.top * h) + 'px';
+          div.style.width = (r.width * w) + 'px';
+          div.style.height = (r.height * h) + 'px';
+          textLayer.appendChild(div);
+        }
+
+        if (window.javaBridge && typeof window.javaBridge.onHighlight === 'function') {
+          window.javaBridge.onHighlight(text, currentPageNumber, rectsJson);
+          return true;
+        }
+      } catch (e) {
+        // best-effort only
+      }
+
+      if (window.javaBridge && typeof window.javaBridge.onHighlight === 'function') {
+        window.javaBridge.onHighlight(text, currentPageNumber, rectsJson);
+        return true;
+      }
+    } catch (e) {
+      // Never break selection/rendering.
+    }
+    return false;
+  }
+
+  /**
+   * Sets highlights that should be applied to the next page render.
+   * @param pageNumber     1-based page number
+   * @param highlightTexts array of highlight strings (legacy fallback)
+   * @param rectsJsons     array of JSON strings (each string is an array of {left,top,width,height} ratios)
+   */
+  function setPendingHighlightsForPage(pageNumber, highlightTexts, rectsJsons) {
+    try {
+      const pn = Number(pageNumber);
+      pendingHighlightsForPage.pageNumber = isFinite(pn) ? pn : null;
+      pendingHighlightsForPage.texts = Array.isArray(highlightTexts) ? highlightTexts : [];
+      pendingHighlightsForPage.rectsJsons = Array.isArray(rectsJsons) ? rectsJsons : [];
+    } catch (e) {
+      pendingHighlightsForPage.pageNumber = null;
+      pendingHighlightsForPage.texts = [];
+      pendingHighlightsForPage.rectsJsons = [];
+    }
+  }
+
+  function clearSelectionHighlightRects() {
+    for (const el of Array.from(textLayer.querySelectorAll('.selection-highlight-rect'))) {
+      el.remove();
+    }
+  }
+
+  /**
+   * Applies highlight overlays using stored rect ratios.
+   * If rects are missing, falls back to token-based span highlighting.
+   */
+  function applyHighlightsForPage(highlightTexts, rectsJsons) {
+    // Always clear previous (current page render).
+    clearSelectionHighlightRects();
+
+    let any = false;
+    if (rectsJsons && Array.isArray(rectsJsons) && rectsJsons.length > 0) {
+      const layerRect = textLayer.getBoundingClientRect();
+      const w = layerRect.width || 1;
+      const h = layerRect.height || 1;
+
+      for (const json of rectsJsons) {
+        if (!json) continue;
+        try {
+          const rects = JSON.parse(json);
+          if (!Array.isArray(rects)) continue;
+          for (const r of rects) {
+            if (!r) continue;
+            const left = Number(r.left);
+            const top = Number(r.top);
+            const width = Number(r.width);
+            const height = Number(r.height);
+            if (!isFinite(left) || !isFinite(top) || !isFinite(width) || !isFinite(height)) continue;
+
+            const div = document.createElement('div');
+            div.className = 'selection-highlight-rect';
+            div.style.left = (left * w) + 'px';
+            div.style.top = (top * h) + 'px';
+            div.style.width = Math.max(0.5, width * w) + 'px';
+            div.style.height = Math.max(0.5, height * h) + 'px';
+            textLayer.appendChild(div);
+            any = true;
+          }
+        } catch (e) {
+          // ignore bad json
+        }
+      }
+    }
+
+    // Legacy fallback: token-based span highlighting.
+    // If geometry succeeded, apply subtle fallback so highlights still show even if geometry slightly misaligns.
+    if (any) {
+      applyHighlightsToTextLayer(highlightTexts || [], true /* subtle */);
+    } else {
+      applyHighlightsToTextLayer(highlightTexts || [], false /* subtle */);
+    }
+  }
+
+  /** Clears previous highlight styling and applies new highlights. */
+  function applyHighlightsToTextLayer(highlightTexts, subtle) {
+    const spans = Array.from(textLayer.querySelectorAll('span'));
+
+    // Clear prior highlights.
+    for (const s of spans) {
+      s.classList.remove('saved-highlight');
+      s.classList.remove('saved-highlight-fallback');
+      s.classList.remove('saved-highlight-partial');
+    }
+
+    if (!highlightTexts || !Array.isArray(highlightTexts) || highlightTexts.length === 0) {
+      return;
+    }
+
+    // Extract searchable tokens from highlights.
+    const tokens = new Set();
+    const clean = (str) => String(str || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+    for (const t of highlightTexts) {
+      if (!t) continue;
+      const cleaned = clean(t);
+      if (!cleaned) continue;
+      for (const tok of cleaned.split(/\s+/g)) {
+        // Allow short words too; PDF.js tokenization can split differently than user selection.
+        if (tok && tok.length >= 1) tokens.add(tok);
+      }
+    }
+
+    if (tokens.size === 0) return;
+
+    // Apply highlight class to spans whose text matches any token.
+    for (const span of spans) {
+      const spanText = clean(span.textContent || '');
+      if (!spanText) continue;
+      const spanTokens = spanText.split(/\s+/g);
+      let shouldHighlight = false;
+      for (const st of spanTokens) {
+        if (tokens.has(st)) {
+          shouldHighlight = true;
+          break;
+        }
+      }
+      if (shouldHighlight) {
+        if (subtle) {
+          span.classList.add('saved-highlight-fallback');
+        } else {
+          span.classList.add('saved-highlight');
+        }
+      }
+    }
+  }
+
+  /** Java can call this directly to refresh highlight styling without re-rendering the PDF. */
+  function applyHighlightsToCurrentPage(highlightTexts) {
+    applyHighlightsToTextLayer(highlightTexts, false);
+  }
+
+  // Backwards compatibility for older JS calls (default: page 1 @ 100%)
+  function setPdfUrl(url) {
+    setPdfUrlAndPage(url, 1, 100).catch(function(){});
+  }
+</script>
+</body>
+</html>

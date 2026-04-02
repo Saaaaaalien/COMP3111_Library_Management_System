@@ -5,7 +5,32 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="372325fd-caa8-416b-9db2-2ab00455cfb5" name="Changes" comment="fix edit my books">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/Navigator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/app/SessionService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/app/SessionService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BookDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BookDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/BorrowDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/Database.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingHighlightDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingHighlightDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingProgressDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/db/ReadingProgressDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/BorrowService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/service/NotificationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/service/NotificationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorProfileScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AuthorProfileScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/AvailableBooksScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/MyBorrowedBooksScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/PdfReaderScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/PdfReaderScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffNotificationBoardScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffNotificationBoardScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffProfileScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/ui/StudentStaffProfileScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/util/BookPreviewUtil.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/util/PdfReaderUtil.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/app.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/app.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/fxml/AuthorDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/AuthorDashboard.fxml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/fxml/LibrarianDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/LibrarianDashboard.fxml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/fxml/Login.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/Login.fxml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/fxml/Register.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/Register.fxml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/fxml/StudentStaffDashboard.fxml" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/fxml/StudentStaffDashboard.fxml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,29 +85,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Application.ResetDatabase.executor&quot;: &quot;Run&quot;,
-    &quot;Maven.COMP3111_Library_Management_System [install...].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.COMP3111_Library_Management_System [install].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.ResetDatabase.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/images&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AcpAgentsConfigurable&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.ResetDatabase.executor": "Run",
+    "Maven.COMP3111_Library_Management_System [install...].executor": "Run",
+    "Maven.COMP3111_Library_Management_System [install].executor": "Run",
+    "Maven.ResetDatabase.executor": "Run",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "task1",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/savan/IdeaProjects/COMP3111_Library_Management_System/src/main/resources/images",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "ml.llm.AcpAgentsConfigurable",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\savan\IdeaProjects\COMP3111_Library_Management_System\src\main\resources\images" />
@@ -117,7 +145,6 @@
     <attachedChunks>
       <set>
         <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.30387.90" />
       </set>
     </attachedChunks>
   </component>

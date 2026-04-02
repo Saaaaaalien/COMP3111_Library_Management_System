@@ -2,6 +2,7 @@ package org.example.db;
 
 import org.example.domain.Borrow;
 import org.example.domain.BorrowWithBook;
+import org.example.security.CryptoUtil;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -121,7 +122,7 @@ public final class BorrowDao {
                         rs.getString("borrowed_at"),
                         rs.getString("returned_at"),
                         rs.getString("due_at"),
-                        rs.getString("book_file_path")
+                        CryptoUtil.decryptToString(rs.getString("book_file_path"))
                     ));
                 }
             }

@@ -56,34 +56,52 @@ public final class AuthorProfileScreen {
                 UserDao.updateFullNameAndBio(user.getId(), nameField.getText().trim(),
                         Validators.trimOptional(bioArea.getText()));
 
-                String np = pw1.getText();
-                if (np != null && !np.isBlank()) {
-                    Validators.validatePasswordStrength(np);
-                    if (!np.equals(pw2.getText())) {
+                String current = currentPw.getText();
+                String newPassword = pw1.getText();
+                String confirm = pw2.getText();
+
+                boolean anyPasswordFieldEntered =
+                        (current != null && !current.isBlank())
+                                || (newPassword != null && !newPassword.isBlank())
+                                || (confirm != null && !confirm.isBlank());
+
+                // Password change is optional, but if the user starts entering password fields,
+                // we validate that the change request is well-formed.
+                if (anyPasswordFieldEntered) {
+                    if (newPassword == null || newPassword.isBlank()) {
+                        throw new ValidationException("Enter a new password to update it.");
+                    }
+                    if (confirm == null || confirm.isBlank()) {
+                        throw new ValidationException("Confirm new password is required.");
+                    }
+
+                    Validators.validatePasswordStrength(newPassword);
+                    if (!newPassword.equals(confirm)) {
                         throw new ValidationException("New passwords do not match.");
                     }
-                    String cur = currentPw.getText();
-                    if (cur == null || cur.isBlank()) {
+
+                    if (current == null || current.isBlank()) {
                         throw new ValidationException("Enter your current password to set a new one.");
                     }
-                    if (!PasswordHasher.verify(cur, user.getPasswordSalt(), user.getPasswordHash())) {
+                    if (!PasswordHasher.verify(current, user.getPasswordSalt(), user.getPasswordHash())) {
                         throw new ValidationException("Current password is incorrect.");
                     }
+
                     String salt = PasswordHasher.generateSalt();
-                    String hash = PasswordHasher.hash(np, salt);
+                    String hash = PasswordHasher.hash(newPassword, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
                     new Alert(Alert.AlertType.INFORMATION, "Password changed. Please sign in again.").showAndWait();
                     navigator.showAuthorPortal();
                     return;
                 }
 
-                new Alert(Alert.AlertType.INFORMATION, "Profile saved.").showAndWait();
+                new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAuthorDashboard(refreshed);
             } catch (ValidationException ex) {
                 new Alert(Alert.AlertType.WARNING, ex.getMessage()).showAndWait();
             } catch (SQLException ex) {
-                new Alert(Alert.AlertType.ERROR, "Could not save.").showAndWait();
+                new Alert(Alert.AlertType.ERROR, "Update failed: " + ex.getMessage()).showAndWait();
             }
         });
 

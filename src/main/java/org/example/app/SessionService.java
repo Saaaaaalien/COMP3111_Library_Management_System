@@ -21,10 +21,18 @@ public final class SessionService {
     private static final Path SESSION_FILE = Paths.get("data", "session.json");
     private static final Pattern ROUTE_P = Pattern.compile("\"route\"\\s*:\\s*\"([^\"]+)\"");
     private static final Pattern USER_P = Pattern.compile("\"userId\"\\s*:\\s*(-?\\d+)");
+    private static final Pattern BORROW_ID_P = Pattern.compile("\"borrowId\"\\s*:\\s*(-?\\d+)");
+    private static final Pattern BOOK_ID_P = Pattern.compile("\"bookId\"\\s*:\\s*(-?\\d+)");
+    private static final Pattern PAGE_INDEX_P = Pattern.compile("\"pageIndex0\"\\s*:\\s*(-?\\d+)");
+    private static final Pattern ZOOM_P = Pattern.compile("\"zoomPercent\"\\s*:\\s*(-?\\d+)");
 
     private SessionService() {}
 
-    public record Snapshot(String route, long userId) {}
+    public record Snapshot(String route, long userId,
+                             Long borrowId,
+                             Long bookId,
+                             Integer pageIndex0,
+                             Integer zoomPercent) {}
     public record RestoreResult(boolean restored, boolean fallbackToWelcome, String message) {}
 
     public static void save(String route, long userId) {
@@ -34,6 +42,31 @@ public final class SessionService {
                 Files.createDirectories(dir);
             }
             String json = "{\"route\":\"" + route + "\",\"userId\":" + userId + "}\n";
+            Files.writeString(SESSION_FILE, json, StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+        }
+    }
+
+    /**
+     * Saves a PDF reader checkpoint snapshot for crash recovery.
+     * Stores only coarse reader state (page + zoom) suitable for restoration.
+     */
+    public static void saveReaderSession(long userId,
+                                          long borrowId,
+                                          long bookId,
+                                          int pageIndex0,
+                                          int zoomPercent) {
+        try {
+            Path dir = SESSION_FILE.getParent();
+            if (dir != null) {
+                Files.createDirectories(dir);
+            }
+            String json = "{\"route\":\"PDF_READER\",\"userId\":" + userId
+                    + ",\"borrowId\":" + borrowId
+                    + ",\"bookId\":" + bookId
+                    + ",\"pageIndex0\":" + pageIndex0
+                    + ",\"zoomPercent\":" + zoomPercent
+                    + "}\n";
             Files.writeString(SESSION_FILE, json, StandardCharsets.UTF_8);
         } catch (IOException ignored) {
         }
@@ -57,7 +90,28 @@ public final class SessionService {
             if (!mr.find() || !mu.find()) {
                 return Optional.empty();
             }
-            return Optional.of(new Snapshot(mr.group(1), Long.parseLong(mu.group(1))));
+            Long borrowId = null;
+            Long bookId = null;
+            Integer pageIndex0 = null;
+            Integer zoomPercent = null;
+
+            Matcher mb = BORROW_ID_P.matcher(raw);
+            if (mb.find()) borrowId = Long.parseLong(mb.group(1));
+            Matcher mBk = BOOK_ID_P.matcher(raw);
+            if (mBk.find()) bookId = Long.parseLong(mBk.group(1));
+            Matcher mp = PAGE_INDEX_P.matcher(raw);
+            if (mp.find()) pageIndex0 = Integer.parseInt(mp.group(1));
+            Matcher mz = ZOOM_P.matcher(raw);
+            if (mz.find()) zoomPercent = Integer.parseInt(mz.group(1));
+
+            return Optional.of(new Snapshot(
+                    mr.group(1),
+                    Long.parseLong(mu.group(1)),
+                    borrowId,
+                    bookId,
+                    pageIndex0,
+                    zoomPercent
+            ));
         } catch (Exception e) {
             return Optional.empty();
         }
@@ -90,7 +144,7 @@ public final class SessionService {
                 return new RestoreResult(false, true, "Session restore failed: user no longer exists.");
             }
             User user = u.get();
-            boolean restored = applyProtectedRoute(navigator, snapshot.route(), user);
+            boolean restored = applyProtectedRoute(navigator, snapshot, user);
             if (!restored) {
                 navigator.showWelcome();
                 return new RestoreResult(false, true, "Session restore failed: invalid route for user role.");
@@ -132,7 +186,8 @@ public final class SessionService {
         }
     }
 
-    private static boolean applyProtectedRoute(Navigator navigator, String route, User user) {
+    private static boolean applyProtectedRoute(Navigator navigator, Snapshot snapshot, User user) {
+        String route = snapshot.route();
         Role role = user.getRole();
         switch (route) {
             case "AVAILABLE_BOOKS" -> {
@@ -208,6 +263,22 @@ public final class SessionService {
             case "LIBRARIAN_CATALOG" -> {
                 if (role == Role.LIBRARIAN) {
                     navigator.showLibrarianCatalog(user);
+                } else {
+                    return false;
+                }
+            }
+            case "PDF_READER" -> {
+                if (role == Role.STUDENT || role == Role.STAFF) {
+                    if (snapshot.borrowId() == null || snapshot.bookId() == null) {
+                        return false;
+                    }
+                    navigator.showPdfReader(
+                            user,
+                            snapshot.borrowId(),
+                            snapshot.bookId(),
+                            snapshot.pageIndex0(),
+                            snapshot.zoomPercent()
+                    );
                 } else {
                     return false;
                 }
