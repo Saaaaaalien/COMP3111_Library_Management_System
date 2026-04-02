@@ -1,25 +1,9 @@
 package org.example.ui;
 
-import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+
 import org.example.app.Navigator;
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
@@ -27,11 +11,28 @@ import org.example.db.PendingDao;
 import org.example.domain.Book;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
-import javafx.stage.FileChooser;
 
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 /**
  * Author view of pending submissions and published catalog with edit/delete rules.
@@ -326,7 +327,11 @@ public final class AuthorPublishedBooksScreen {
                                         p.getFileType() != null ? p.getFileType() : "pdf"
                                 );
                                 if (newCover != null) np.setCoverPath(newCover);
-                                PendingDao.insert(np);
+                                long newId = PendingDao.insert(np);
+                                try {
+                                    org.example.service.NotificationService.notifyLibrariansNewSubmission(
+                                            newId, np.getTitle(), user.getFullName());
+                                } catch (Exception ignored) {}
                                 // optionally remove old rejected row
                                 try { PendingDao.deleteByIdForAuthor(p.getId(), user.getId()); } catch (Exception ignored) {}
                             }

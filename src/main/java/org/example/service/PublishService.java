@@ -1,10 +1,5 @@
 package org.example.service;
 
-import org.example.domain.PendingBook;
-import org.example.domain.User;
-import org.example.db.PendingDao;
-
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.example.db.PendingDao;
+import org.example.domain.PendingBook;
+import org.example.domain.User;
 
 /**
  * Service for validating and submitting book publish requests (author flow).
@@ -177,6 +176,15 @@ public final class PublishService {
                 try {
                     org.example.db.PublishDraftDao.deleteForAuthor(author.getId());
                 } catch (SQLException ignored) {
+                }
+                // Notify all librarians about the new submission
+                try {
+                    NotificationService.notifyLibrariansNewSubmission(
+                            bookId,
+                            pendingBook.getTitle(),
+                            author.getFullName());
+                } catch (SQLException ignored) {
+                    // Non-critical – don't fail the submission if notification fails
                 }
                 return new PublishResult(true,
                         "Book submitted successfully! Waiting for librarian approval.",

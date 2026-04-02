@@ -100,11 +100,15 @@ public final class LibrarianBorrowRecordsScreen {
         HBox.setHgrow(summaryLbl, Priority.ALWAYS);
 
         // Footer navigation
+        Button notificationsBtn = new Button("🔔 Notifications");
+        notificationsBtn.getStyleClass().add("secondary-button");
+        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+
         Button backBtn = new Button("← Back to Dashboard");
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
 
-        HBox footerBox = new HBox(backBtn);
+        HBox footerBox = new HBox(10, notificationsBtn, backBtn);
         footerBox.setPadding(new Insets(15, 20, 15, 20));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
 

@@ -202,7 +202,11 @@ public final class LibrarianProfileScreen {
         borrowRecordsBtn.getStyleClass().add("secondary-button");
         borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
 
-        HBox footerBox = new HBox(10, borrowRecordsBtn, backBtn);
+        Button notificationsBtn = new Button("🔔 Notifications");
+        notificationsBtn.getStyleClass().add("secondary-button");
+        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+
+        HBox footerBox = new HBox(10, borrowRecordsBtn, notificationsBtn, backBtn);
         footerBox.setPadding(new Insets(15, 20, 15, 20));
         footerBox.setAlignment(Pos.CENTER_RIGHT);
 

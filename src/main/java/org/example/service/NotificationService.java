@@ -1,14 +1,20 @@
 package org.example.service;
 
-import org.example.db.BorrowDao;
-import org.example.db.NotificationDao;
-import org.example.domain.AppNotification;
-
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import org.example.db.BorrowDao;
+import org.example.db.NotificationDao;
+import org.example.db.PendingDao;
+import org.example.db.UserDao;
+import org.example.domain.AppNotification;
+import org.example.domain.PendingBook;
+import org.example.domain.Role;
+import org.example.domain.User;
 
 /**
  * Creates in-app notifications (due reminders, catalog removal, author workflow, announcements).
@@ -139,5 +145,81 @@ public final class NotificationService {
             0,
             dedupe
         );
+    }
+
+    // ── Librarian-targeted notifications ─────────────────────────────────────
+
+    /** Category: a new book submission is awaiting librarian approval. */
+    public static final String CAT_NEW_SUBMISSION  = "NEW_SUBMISSION";
+    /** Category: a new user account was created (student, staff, or author). */
+    public static final String CAT_USER_REGISTERED = "USER_REGISTERED";
+    /** Category: an active borrow is overdue – librarian awareness alert. */
+    public static final String CAT_OVERDUE_BORROW  = "OVERDUE_BORROW";
+
+    /**
+     * Sends a notification to every librarian account.
+     * Uses insertDeduped so the same event is not duplicated across refreshes.
+     */
+    private static void notifyAllLibrarians(String category, String title,
+                                            String body, int priority,
+                                            String dedupeKeyBase) throws SQLException {
+        List<User> librarians = UserDao.findAllByRole(Role.LIBRARIAN);
+        String now = Instant.now().toString();
+        for (User lib : librarians) {
+            String dedupe = dedupeKeyBase == null ? null : dedupeKeyBase + ":" + lib.getId();
+            NotificationDao.insertDeduped(lib.getId(), category, title, body, now, priority, dedupe);
+        }
+    }
+
+    /**
+     * Called immediately after a book submission is persisted.
+     * Sends a "New book submission" notification to all librarians (deduped by submission id).
+     */
+    public static void notifyLibrariansNewSubmission(long submissionId, String bookTitle,
+                                                     String authorName) throws SQLException {
+        String title = "New book submission";
+        String body  = "\"" + bookTitle + "\" submitted by " + authorName + " is awaiting approval.";
+        notifyAllLibrarians(CAT_NEW_SUBMISSION, title, body, 7,
+                "NEW_SUB:" + submissionId);
+    }
+
+    /**
+     * Called immediately after a new user registers.
+     * Sends a "New user registered" notification to all librarians (deduped by user id).
+     */
+    public static void notifyLibrariansUserRegistered(long newUserId, String username,
+                                                      String roleName) throws SQLException {
+        String title = "New user registered";
+        String body  = username + " (" + roleName + ") created a new account.";
+        notifyAllLibrarians(CAT_USER_REGISTERED, title, body, 4,
+                "USER_REG:" + newUserId);
+    }
+
+    /**
+     * Seeds "New submission" notifications for every PENDING book that has not yet
+     * generated a notification.  Idempotent — uses dedupe keys.
+     */
+    public static void syncPendingSubmissionNotifications() throws SQLException {
+        for (PendingBook pb : PendingDao.findAllPending()) {
+            notifyLibrariansNewSubmission(pb.getId(), pb.getTitle(),
+                    pb.getAuthorFullName() != null ? pb.getAuthorFullName() : "Unknown author");
+        }
+    }
+
+    /**
+     * Seeds "Overdue borrow" notifications for all currently-overdue active borrows.
+     * Deduped per borrow id + day so each new calendar day generates at most one alert.
+     */
+    public static void syncOverdueBorrowNotificationsForLibrarians() throws SQLException {
+        String nowIso = Instant.now().toString();
+        String today  = nowIso.substring(0, 10); // YYYY-MM-DD
+        for (BorrowDao.ActiveBorrowDueRow row : BorrowDao.findAllActiveWithDue()) {
+            if (row.dueAt() == null || row.dueAt().isBlank()) continue;
+            if (row.dueAt().compareTo(nowIso) >= 0) continue; // not yet overdue
+            String dedupeBase = "OVERDUE:" + row.borrowId() + ":" + today;
+            String title = "Overdue borrow";
+            String body  = "\"" + row.bookTitle() + "\" is overdue (due " + row.dueAt().substring(0, 10) + ").";
+            notifyAllLibrarians(CAT_OVERDUE_BORROW, title, body, 8, dedupeBase);
+        }
     }
 }

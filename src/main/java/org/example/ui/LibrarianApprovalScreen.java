@@ -85,11 +85,15 @@ public final class LibrarianApprovalScreen {
         borrowRecordsBtn.getStyleClass().add("secondary-button");
         borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
 
+        Button notificationsBtn = new Button("🔔 Notifications");
+        notificationsBtn.getStyleClass().add("secondary-button");
+        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtnBox = new HBox(10, manageUsersBtn, borrowRecordsBtn, myProfileBtn, logoutBtn);
+        HBox footerBtnBox = new HBox(10, manageUsersBtn, borrowRecordsBtn, myProfileBtn, notificationsBtn, logoutBtn);
         footerBtnBox.setAlignment(Pos.CENTER_RIGHT);
 
         VBox footerBox = new VBox();
