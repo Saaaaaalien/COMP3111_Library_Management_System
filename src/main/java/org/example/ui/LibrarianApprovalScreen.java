@@ -5,8 +5,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.example.app.Navigator;
 import org.example.db.BookDao;
@@ -22,6 +25,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -47,6 +51,9 @@ public final class LibrarianApprovalScreen {
     // Mutable state for search/filter
     private static String currentSearchTerm = "";
     private static String currentStatusFilter = "";
+
+    // Tracks which PENDING book IDs are selected for bulk actions
+    private static final Set<Long> selectedBulkIds = new LinkedHashSet<>();
 
     public static Scene create(Navigator navigator, User librarian) {
         Label title = new Label("Book Approval Dashboard");
@@ -173,25 +180,24 @@ public final class LibrarianApprovalScreen {
     }
 
     /**
-     * Load and display books based on current search/filter state
+     * Load and display books based on current search/filter state.
+     * Also rebuilds the bulk-action bar (Select All / Deselect All / Bulk Approve / Bulk Reject)
+     * when PENDING submissions are present in the result set.
      */
     private static void loadAndDisplayBooks(VBox mainContent) {
         mainContent.getChildren().clear();
+        selectedBulkIds.clear();
 
         try {
             List<PendingBook> books;
 
             if (currentSearchTerm.isEmpty() && currentStatusFilter.isEmpty()) {
-                // No filter: show all books
                 books = PendingDao.findAll();
             } else if (currentSearchTerm.isEmpty()) {
-                // Filter by status only
                 books = PendingDao.filterByStatus(currentStatusFilter);
             } else if (currentStatusFilter.isEmpty()) {
-                // Search only: search all books
                 books = PendingDao.searchBooks(currentSearchTerm);
             } else {
-                // Both search and filter
                 books = PendingDao.searchAndFilter(currentSearchTerm, currentStatusFilter);
             }
 
@@ -200,12 +206,60 @@ public final class LibrarianApprovalScreen {
                 noBooksLbl.setStyle("-fx-font-size: 14; -fx-text-fill: #888;");
                 mainContent.getChildren().add(noBooksLbl);
             } else {
+                // ── Count label ───────────────────────────────────────────────
                 Label countLbl = new Label("Results: " + books.size() + " submission(s)");
                 countLbl.setStyle("-fx-font-size: 12; -fx-text-fill: #555;");
                 mainContent.getChildren().add(countLbl);
 
+                // ── Collect PENDING books and their CheckBoxes for Select-All ─
+                List<PendingBook> pendingBooks = new ArrayList<>();
+                List<CheckBox> pendingCheckBoxes = new ArrayList<>();
+                for (PendingBook b : books) {
+                    if ("PENDING".equals(b.getStatus())) {
+                        pendingBooks.add(b);
+                    }
+                }
+
+                // ── Bulk action bar (only when there are PENDING submissions) ─
+                if (!pendingBooks.isEmpty()) {
+                    Button selectAllBtn = new Button("☑ Select All Pending");
+                    selectAllBtn.getStyleClass().add("secondary-button");
+
+                    Button deselectAllBtn = new Button("☐ Deselect All");
+                    deselectAllBtn.getStyleClass().add("secondary-button");
+
+                    Button bulkApproveBtn = new Button("✔ Bulk Approve");
+                    bulkApproveBtn.getStyleClass().add("primary-button");
+                    bulkApproveBtn.setOnAction(e -> handleBulkApprove(mainContent, pendingBooks));
+
+                    Button bulkRejectBtn = new Button("✖ Bulk Reject");
+                    bulkRejectBtn.getStyleClass().add("secondary-button");
+                    bulkRejectBtn.setOnAction(e -> handleBulkReject(mainContent, pendingBooks));
+
+                    HBox bulkBar = new HBox(10,
+                            new Label("Bulk Actions:"),
+                            selectAllBtn, deselectAllBtn,
+                            new javafx.scene.control.Separator(javafx.geometry.Orientation.VERTICAL),
+                            bulkApproveBtn, bulkRejectBtn);
+                    bulkBar.setAlignment(Pos.CENTER_LEFT);
+                    bulkBar.setPadding(new Insets(6, 0, 6, 0));
+                    bulkBar.setStyle("-fx-background-color: #f9f9f9; -fx-border-color: #e0e0e0;"
+                            + " -fx-border-width: 1; -fx-border-radius: 4; -fx-padding: 8;");
+                    mainContent.getChildren().add(bulkBar);
+
+                    // Wire Select-All / Deselect-All AFTER cards are built
+                    // (pendingCheckBoxes is filled during card creation below)
+                    selectAllBtn.setOnAction(e -> {
+                        for (CheckBox cb : pendingCheckBoxes) cb.setSelected(true);
+                    });
+                    deselectAllBtn.setOnAction(e -> {
+                        for (CheckBox cb : pendingCheckBoxes) cb.setSelected(false);
+                    });
+                }
+
+                // ── Build cards ───────────────────────────────────────────────
                 for (PendingBook book : books) {
-                    VBox bookCard = createBookCard(mainContent, book);
+                    VBox bookCard = createBookCard(mainContent, book, pendingCheckBoxes);
                     mainContent.getChildren().add(bookCard);
                 }
             }
@@ -217,9 +271,14 @@ public final class LibrarianApprovalScreen {
     }
 
     /**
-     * Create a card for a single pending book submission
+     * Create a card for a single pending book submission.
+     *
+     * @param pendingCheckBoxes mutable list — if this book is PENDING, its selection
+     *                          CheckBox is appended here so the bulk bar can
+     *                          select/deselect all at once.
      */
-    private static VBox createBookCard(VBox mainContent, PendingBook book) {
+    private static VBox createBookCard(VBox mainContent, PendingBook book,
+                                       List<CheckBox> pendingCheckBoxes) {
         VBox card = new VBox(10);
         card.setPadding(new Insets(15));
         card.setStyle("-fx-border-color: #ddd; -fx-border-width: 1; -fx-border-radius: 5;");
@@ -234,6 +293,28 @@ public final class LibrarianApprovalScreen {
                 // Best-effort UI locking; backend guard in PendingDao still enforces correctness.
                 lockDecision = false;
             }
+        }
+
+        // ── Bulk-selection CheckBox (PENDING only) ───────────────────────
+        if ("PENDING".equals(book.getStatus())) {
+            CheckBox selectBox = new CheckBox("Select for bulk action");
+            selectBox.setStyle("-fx-font-size: 11; -fx-text-fill: #555;");
+            selectBox.setSelected(selectedBulkIds.contains(book.getId()));
+            selectBox.setOnAction(e -> {
+                if (selectBox.isSelected()) {
+                    selectedBulkIds.add(book.getId());
+                } else {
+                    selectedBulkIds.remove(book.getId());
+                }
+            });
+            card.getChildren().add(selectBox);
+            pendingCheckBoxes.add(selectBox);
+
+            // Keep selectedBulkIds in sync when Select All drives the checkbox
+            selectBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal) selectedBulkIds.add(book.getId());
+                else selectedBulkIds.remove(book.getId());
+            });
         }
 
         // Book details
@@ -503,6 +584,187 @@ public final class LibrarianApprovalScreen {
                 }
             }
         }
+    }
+
+    /**
+     * Bulk-approve all currently selected PENDING submissions.
+     * Shows a confirmation dialog listing the selected titles before proceeding.
+     */
+    private static void handleBulkApprove(VBox mainContent, List<PendingBook> allPendingBooks) {
+        List<PendingBook> targets = new ArrayList<>();
+        for (PendingBook b : allPendingBooks) {
+            if (selectedBulkIds.contains(b.getId())) {
+                targets.add(b);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showErrorAlert("No Books Selected",
+                    "Please select at least one pending book using the checkboxes before using Bulk Approve.");
+            return;
+        }
+
+        // Build confirmation message
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are about to APPROVE the following ").append(targets.size()).append(" book(s):\n\n");
+        for (int i = 0; i < targets.size(); i++) {
+            sb.append("  ").append(i + 1).append(". ").append(targets.get(i).getTitle()).append("\n");
+        }
+        sb.append("\nThis action will notify each author. Proceed?");
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Bulk Approval");
+        confirm.setHeaderText("Bulk Approve — " + targets.size() + " submission(s)");
+        confirm.setContentText(sb.toString());
+        confirm.getDialogPane().setPrefWidth(480);
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) {
+            return;
+        }
+
+        // Perform approvals
+        List<String> failed = new ArrayList<>();
+        for (PendingBook b : targets) {
+            try {
+                PendingDao.approvePendingBook(b.getId(), "");
+                try {
+                    NotificationService.notifyAuthorSubmissionApproved(b.getAuthorUserId(), b.getTitle());
+                } catch (SQLException ne) {
+                    // Non-fatal
+                }
+            } catch (SQLException e) {
+                failed.add(b.getTitle() + " (" + e.getMessage() + ")");
+            }
+        }
+
+        if (failed.isEmpty()) {
+            showSuccessAlert("Bulk Approval Complete",
+                    targets.size() + " book(s) have been approved successfully.");
+        } else {
+            showErrorAlert("Bulk Approval Partially Failed",
+                    "The following books could not be approved:\n" + String.join("\n", failed));
+        }
+        loadAndDisplayBooks(mainContent);
+    }
+
+    /**
+     * Bulk-reject all currently selected PENDING submissions.
+     * Prompts for a single rejection reason applied to every selected book,
+     * then shows a confirmation dialog listing titles + reason before proceeding.
+     */
+    private static void handleBulkReject(VBox mainContent, List<PendingBook> allPendingBooks) {
+        List<PendingBook> targets = new ArrayList<>();
+        for (PendingBook b : allPendingBooks) {
+            if (selectedBulkIds.contains(b.getId())) {
+                targets.add(b);
+            }
+        }
+
+        if (targets.isEmpty()) {
+            showErrorAlert("No Books Selected",
+                    "Please select at least one pending book using the checkboxes before using Bulk Reject.");
+            return;
+        }
+
+        // ── Step 1: Collect shared rejection reason ───────────────────────
+        javafx.scene.control.Dialog<ButtonType> reasonDialog = new javafx.scene.control.Dialog<>();
+        reasonDialog.setTitle("Bulk Reject — Rejection Reason");
+        reasonDialog.setHeaderText("Rejecting " + targets.size() + " submission(s)");
+
+        VBox reasonContent = new VBox(10);
+        reasonContent.setPadding(new Insets(15));
+
+        Label instruction = new Label(
+                "Enter a rejection reason that will be sent to ALL selected authors:");
+        instruction.setStyle("-fx-font-size: 11;");
+
+        // List selected titles for awareness
+        StringBuilder titleList = new StringBuilder();
+        for (int i = 0; i < targets.size(); i++) {
+            titleList.append("  ").append(i + 1).append(". ").append(targets.get(i).getTitle()).append("\n");
+        }
+        TextArea selectedTitlesArea = new TextArea(titleList.toString().trim());
+        selectedTitlesArea.setEditable(false);
+        selectedTitlesArea.setWrapText(true);
+        selectedTitlesArea.setPrefRowCount(Math.min(targets.size() + 1, 5));
+        selectedTitlesArea.setStyle("-fx-font-size: 10; -fx-text-fill: #555;");
+
+        TextArea reasonArea = new TextArea();
+        reasonArea.setWrapText(true);
+        reasonArea.setPrefRowCount(4);
+        reasonArea.setPromptText(
+                "Provide specific reasons (e.g., grammar issues, content concerns, format problems)...");
+        reasonArea.setStyle("-fx-font-size: 10; -fx-padding: 5;");
+
+        reasonContent.getChildren().addAll(instruction, selectedTitlesArea,
+                new Label("Rejection Reason (required):"), reasonArea);
+        reasonDialog.getDialogPane().setContent(reasonContent);
+        reasonDialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        reasonDialog.getDialogPane().setPrefWidth(500);
+
+        // Validate reason is non-empty before closing
+        javafx.scene.control.Button okBtn =
+                (javafx.scene.control.Button) reasonDialog.getDialogPane().lookupButton(ButtonType.OK);
+        okBtn.setText("Next →");
+        okBtn.setOnAction(e -> {
+            if (reasonArea.getText().trim().isEmpty()) {
+                showErrorAlert("Missing Rejection Reason",
+                        "Please enter a rejection reason before continuing.");
+                e.consume();
+            }
+        });
+
+        Optional<ButtonType> reasonResult = reasonDialog.showAndWait();
+        if (reasonResult.isEmpty() || reasonResult.get() != ButtonType.OK) {
+            return;
+        }
+        String sharedReason = reasonArea.getText().trim();
+
+        // ── Step 2: Final confirmation ────────────────────────────────────
+        StringBuilder confirmMsg = new StringBuilder();
+        confirmMsg.append("You are about to REJECT the following ").append(targets.size()).append(" book(s):\n\n");
+        for (int i = 0; i < targets.size(); i++) {
+            confirmMsg.append("  ").append(i + 1).append(". ").append(targets.get(i).getTitle()).append("\n");
+        }
+        confirmMsg.append("\nRejection Reason (sent to all authors):\n  ").append(sharedReason)
+                  .append("\n\nThis action cannot be undone. Proceed?");
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Bulk Rejection");
+        confirm.setHeaderText("Bulk Reject — " + targets.size() + " submission(s)");
+        confirm.setContentText(confirmMsg.toString());
+        confirm.getDialogPane().setPrefWidth(500);
+
+        Optional<ButtonType> confirmResult = confirm.showAndWait();
+        if (confirmResult.isEmpty() || confirmResult.get() != ButtonType.OK) {
+            return;
+        }
+
+        // ── Step 3: Perform rejections ────────────────────────────────────
+        List<String> failed = new ArrayList<>();
+        for (PendingBook b : targets) {
+            try {
+                PendingDao.rejectPendingBook(b.getId(), "", sharedReason);
+                try {
+                    NotificationService.notifyAuthorSubmissionRejected(
+                            b.getAuthorUserId(), b.getTitle(), "Reason: " + sharedReason);
+                } catch (SQLException ne) {
+                    // Non-fatal
+                }
+            } catch (SQLException e) {
+                failed.add(b.getTitle() + " (" + e.getMessage() + ")");
+            }
+        }
+
+        if (failed.isEmpty()) {
+            showSuccessAlert("Bulk Rejection Complete",
+                    targets.size() + " book(s) have been rejected. Authors have been notified.");
+        } else {
+            showErrorAlert("Bulk Rejection Partially Failed",
+                    "The following books could not be rejected:\n" + String.join("\n", failed));
+        }
+        loadAndDisplayBooks(mainContent);
     }
 
     private static String formatDate(Object date) {
