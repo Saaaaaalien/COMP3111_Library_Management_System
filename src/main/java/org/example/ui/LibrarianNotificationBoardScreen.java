@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
@@ -95,11 +96,13 @@ public final class LibrarianNotificationBoardScreen {
         searchField.setMaxWidth(220);
 
         CheckBox showArchivedBox = new CheckBox("Show archived");
+        CheckBox urgentOnlyBox   = new CheckBox("⚠ Urgent only");
+        urgentOnlyBox.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold;");
 
         HBox filterBar = new HBox(10,
                 new Label("Category:"), categoryBox,
                 new Label("Search:"), searchField,
-                showArchivedBox);
+                showArchivedBox, urgentOnlyBox);
         filterBar.setAlignment(Pos.CENTER_LEFT);
         filterBar.setPadding(new Insets(10, 20, 6, 20));
 
@@ -123,6 +126,12 @@ public final class LibrarianNotificationBoardScreen {
                         searchField.getText(),
                         showArchivedBox.isSelected()
                 );
+                // Apply urgent-only filter in-memory (priority field already loaded)
+                if (urgentOnlyBox.isSelected()) {
+                    rows = rows.stream()
+                            .filter(NotificationService::isUrgentHighlight)
+                            .collect(Collectors.toList());
+                }
                 list.setItems(FXCollections.observableArrayList(rows));
                 refreshUnreadBadge(unreadBadge, librarian.getId());
             } catch (SQLException ex) {
@@ -135,6 +144,7 @@ public final class LibrarianNotificationBoardScreen {
         categoryBox.setOnAction(e -> refresh.run());
         searchField.textProperty().addListener((obs, old, val) -> refresh.run());
         showArchivedBox.setOnAction(e -> refresh.run());
+        urgentOnlyBox.setOnAction(e -> refresh.run());
 
         // ── Action buttons ────────────────────────────────────────────────────
         Button markReadBtn = new Button("Mark read");

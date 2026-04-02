@@ -1,5 +1,10 @@
 package org.example.ui;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +28,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
 /**
  * Task 3.6 – Librarian "Borrowed Books Record" screen.
@@ -78,23 +84,30 @@ public final class LibrarianBorrowRecordsScreen {
         scroll.setFitToWidth(true);
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
+        // Holds the most-recently rendered filtered list for CSV export
+        final List<BorrowRecord>[] lastFiltered = new List[]{List.of()};
+
         // Initial load
-        loadRecords(listContent, summaryLbl);
+        loadRecords(listContent, summaryLbl, lastFiltered);
 
         // Action bar
         Button applyBtn = new Button("Search / Filter");
         applyBtn.getStyleClass().add("primary-button");
-        applyBtn.setOnAction(e -> loadRecords(listContent, summaryLbl));
+        applyBtn.setOnAction(e -> loadRecords(listContent, summaryLbl, lastFiltered));
 
         Button resetBtn = new Button("Reset");
         resetBtn.getStyleClass().add("secondary-button");
         resetBtn.setOnAction(e -> {
             currentSearch = "";
             currentStatus = STATUS_ALL;
-            loadRecords(listContent, summaryLbl);
+            loadRecords(listContent, summaryLbl, lastFiltered);
         });
 
-        HBox actionBar = new HBox(10, applyBtn, resetBtn, summaryLbl);
+        Button exportCsvBtn = new Button("\uD83D\uDCBE Export CSV");
+        exportCsvBtn.getStyleClass().add("secondary-button");
+        exportCsvBtn.setOnAction(e -> exportToCsv(lastFiltered[0]));
+
+        HBox actionBar = new HBox(10, applyBtn, resetBtn, exportCsvBtn, summaryLbl);
         actionBar.setPadding(new Insets(10, 20, 0, 20));
         actionBar.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(summaryLbl, Priority.ALWAYS);
@@ -156,7 +169,9 @@ public final class LibrarianBorrowRecordsScreen {
 
     // ── Data load + render ────────────────────────────────────────────────────
 
-    private static void loadRecords(VBox listContent, Label summaryLbl) {
+    @SuppressWarnings("unchecked")
+    private static void loadRecords(VBox listContent, Label summaryLbl,
+                                    List<BorrowRecord>[] lastFiltered) {
         listContent.getChildren().clear();
 
         List<BorrowRecord> records;
@@ -188,6 +203,9 @@ public final class LibrarianBorrowRecordsScreen {
                 };
             })
             .collect(Collectors.toList());
+
+        // Store for CSV export
+        if (lastFiltered != null) lastFiltered[0] = filtered;
 
         // Summary counts across the full unfiltered set
         long totalActive   = records.stream().filter(r -> r.isActive() && !r.isOverdue(nowIso)).count();
@@ -305,6 +323,60 @@ public final class LibrarianBorrowRecordsScreen {
 
         row.getChildren().addAll(titleBox, borrowerBox, borrowedLbl, dueLbl, returnedLbl, statusBadge);
         return row;
+    }
+
+    // ── CSV Export ─────────────────────────────────────────────────────────
+
+    private static void exportToCsv(List<BorrowRecord> records) {
+        if (records == null || records.isEmpty()) {
+            new Alert(Alert.AlertType.INFORMATION, "No records to export. Apply a filter first if needed.")
+                    .showAndWait();
+            return;
+        }
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export Borrow Records as CSV");
+        chooser.setInitialFileName("borrow_records.csv");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("CSV files (*.csv)", "*.csv"));
+        File dest = chooser.showSaveDialog(null);
+        if (dest == null) return; // cancelled
+
+        String nowIso = Instant.now().toString();
+        try (PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(dest)))) {
+            // Header row
+            pw.println("Book Title,Book Author,Borrower Username,Borrower Full Name,Borrow Date,Due Date,Return Date,Status");
+            for (BorrowRecord r : records) {
+                String status = !r.isActive() ? "RETURNED" : (r.isOverdue(nowIso) ? "OVERDUE" : "ACTIVE");
+                pw.println(String.join(",",
+                        escapeCsv(r.bookTitle()),
+                        escapeCsv(r.bookAuthor()),
+                        escapeCsv(r.borrowerUsername()),
+                        escapeCsv(r.borrowerFullName()),
+                        escapeCsv(dateOnly(r.borrowedAt())),
+                        escapeCsv(dateOnly(r.dueAt())),
+                        escapeCsv(dateOnly(r.returnedAt())),
+                        status
+                ));
+            }
+            new Alert(Alert.AlertType.INFORMATION,
+                    records.size() + " record(s) exported to:\n" + dest.getAbsolutePath())
+                    .showAndWait();
+        } catch (IOException ex) {
+            new Alert(Alert.AlertType.ERROR, "Export failed: " + ex.getMessage()).showAndWait();
+        }
+    }
+
+    /** Wraps a CSV field in double quotes and escapes any embedded quotes. */
+    private static String escapeCsv(String value) {
+        if (value == null || value.isBlank()) return "";
+        return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
+    /** Returns only the date part (YYYY-MM-DD) of an ISO-8601 instant string, or "—". */
+    private static String dateOnly(String iso) {
+        if (iso == null || iso.isBlank()) return "—";
+        return iso.length() >= 10 ? iso.substring(0, 10) : iso;
     }
 
     /** Formats an ISO-8601 instant string to a readable short date, or "—" if absent. */
