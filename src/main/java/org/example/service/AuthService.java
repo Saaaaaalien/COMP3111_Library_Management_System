@@ -147,16 +147,13 @@ public final class AuthService {
         }
 
         String fullName = firstName.trim() + " " + lastName.trim();
-        insertUser(trimmedUsername, fullName, password, Role.AUTHOR, bio, null);
+        long userId = insertUser(trimmedUsername, fullName, password, Role.AUTHOR, bio, null);
         try {
-            // Notify librarians about the new author registration
-            org.example.db.UserDao.findByUsername(trimmedUsername).ifPresent(u -> {
-                try {
-                    NotificationService.notifyLibrariansUserRegistered(u.getId(), trimmedUsername, "AUTHOR");
-                } catch (SQLException ignored) {}
-            });
+            // Notify librarians about the new author registration.
+            // Reuse the generated id returned by insertUser — no second DB query needed.
+            NotificationService.notifyLibrariansUserRegistered(userId, trimmedUsername, Role.AUTHOR.name());
         } catch (SQLException ignored) {
-            // Non-critical
+            // Non-critical: notification failure must not prevent registration
         }
     }
 

@@ -54,7 +54,7 @@ public final class UserDao {
      * Finds a user by username.
      */
     public static Optional<User> findByUsername(String username) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until FROM users WHERE username = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE username = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
@@ -72,7 +72,7 @@ public final class UserDao {
      * Finds a user by id.
      */
     public static Optional<User> findById(long id) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until FROM users WHERE id = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
@@ -101,7 +101,11 @@ public final class UserDao {
         }
         boolean active = true;
         try {
-            active = rs.getInt("is_active") != 0;
+            int isActiveVal = rs.getInt("is_active");
+            // wasNull() returns true when the column was NULL; treat NULL as active (true)
+            if (!rs.wasNull()) {
+                active = isActiveVal != 0;
+            }
         } catch (SQLException ignored) { }
         return new User(
             rs.getLong("id"),
@@ -167,16 +171,50 @@ public final class UserDao {
     }
 
     /**
+     * Lightweight row mapper used by admin listing queries (findAll, findAllByRole, search).
+     * Omits password_hash and password_salt — the Manage Users UI never needs credentials.
+     */
+    private static User mapRowAdmin(ResultSet rs) throws SQLException {
+        String avatar = null;
+        try { avatar = rs.getString("avatar_path"); } catch (SQLException ignored) { }
+        int failed = 0;
+        try { failed = rs.getInt("failed_login_attempts"); } catch (SQLException ignored) { }
+        String locked = null;
+        try { locked = rs.getString("locked_until"); } catch (SQLException ignored) { }
+        boolean active = true;
+        try {
+            int isActiveVal = rs.getInt("is_active");
+            if (!rs.wasNull()) active = isActiveVal != 0;
+        } catch (SQLException ignored) { }
+        return new User(
+            rs.getLong("id"),
+            rs.getString("username"),
+            rs.getString("full_name"),
+            Role.valueOf(rs.getString("role")),
+            null,  // password_hash — not selected, not needed for admin listings
+            null,  // password_salt — not selected, not needed for admin listings
+            rs.getString("created_at"),
+            rs.getString("bio"),
+            rs.getString("employee_id"),
+            avatar,
+            failed,
+            locked,
+            active
+        );
+    }
+
+    /**
      * Returns all users ordered by role, then username.
+     * Does not fetch password credentials (not needed for admin listings).
      */
     public static List<User> findAll() throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users ORDER BY role, username";
+        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users ORDER BY role, username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                users.add(mapRow(rs));
+                users.add(mapRowAdmin(rs));
             }
         }
         return users;
@@ -184,16 +222,17 @@ public final class UserDao {
 
     /**
      * Returns all users matching a role filter, ordered by username.
+     * Does not fetch password credentials (not needed for admin listings).
      */
     public static List<User> findAllByRole(Role role) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE role = ? ORDER BY username";
+        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE role = ? ORDER BY username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, role.name());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    users.add(mapRow(rs));
+                    users.add(mapRowAdmin(rs));
                 }
             }
         }
@@ -203,12 +242,13 @@ public final class UserDao {
     /**
      * Searches users by username or full_name (case-insensitive LIKE), optionally filtered by role.
      * Pass null for role to search all roles.
+     * Does not fetch password credentials (not needed for admin listings).
      */
     public static List<User> search(String term, Role role) throws SQLException {
         String likeTerm = "%" + term + "%";
         String sql = role == null
-            ? "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) ORDER BY role, username"
-            : "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) AND role = ? ORDER BY username";
+            ? "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) ORDER BY role, username"
+            : "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) AND role = ? ORDER BY username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -219,7 +259,7 @@ public final class UserDao {
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    users.add(mapRow(rs));
+                    users.add(mapRowAdmin(rs));
                 }
             }
         }

@@ -68,7 +68,28 @@ public final class LibrarianBorrowRecordsScreen {
         Label subLbl = new Label("Logged in as: " + librarian.getFullName());
         subLbl.getStyleClass().add("info-label");
 
-        VBox headerBox = new VBox(6, titleLbl, subLbl, buildSearchFilterBar());
+        // ── Search / filter bar (built inline so Reset can update the controls) ──
+        Label searchLbl = new Label("Search (Title / Username):");
+        searchLbl.setStyle("-fx-font-size: 11;");
+
+        TextField searchField = new TextField(currentSearch);
+        searchField.setPromptText("Type to search…");
+        searchField.setPrefWidth(220);
+        searchField.textProperty().addListener((obs, old, val) -> currentSearch = val == null ? "" : val.trim());
+
+        Label statusLbl = new Label("Status:");
+        statusLbl.setStyle("-fx-font-size: 11;");
+
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll(STATUS_ALL, STATUS_ACTIVE, STATUS_OVERDUE, STATUS_RETURNED);
+        statusBox.setValue(currentStatus);
+        statusBox.setOnAction(e -> currentStatus = statusBox.getValue());
+
+        HBox searchFilterBar = new HBox(14, searchLbl, searchField, statusLbl, statusBox);
+        searchFilterBar.setPadding(new Insets(10, 0, 6, 0));
+        searchFilterBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox headerBox = new VBox(6, titleLbl, subLbl, searchFilterBar);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
@@ -100,6 +121,9 @@ public final class LibrarianBorrowRecordsScreen {
         resetBtn.setOnAction(e -> {
             currentSearch = "";
             currentStatus = STATUS_ALL;
+            // Sync the visible controls so the UI matches the reset state
+            searchField.setText("");
+            statusBox.setValue(STATUS_ALL);
             loadRecords(listContent, summaryLbl, lastFiltered);
         });
 
@@ -136,35 +160,6 @@ public final class LibrarianBorrowRecordsScreen {
         java.net.URL css = LibrarianBorrowRecordsScreen.class.getResource("/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         return scene;
-    }
-
-    // ── Search / filter bar ───────────────────────────────────────────────────
-
-    private static HBox buildSearchFilterBar() {
-        HBox bar = new HBox(14);
-        bar.setPadding(new Insets(10, 0, 6, 0));
-        bar.setAlignment(Pos.CENTER_LEFT);
-
-        // Free-text search
-        Label searchLbl = new Label("Search (Title / Username):");
-        searchLbl.setStyle("-fx-font-size: 11;");
-
-        TextField searchField = new TextField(currentSearch);
-        searchField.setPromptText("Type to search…");
-        searchField.setPrefWidth(220);
-        searchField.textProperty().addListener((obs, old, val) -> currentSearch = val == null ? "" : val.trim());
-
-        // Status filter
-        Label statusLbl = new Label("Status:");
-        statusLbl.setStyle("-fx-font-size: 11;");
-
-        ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll(STATUS_ALL, STATUS_ACTIVE, STATUS_OVERDUE, STATUS_RETURNED);
-        statusBox.setValue(currentStatus);
-        statusBox.setOnAction(e -> currentStatus = statusBox.getValue());
-
-        bar.getChildren().addAll(searchLbl, searchField, statusLbl, statusBox);
-        return bar;
     }
 
     // ── Data load + render ────────────────────────────────────────────────────

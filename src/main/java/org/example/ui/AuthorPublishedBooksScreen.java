@@ -329,9 +329,19 @@ public final class AuthorPublishedBooksScreen {
                                 try {
                                     org.example.service.NotificationService.notifyLibrariansNewSubmission(
                                             newId, np.getTitle(), user.getFullName());
-                                } catch (Exception ignored) {}
+                                } catch (SQLException ex) {
+                                    java.util.logging.Logger.getLogger(AuthorPublishedBooksScreen.class.getName())
+                                            .log(java.util.logging.Level.WARNING,
+                                                    "Could not notify librarians of re-submission", ex);
+                                }
                                 // optionally remove old rejected row
-                                try { PendingDao.deleteByIdForAuthor(p.getId(), user.getId()); } catch (Exception ignored) {}
+                                try {
+                                    PendingDao.deleteByIdForAuthor(p.getId(), user.getId());
+                                } catch (SQLException ex) {
+                                    java.util.logging.Logger.getLogger(AuthorPublishedBooksScreen.class.getName())
+                                            .log(java.util.logging.Level.WARNING,
+                                                    "Could not delete old rejected submission", ex);
+                                }
                             }
                             refresh.run();
                         } catch (SQLException ex) {

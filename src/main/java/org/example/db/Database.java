@@ -276,6 +276,10 @@ public final class Database {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
         }
+        // Backfill: pre-existing rows get NULL from ALTER TABLE; treat them as active.
+        try (Statement st = conn.createStatement()) {
+            st.execute("UPDATE users SET is_active = 1 WHERE is_active IS NULL");
+        }
     }
 
     /**
