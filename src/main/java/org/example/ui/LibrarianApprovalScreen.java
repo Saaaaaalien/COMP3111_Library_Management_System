@@ -537,13 +537,30 @@ public final class LibrarianApprovalScreen {
         rejectionDialog.getDialogPane().setContent(content);
         rejectionDialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
-        // Handle OK button
-        javafx.scene.control.Button okButton = (javafx.scene.control.Button) rejectionDialog.getDialogPane().lookupButton(ButtonType.OK);
-        okButton.setOnAction(e -> {
+        // Use an EventFilter on the OK button — consuming the ActionEvent here
+        // actually prevents the Dialog from closing, unlike setOnAction.
+        javafx.scene.control.Button okButton =
+                (javafx.scene.control.Button) rejectionDialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.addEventFilter(javafx.event.ActionEvent.ACTION, e -> {
             String reason = rejectionReasonArea.getText().trim();
             if (reason.isEmpty()) {
-                showErrorAlert("Missing Rejection Reason", "Please enter a rejection reason before confirming.");
-                e.consume(); // Prevent dialog from closing
+                // Show a warning (not an error) with options to go back or proceed
+                Alert warningAlert = new Alert(Alert.AlertType.WARNING);
+                warningAlert.setTitle("No Rejection Reason Provided");
+                warningAlert.setHeaderText("Rejection reason is empty");
+                warningAlert.setContentText(
+                        "You have not provided a rejection reason.\n\n" +
+                        "It is recommended to inform the author why their submission was rejected.");
+
+                ButtonType goBackButton = new ButtonType("Go Back", javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+                ButtonType proceedButton = new ButtonType("Proceed Without Reason", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+                warningAlert.getButtonTypes().setAll(goBackButton, proceedButton);
+
+                Optional<ButtonType> warningResult = warningAlert.showAndWait();
+                if (warningResult.isEmpty() || warningResult.get() == goBackButton) {
+                    e.consume(); // Consuming here (EventFilter) truly keeps the dialog open
+                }
+                // If proceedButton was chosen, do NOT consume — dialog closes with OK
             }
         });
 
@@ -556,8 +573,13 @@ public final class LibrarianApprovalScreen {
             Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
             confirmAlert.setTitle("Confirm Rejection");
             confirmAlert.setHeaderText(null);
-            confirmAlert.setContentText("Are you sure you want to reject this book?\n\nTitle: " + book.getTitle() +
-                                       "\n\nRejection Reason: " + rejectionReason);
+            String confirmText = "Are you sure you want to reject this book?\n\nTitle: " + book.getTitle();
+            if (!rejectionReason.isEmpty()) {
+                confirmText += "\n\nRejection Reason: " + rejectionReason;
+            } else {
+                confirmText += "\n\nNo rejection reason provided.";
+            }
+            confirmAlert.setContentText(confirmText);
 
             Optional<ButtonType> confirmResult = confirmAlert.showAndWait();
             if (confirmResult.isPresent() && confirmResult.get() == ButtonType.OK) {
@@ -565,17 +587,22 @@ public final class LibrarianApprovalScreen {
                     PendingDao.rejectPendingBook(book.getId(), reviewNotes, rejectionReason);
                     try {
                         String notesForNotification = (reviewNotes != null ? reviewNotes.trim() : "");
-                        if (notesForNotification.isEmpty()) {
-                            notesForNotification = "Reason: " + rejectionReason;
-                        } else {
-                            notesForNotification = notesForNotification + "\nReason: " + rejectionReason;
+                        if (!rejectionReason.isEmpty()) {
+                            if (notesForNotification.isEmpty()) {
+                                notesForNotification = "Reason: " + rejectionReason;
+                            } else {
+                                notesForNotification = notesForNotification + "\nReason: " + rejectionReason;
+                            }
                         }
                         NotificationService.notifyAuthorSubmissionRejected(book.getAuthorUserId(), book.getTitle(), notesForNotification);
                     } catch (SQLException ne) {
                         // Non-fatal: ignore notification failure for now
                     }
-                    showSuccessAlert("Book Rejected", "The book \"" + book.getTitle() + "\" has been rejected.\n\n" +
-                                    "The author will receive the rejection reason:\n" + rejectionReason);
+                    String successMsg = "The book \"" + book.getTitle() + "\" has been rejected.";
+                    if (!rejectionReason.isEmpty()) {
+                        successMsg += "\n\nThe author will receive the rejection reason:\n" + rejectionReason;
+                    }
+                    showSuccessAlert("Book Rejected", successMsg);
                     
                     // Refresh the display to clear previous state
                     loadAndDisplayBooks(mainContent);
