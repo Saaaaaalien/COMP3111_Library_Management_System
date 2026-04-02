@@ -1,11 +1,16 @@
 package org.example.db;
 
-import org.example.domain.AppNotification;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import org.example.domain.AppNotification;
 
 /**
  * Data access for notifications table.
@@ -54,6 +59,34 @@ public final class NotificationDao {
     public static long insertDeduped(long userId, String category, String title, String body,
                                     String createdAt, int priority, String dedupeKey) throws SQLException {
         return insert(userId, category, title, body, createdAt, priority, dedupeKey);
+    }
+
+    /**
+     * Bulk-deduped insert using INSERT OR IGNORE so no exception is thrown for
+     * existing dedupe keys.  Preferred over insertDeduped() inside sync loops.
+     */
+    public static void insertOrIgnoreDeduped(long userId, String category, String title, String body,
+                                             String createdAt, int priority, String dedupeKey) throws SQLException {
+        String sql = """
+            INSERT OR IGNORE INTO notifications
+              (user_id, category, title, body, created_at, priority, dedupe_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, category);
+            ps.setString(3, title);
+            ps.setString(4, body);
+            ps.setString(5, createdAt);
+            ps.setInt(6, priority);
+            if (dedupeKey != null) {
+                ps.setString(7, dedupeKey);
+            } else {
+                ps.setNull(7, Types.VARCHAR);
+            }
+            ps.executeUpdate();
+        }
     }
 
     public static List<AppNotification> findForUser(long userId, boolean includeArchived) throws SQLException {

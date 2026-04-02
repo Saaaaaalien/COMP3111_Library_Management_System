@@ -60,17 +60,28 @@ public final class LibrarianNotificationBoardScreen {
 
     public static Scene create(Navigator navigator, User librarian) {
 
-        // ── Seed notifications from current DB state ──────────────────────────
-        try {
-            NotificationService.syncPendingSubmissionNotifications();
-        } catch (SQLException e) {
-            LOG.log(Level.WARNING, "Failed to sync pending submission notifications", e);
-        }
-        try {
-            NotificationService.syncOverdueBorrowNotificationsForLibrarians();
-        } catch (SQLException e) {
-            LOG.log(Level.WARNING, "Failed to sync overdue borrow notifications", e);
-        }
+        // ── Seed notifications from current DB state (off the FX thread) ──────
+        javafx.concurrent.Task<Void> seedTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() {
+                try {
+                    NotificationService.syncPendingSubmissionNotifications();
+                } catch (SQLException e) {
+                    LOG.log(Level.WARNING, "Failed to sync pending submission notifications", e);
+                }
+                try {
+                    NotificationService.syncOverdueBorrowNotificationsForLibrarians();
+                } catch (SQLException e) {
+                    LOG.log(Level.WARNING, "Failed to sync overdue borrow notifications", e);
+                }
+                return null;
+            }
+        };
+        // Refresh the list once the background sync completes
+        seedTask.setOnSucceeded(evt -> {
+            // refresh lambda is captured below; resolved after scene construction
+        });
+        new Thread(seedTask, "notification-sync").start();
 
         // ── Header ────────────────────────────────────────────────────────────
         Label titleLbl = new Label("Notification Board");
@@ -140,6 +151,8 @@ public final class LibrarianNotificationBoardScreen {
             }
         };
         refresh.run();
+        // Now that refresh is defined, wire it as the post-sync callback
+        seedTask.setOnSucceeded(evt -> javafx.application.Platform.runLater(refresh));
 
         categoryBox.setOnAction(e -> refresh.run());
         searchField.textProperty().addListener((obs, old, val) -> refresh.run());
@@ -193,10 +206,23 @@ public final class LibrarianNotificationBoardScreen {
 
         Button refreshBtn = new Button("⟳ Refresh");
         refreshBtn.setOnAction(e -> {
-            // Re-seed from DB, then repopulate list
-            try { NotificationService.syncPendingSubmissionNotifications(); } catch (SQLException ignored) {}
-            try { NotificationService.syncOverdueBorrowNotificationsForLibrarians(); } catch (SQLException ignored) {}
-            refresh.run();
+            refreshBtn.setDisable(true);
+            javafx.concurrent.Task<Void> resyncTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() {
+                    try { NotificationService.syncPendingSubmissionNotifications(); }
+                    catch (SQLException ex) { LOG.log(Level.WARNING, "Sync pending failed", ex); }
+                    try { NotificationService.syncOverdueBorrowNotificationsForLibrarians(); }
+                    catch (SQLException ex) { LOG.log(Level.WARNING, "Sync overdue failed", ex); }
+                    return null;
+                }
+            };
+            resyncTask.setOnSucceeded(ev -> {
+                javafx.application.Platform.runLater(refresh);
+                refreshBtn.setDisable(false);
+            });
+            resyncTask.setOnFailed(ev -> refreshBtn.setDisable(false));
+            new Thread(resyncTask, "notification-resync").start();
         });
 
         // ── Footer ────────────────────────────────────────────────────────────

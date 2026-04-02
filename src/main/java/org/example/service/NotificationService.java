@@ -192,16 +192,28 @@ public final class NotificationService {
 
     /**
      * Sends a notification to every librarian account.
-     * Uses insertDeduped so the same event is not duplicated across refreshes.
+     * Uses INSERT OR IGNORE so the same event is never duplicated across refreshes.
+     * Fetches the librarian list itself – use only when a single notification is sent
+     * (e.g. from event handlers).  For batch/sync loops prefer the overload that
+     * accepts a pre-fetched list to avoid repeated DB queries.
      */
     private static void notifyAllLibrarians(String category, String title,
                                             String body, int priority,
                                             String dedupeKeyBase) throws SQLException {
-        List<User> librarians = UserDao.findAllByRole(Role.LIBRARIAN);
+        notifyAllLibrarians(UserDao.findAllByRole(Role.LIBRARIAN), category, title, body, priority, dedupeKeyBase);
+    }
+
+    /**
+     * Low-level overload used by sync methods: accepts a pre-fetched librarian list
+     * so the caller can avoid O(N) repeated queries inside loops.
+     */
+    private static void notifyAllLibrarians(List<User> librarians, String category, String title,
+                                            String body, int priority,
+                                            String dedupeKeyBase) throws SQLException {
         String now = Instant.now().toString();
         for (User lib : librarians) {
             String dedupe = dedupeKeyBase == null ? null : dedupeKeyBase + ":" + lib.getId();
-            NotificationDao.insertDeduped(lib.getId(), category, title, body, now, priority, dedupe);
+            NotificationDao.insertOrIgnoreDeduped(lib.getId(), category, title, body, now, priority, dedupe);
         }
     }
 
@@ -232,28 +244,41 @@ public final class NotificationService {
     /**
      * Seeds "New submission" notifications for every PENDING book that has not yet
      * generated a notification.  Idempotent — uses dedupe keys.
+     * Fetches the librarian list once to avoid repeated DB queries per pending book.
      */
     public static void syncPendingSubmissionNotifications() throws SQLException {
-        for (PendingBook pb : PendingDao.findAllPending()) {
-            notifyLibrariansNewSubmission(pb.getId(), pb.getTitle(),
-                    pb.getAuthorFullName() != null ? pb.getAuthorFullName() : "Unknown author");
+        List<PendingBook> pending = PendingDao.findAllPending();
+        if (pending.isEmpty()) return;
+        List<User> librarians = UserDao.findAllByRole(Role.LIBRARIAN);
+        if (librarians.isEmpty()) return;
+        for (PendingBook pb : pending) {
+            String authorName = pb.getAuthorFullName() != null ? pb.getAuthorFullName() : "Unknown author";
+            String title = "New book submission";
+            String body  = "\"" + pb.getTitle() + "\" submitted by " + authorName + " is awaiting approval.";
+            notifyAllLibrarians(librarians, CAT_NEW_SUBMISSION, title, body, 7,
+                    "NEW_SUB:" + pb.getId());
         }
     }
 
     /**
      * Seeds "Overdue borrow" notifications for all currently-overdue active borrows.
      * Deduped per borrow id + day so each new calendar day generates at most one alert.
+     * Fetches the librarian list once to avoid repeated DB queries per overdue borrow.
      */
     public static void syncOverdueBorrowNotificationsForLibrarians() throws SQLException {
+        List<BorrowDao.ActiveBorrowDueRow> rows = BorrowDao.findAllActiveWithDue();
+        if (rows.isEmpty()) return;
+        List<User> librarians = UserDao.findAllByRole(Role.LIBRARIAN);
+        if (librarians.isEmpty()) return;
         String nowIso = Instant.now().toString();
         String today  = nowIso.substring(0, 10); // YYYY-MM-DD
-        for (BorrowDao.ActiveBorrowDueRow row : BorrowDao.findAllActiveWithDue()) {
+        for (BorrowDao.ActiveBorrowDueRow row : rows) {
             if (row.dueAt() == null || row.dueAt().isBlank()) continue;
             if (row.dueAt().compareTo(nowIso) >= 0) continue; // not yet overdue
             String dedupeBase = "OVERDUE:" + row.borrowId() + ":" + today;
             String title = "Overdue borrow";
             String body  = "\"" + row.bookTitle() + "\" is overdue (due " + row.dueAt().substring(0, 10) + ").";
-            notifyAllLibrarians(CAT_OVERDUE_BORROW, title, body, 8, dedupeBase);
+            notifyAllLibrarians(librarians, CAT_OVERDUE_BORROW, title, body, 8, dedupeBase);
         }
     }
 }

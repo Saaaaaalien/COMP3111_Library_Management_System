@@ -1,14 +1,5 @@
 package org.example.app;
 
-import org.example.db.BookDao;
-import org.example.db.BorrowDao;
-import org.example.db.UserDao;
-import org.example.domain.Book;
-import org.example.domain.Borrow;
-import org.example.domain.Role;
-import org.example.domain.User;
-import org.example.ui.PdfReaderScreen;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,6 +8,15 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.example.db.BookDao;
+import org.example.db.BorrowDao;
+import org.example.db.UserDao;
+import org.example.domain.Book;
+import org.example.domain.Borrow;
+import org.example.domain.Role;
+import org.example.domain.User;
+import org.example.ui.PdfReaderScreen;
 
 /**
  * Persists last screen (and optional PDF-reader context) to {@code data/session.json}
@@ -354,6 +354,27 @@ public final class SessionService {
             case "LIBRARIAN_MANAGE_USERS" -> {
                 if (role == Role.LIBRARIAN) {
                     navigator.showLibrarianManageUsers(user);
+                } else {
+                    return false;
+                }
+            }
+            case "LIBRARIAN_PROFILE" -> {
+                if (role == Role.LIBRARIAN) {
+                    navigator.showLibrarianProfile(user);
+                } else {
+                    return false;
+                }
+            }
+            case "LIBRARIAN_BORROW_RECORDS" -> {
+                if (role == Role.LIBRARIAN) {
+                    navigator.showLibrarianBorrowRecords(user);
+                } else {
+                    return false;
+                }
+            }
+            case "LIBRARIAN_NOTIFICATIONS" -> {
+                if (role == Role.LIBRARIAN) {
+                    navigator.showLibrarianNotifications(user);
                 } else {
                     return false;
                 }

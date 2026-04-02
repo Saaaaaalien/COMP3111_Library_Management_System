@@ -39,7 +39,7 @@ public final class LibrarianManageUsersScreen {
 
     private LibrarianManageUsersScreen() {}
 
-    // Persistent search/filter state
+    // Search/filter state — reset each time the screen is opened (not preserved across navigation)
     private static String currentSearchTerm = "";
     private static String currentRoleFilter = "";
 
@@ -47,7 +47,7 @@ public final class LibrarianManageUsersScreen {
     private static final Set<Long> selectedBulkIds = new LinkedHashSet<>();
 
     public static Scene create(Navigator navigator, User librarian) {
-        // Reset state each time the screen is opened fresh
+        // Reset search/filter state on every open so the screen starts clean
         currentSearchTerm = "";
         currentRoleFilter = "";
 

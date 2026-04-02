@@ -364,7 +364,10 @@ public final class LibrarianProfileScreen {
         confirm.showAndWait().ifPresent(btn -> {
             if (btn != ButtonType.YES) return;
             try {
-                UserDao.updateProfile(librarian.getId(), trimmedName, trimmedEmpId, librarian.getBio());
+                // Fetch current bio from DB so this screen never overwrites a field it doesn't own.
+                String currentBio = UserDao.findById(librarian.getId())
+                        .map(u -> u.getBio()).orElse(librarian.getBio());
+                UserDao.updateProfile(librarian.getId(), trimmedName, trimmedEmpId, currentBio);
                 User refreshed = UserDao.findById(librarian.getId()).orElse(librarian);
                 Alert success = new Alert(Alert.AlertType.INFORMATION,
                     "Personal details updated successfully.");
@@ -374,8 +377,9 @@ public final class LibrarianProfileScreen {
                 // Navigate back with the updated user object
                 navigator.showLibrarianProfile(refreshed);
             } catch (SQLException ex) {
+                System.err.println("[LibrarianProfileScreen] Failed to save details: " + ex.getMessage());
                 Alert err = new Alert(Alert.AlertType.ERROR,
-                    "Failed to save changes: " + ex.getMessage());
+                    "Failed to save changes. Please try again.");
                 err.setTitle("Error");
                 err.setHeaderText(null);
                 err.showAndWait();
@@ -393,11 +397,10 @@ public final class LibrarianProfileScreen {
                                              User librarian, Navigator navigator) {
         errorLbl.setText("");
 
-        // If all blank — nothing to do
+        // If all fields are blank the user wants to keep their current password — no-op.
         if ((currentPw == null || currentPw.isBlank())
                 && (newPw == null || newPw.isBlank())
                 && (confirmPw == null || confirmPw.isBlank())) {
-            errorLbl.setText("Enter your current password and a new password to change it.");
             return;
         }
 
@@ -445,6 +448,10 @@ public final class LibrarianProfileScreen {
                 String salt = PasswordHasher.generateSalt();
                 String hash = PasswordHasher.hash(newPw, salt);
                 UserDao.updatePassword(librarian.getId(), hash, salt);
+                // Clear the fields so stale text isn't visible after the dialog
+                currentPwField.clear();
+                newPwField.clear();
+                confirmPwField.clear();
                 Alert success = new Alert(Alert.AlertType.INFORMATION,
                     "Password changed successfully. Please sign in again.");
                 success.setTitle("Password Changed");
@@ -452,8 +459,9 @@ public final class LibrarianProfileScreen {
                 success.showAndWait();
                 navigator.showLibrarianPortal();
             } catch (SQLException ex) {
+                System.err.println("[LibrarianProfileScreen] Failed to update password: " + ex.getMessage());
                 Alert err = new Alert(Alert.AlertType.ERROR,
-                    "Failed to update password: " + ex.getMessage());
+                    "Failed to update password. Please try again.");
                 err.setTitle("Error");
                 err.setHeaderText(null);
                 err.showAndWait();
