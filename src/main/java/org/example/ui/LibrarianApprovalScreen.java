@@ -1,5 +1,9 @@
 package org.example.ui;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +14,7 @@ import org.example.db.PendingDao;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
 import org.example.service.NotificationService;
+import org.example.util.BookPreviewUtil;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -22,10 +27,14 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 /**
  * Librarian approval screen: displays pending book submissions and allows
@@ -246,8 +255,32 @@ public final class LibrarianApprovalScreen {
                             "REJECTED".equals(book.getStatus()) ? "#f44336" : "#999";
         statusLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
 
+        // File metadata + preview / download actions
+        String fileSizeStr = book.getFileSize() > 0
+                ? String.format("%.1f KB", book.getFileSize() / 1024.0) : "unknown size";
+        String fileTypeStr = book.getFileType() != null ? book.getFileType().toUpperCase() : "?";
+        Label fileLbl = new Label("File: " + (book.getFileName() != null ? book.getFileName() : "—")
+                + "  [" + fileTypeStr + ", " + fileSizeStr + "]");
+        fileLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #555;");
 
-        VBox detailsBox = new VBox(6, titleLbl, authorLbl, genreLbl, submittedLbl, statusLbl);
+        Button previewBtn = new Button("\uD83D\uDC41 Preview Content");
+        previewBtn.getStyleClass().add("secondary-button");
+        boolean fileExists = book.getFilePath() != null && new File(book.getFilePath()).exists();
+        previewBtn.setDisable(!fileExists || !BookPreviewUtil.isSupportedPreviewType(book.getFilePath()));
+        if (!fileExists) {
+            previewBtn.setText("\u26A0 File not found");
+        }
+        previewBtn.setOnAction(e -> showFilePreviewDialog(book));
+
+        Button openBtn = new Button("\uD83D\uDCE5 Download File");
+        openBtn.getStyleClass().add("secondary-button");
+        openBtn.setDisable(!fileExists);
+        openBtn.setOnAction(e -> downloadFile(book.getFilePath()));
+
+        HBox fileRow = new HBox(10, fileLbl, previewBtn, openBtn);
+        fileRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox detailsBox = new VBox(6, titleLbl, authorLbl, genreLbl, submittedLbl, statusLbl, fileRow);
 
         // Summary/Description
         Label summaryTitleLbl = new Label("Summary:");
@@ -475,6 +508,123 @@ public final class LibrarianApprovalScreen {
     private static String formatDate(Object date) {
         if (date == null) return "N/A";
         return date.toString();
+    }
+
+    /**
+     * Opens a modal dialog showing up to 5 pages of the submitted book file.
+     * PDFs are rendered as images; text/doc/docx are shown in a TextArea.
+     */
+    private static void showFilePreviewDialog(PendingBook book) {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Content Preview — " + book.getTitle());
+
+        VBox container = new VBox(12);
+        container.setPadding(new Insets(16));
+
+        Label heading = new Label("Preview: " + book.getTitle());
+        heading.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
+        Label subHeading = new Label("Author: " + book.getAuthorFullName()
+                + "  |  Type: " + (book.getFileType() != null ? book.getFileType().toUpperCase() : "?"));
+        subHeading.setStyle("-fx-font-size: 11; -fx-text-fill: #555;");
+        container.getChildren().addAll(heading, subHeading);
+
+        String filePath = book.getFilePath();
+        boolean isPdf = filePath != null && filePath.toLowerCase().endsWith(".pdf");
+
+        if (isPdf) {
+            List<Image> pages = BookPreviewUtil.readPdfPreviewImages(filePath, 5);
+            if (pages.isEmpty()) {
+                container.getChildren().add(new Label("PDF rendering failed or file is unreadable."));
+            } else {
+                Label hint = new Label("Showing first " + pages.size() + " page(s).");
+                hint.setStyle("-fx-font-size: 10; -fx-text-fill: #888;");
+                container.getChildren().add(hint);
+                for (Image img : pages) {
+                    ImageView iv = new ImageView(img);
+                    iv.setPreserveRatio(true);
+                    iv.setFitWidth(580);
+                    container.getChildren().add(iv);
+                }
+            }
+        } else {
+            String text = BookPreviewUtil.readTextPreview(filePath);
+            if (text == null || text.isBlank()) {
+                text = "Content preview is not available for this file type or the file could not be read.";
+            }
+            TextArea area = new TextArea(text);
+            area.setEditable(false);
+            area.setWrapText(true);
+            area.setPrefRowCount(22);
+            area.setStyle("-fx-font-family: monospace; -fx-font-size: 11;");
+            container.getChildren().add(area);
+        }
+
+        Button openBtn = new Button("\uD83D\uDCE5 Download File");
+        openBtn.setOnAction(e -> downloadFile(filePath));
+        Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("secondary-button");
+        closeBtn.setOnAction(e -> dialog.close());
+        HBox footer = new HBox(10, openBtn, closeBtn);
+        footer.setAlignment(Pos.CENTER_RIGHT);
+        footer.setPadding(new Insets(8, 0, 0, 0));
+        container.getChildren().add(footer);
+
+        ScrollPane scroll = new ScrollPane(container);
+        scroll.setFitToWidth(true);
+        Scene dialogScene = new Scene(scroll, 640, 560);
+        java.net.URL css = LibrarianApprovalScreen.class.getResource("/app.css");
+        if (css != null) dialogScene.getStylesheets().add(css.toExternalForm());
+        dialog.setScene(dialogScene);
+        dialog.showAndWait();
+    }
+
+    /**
+     * Opens a Save dialog so the librarian can choose where to save a copy of the
+     * submitted book file.  Uses JavaFX FileChooser; no external viewer is launched.
+     */
+    private static void downloadFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            showErrorAlert("File Not Available", "No file path is recorded for this submission.");
+            return;
+        }
+        File source = new File(filePath);
+        if (!source.exists()) {
+            showErrorAlert("File Not Found",
+                    "The submitted file could not be located at:\n" + filePath);
+            return;
+        }
+
+        javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+        chooser.setTitle("Save Book File As");
+        chooser.setInitialFileName(source.getName());
+
+        // Suggest appropriate extension filter
+        String name = source.getName().toLowerCase();
+        javafx.stage.FileChooser.ExtensionFilter filter;
+        if (name.endsWith(".pdf")) {
+            filter = new javafx.stage.FileChooser.ExtensionFilter("PDF files", "*.pdf");
+        } else if (name.endsWith(".docx")) {
+            filter = new javafx.stage.FileChooser.ExtensionFilter("Word documents", "*.docx");
+        } else if (name.endsWith(".doc")) {
+            filter = new javafx.stage.FileChooser.ExtensionFilter("Word documents", "*.doc");
+        } else {
+            filter = new javafx.stage.FileChooser.ExtensionFilter("All files", "*.*");
+        }
+        chooser.getExtensionFilters().add(filter);
+
+        File dest = chooser.showSaveDialog(null);
+        if (dest == null) {
+            return; // user cancelled
+        }
+
+        try {
+            Files.copy(source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            showSuccessAlert("Download Complete",
+                    "File saved to:\n" + dest.getAbsolutePath());
+        } catch (IOException ex) {
+            showErrorAlert("Download Failed", "Could not save the file:\n" + ex.getMessage());
+        }
     }
 
     private static void showSuccessAlert(String title, String message) {
