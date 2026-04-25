@@ -3,6 +3,7 @@ package org.example.ui;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.concurrent.Task;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
@@ -21,7 +22,9 @@ import javafx.scene.image.ImageView;
 import org.example.app.Navigator;
 import org.example.db.PublishDraftDao;
 import org.example.domain.User;
+import org.example.service.BookSummaryService;
 import org.example.service.PublishService;
+import org.example.util.BookPreviewUtil;
 
 import java.io.File;
 import java.sql.SQLException;
@@ -44,6 +47,8 @@ public final class PublishBookScreen {
     private static Label fileDisplayLabel;
     private static Label coverPathDisplay;
     private static Label coverNameLabel;
+    private static Label summaryStatusLabel;
+    private static Button generateSummaryButton;
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -334,6 +339,18 @@ public final class PublishBookScreen {
         descriptionArea.setWrapText(true);
         descriptionArea.getStyleClass().add("text-area");
 
+        generateSummaryButton = new Button("Generate Summary");
+        generateSummaryButton.getStyleClass().add("secondary-button");
+        generateSummaryButton.setPrefWidth(160);
+        generateSummaryButton.setOnAction(e -> onGenerateSummary());
+
+        summaryStatusLabel = new Label("Summary status: Draft");
+        summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+
+        HBox summaryActionBox = new HBox(10, generateSummaryButton);
+        summaryActionBox.setAlignment(Pos.CENTER_LEFT);
+        VBox summaryControlsBox = new VBox(8, summaryActionBox, summaryStatusLabel);
+
         // File selection - FIXED BUTTON
         Label fileLabel = new Label("Book File *");
         fileLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
@@ -529,8 +546,9 @@ public final class PublishBookScreen {
                 titleLabel, titleField,
                 authorLabel, authorField,
                 genreLabel, genreBox,
-                descriptionLabel, descriptionArea,
                 fileLabel, fileSelectionBox,
+                descriptionLabel, descriptionArea,
+                summaryControlsBox,
                 coverBox,
                 requiredNote
         );
@@ -733,6 +751,10 @@ public final class PublishBookScreen {
             coverPathDisplay.setText("None");
             coverPathDisplay.setStyle("-fx-text-fill: #666; -fx-font-style: italic;");
         }
+        if (summaryStatusLabel != null) {
+            summaryStatusLabel.setText("Summary status: Draft");
+            summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+        }
     }
 
     private static void persistDraftQuietly() {
@@ -788,6 +810,71 @@ public final class PublishBookScreen {
         alert.setContentText(message);
         alert.showAndWait();
     }
+
+    private static boolean showConfirmation(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    }
+
+    private static void onGenerateSummary() {
+        if (selectedBookFile == null) {
+            showError("No File Selected", "Please choose a book file before generating a summary.");
+            return;
+        }
+        if (!BookPreviewUtil.isSupportedPreviewType(selectedBookFile.getAbsolutePath())) {
+            showError("Unsupported File", "Summary generation supports PDF, TXT, DOC, and DOCX files.");
+            return;
+        }
+
+        generateSummaryButton.setDisable(true);
+        String originalText = generateSummaryButton.getText();
+        generateSummaryButton.setText("Generating...");
+        summaryStatusLabel.setText("Summary status: Generating...");
+        summaryStatusLabel.setStyle("-fx-text-fill: #2980b9;");
+
+        Task<BookSummaryService.SummaryResult> task = new Task<>() {
+            @Override
+            protected BookSummaryService.SummaryResult call() {
+                BookSummaryService service = new BookSummaryService();
+                return service.generateSummaryFromBookFile(selectedBookFile.getAbsolutePath());
+            }
+        };
+
+        task.setOnSucceeded(e -> {
+            BookSummaryService.SummaryResult result = task.getValue();
+            if (result.success()) {
+                descriptionArea.setText(result.summary());
+                summaryStatusLabel.setText("Summary status: Generated");
+                summaryStatusLabel.setStyle("-fx-text-fill: #27ae60;");
+                showSuccess(result.message());
+                persistDraftQuietly();
+            } else {
+                summaryStatusLabel.setText("Summary status: Draft");
+                summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+                showError("Summary Generation Failed", result.message());
+            }
+            generateSummaryButton.setText(originalText);
+            generateSummaryButton.setDisable(false);
+        });
+
+        task.setOnFailed(e -> {
+            summaryStatusLabel.setText("Summary status: Draft");
+            summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+            generateSummaryButton.setText(originalText);
+            generateSummaryButton.setDisable(false);
+            Throwable ex = task.getException();
+            String message = ex == null ? "Unexpected error during summary generation." : ex.getMessage();
+            showError("Summary Generation Failed", message);
+        });
+
+        Thread worker = new Thread(task, "summary-generation-worker");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
     private static String getFileExtension(File file) {
         String name = file.getName();
         int lastDot = name.lastIndexOf('.');
