@@ -37,6 +37,7 @@ import javafx.scene.control.DialogPane;
 import javafx.scene.control.Tooltip;
 import javafx.stage.Window;
 import javafx.stage.Modality;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.example.app.Navigator;
 import javafx.beans.property.BooleanProperty;
@@ -76,6 +77,14 @@ public final class AvailableBooksScreen {
 
     /** Character length above which the summary is shown in a pop-up for easier reading. */
     private static final int SUMMARY_POPUP_THRESHOLD = 200;
+    private static double summaryDialogWidth = 560;
+    private static double summaryDialogHeight = 320;
+    private static Double summaryDialogX;
+    private static Double summaryDialogY;
+    private static double quickDialogWidth = 1000;
+    private static double quickDialogHeight = 760;
+    private static Double quickDialogX;
+    private static Double quickDialogY;
     private static final List<String> FIXED_GENRES = List.of(
             "All genres", "Fiction", "Non-Fiction", "Mystery", "Fantasy", "Science Fiction",
             "Biography", "History", "Self-Help", "Education", "Technology", "Romance", "Other"
@@ -647,13 +656,29 @@ public final class AvailableBooksScreen {
 
         double height = isLong ? 480 : 320;
         DialogPane pane = dialog.getDialogPane();
-        pane.getButtonTypes().clear();
+        pane.getButtonTypes().setAll(ButtonType.CANCEL);
+        javafx.scene.Node systemCloseBtn = pane.lookupButton(ButtonType.CANCEL);
+        if (systemCloseBtn != null) {
+            systemCloseBtn.setManaged(false);
+            systemCloseBtn.setVisible(false);
+        }
         pane.setContent(scroll);
         java.net.URL cssResource = AvailableBooksScreen.class.getResource("/app.css");
         if (cssResource != null) {
             pane.getStylesheets().add(cssResource.toExternalForm());
         }
-        pane.setPrefSize(560, height);
+        pane.setPrefSize(summaryDialogWidth, Math.max(summaryDialogHeight, height));
+        dialog.setResizable(true);
+        dialog.setOnShown(ev -> restoreDialogBounds(dialog, summaryDialogX, summaryDialogY, summaryDialogWidth, Math.max(summaryDialogHeight, height)));
+        dialog.setOnHiding(ev -> {
+            Stage stage = extractDialogStage(dialog);
+            if (stage != null) {
+                summaryDialogWidth = stage.getWidth();
+                summaryDialogHeight = stage.getHeight();
+                summaryDialogX = stage.getX();
+                summaryDialogY = stage.getY();
+            }
+        });
         dialog.showAndWait();
 
         if (borrowRequested[0]) {
@@ -777,13 +802,29 @@ public final class AvailableBooksScreen {
         rootScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         DialogPane pane = dialog.getDialogPane();
-        pane.getButtonTypes().clear();
+        pane.getButtonTypes().setAll(ButtonType.CANCEL);
+        javafx.scene.Node systemCloseBtn = pane.lookupButton(ButtonType.CANCEL);
+        if (systemCloseBtn != null) {
+            systemCloseBtn.setManaged(false);
+            systemCloseBtn.setVisible(false);
+        }
         pane.setContent(rootScroll);
         java.net.URL cssResource = AvailableBooksScreen.class.getResource("/app.css");
         if (cssResource != null) {
             pane.getStylesheets().add(cssResource.toExternalForm());
         }
-        pane.setPrefSize(1000, 760);
+        pane.setPrefSize(quickDialogWidth, quickDialogHeight);
+        dialog.setResizable(true);
+        dialog.setOnShown(ev -> restoreDialogBounds(dialog, quickDialogX, quickDialogY, quickDialogWidth, quickDialogHeight));
+        dialog.setOnHiding(ev -> {
+            Stage stage = extractDialogStage(dialog);
+            if (stage != null) {
+                quickDialogWidth = stage.getWidth();
+                quickDialogHeight = stage.getHeight();
+                quickDialogX = stage.getX();
+                quickDialogY = stage.getY();
+            }
+        });
         dialog.showAndWait();
 
         if (borrowRequested[0]) {
@@ -851,6 +892,32 @@ public final class AvailableBooksScreen {
         v.setWrapText(true);
         row.getChildren().addAll(l, v);
         parent.getChildren().add(row);
+    }
+
+    private static Stage extractDialogStage(Dialog<?> dialog) {
+        if (dialog == null || dialog.getDialogPane() == null || dialog.getDialogPane().getScene() == null) {
+            return null;
+        }
+        Window window = dialog.getDialogPane().getScene().getWindow();
+        if (window instanceof Stage stage) {
+            return stage;
+        }
+        return null;
+    }
+
+    private static void restoreDialogBounds(Dialog<?> dialog, Double x, Double y, double width, double height) {
+        Stage stage = extractDialogStage(dialog);
+        if (stage == null) {
+            return;
+        }
+        if (width > 0 && height > 0) {
+            stage.setWidth(width);
+            stage.setHeight(height);
+        }
+        if (x != null && y != null && Double.isFinite(x) && Double.isFinite(y)) {
+            stage.setX(x);
+            stage.setY(y);
+        }
     }
 
     private static Set<String> tokenizeGenres(String raw) {

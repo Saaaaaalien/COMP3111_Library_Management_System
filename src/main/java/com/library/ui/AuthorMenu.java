@@ -6,6 +6,7 @@ import com.library.model.User;
 import com.library.service.UserService;
 import com.library.utils.FileUtils;
 import com.library.service.BookService;
+import org.example.app.WindowStateKeeper;
 
 import javafx.collections.ObservableList;
 
@@ -50,6 +51,16 @@ public void setCurrentUser(User user) {
 
 public void setPrimaryStage(Stage primaryStage) {
     this.primaryStage = primaryStage;
+}
+
+private void setScenePreservingWindowState(Scene scene, String title) {
+    if (primaryStage == null) {
+        return;
+    }
+    WindowStateKeeper.Snapshot snapshot = WindowStateKeeper.capture(primaryStage);
+    primaryStage.setScene(scene);
+    primaryStage.setTitle(title);
+    WindowStateKeeper.applyAfterSceneSwap(primaryStage, snapshot);
 }
 
 @FXML
@@ -144,9 +155,7 @@ private void handleLogout() {
         loginMenu.setPrimaryStage(primaryStage);
 
         Scene scene = new Scene(root);
-        primaryStage.setScene(scene);
-        primaryStage.setTitle("Library Management System - Login");
-        primaryStage.show();
+        setScenePreservingWindowState(scene, "Library Management System - Login");
 
     } catch (IOException e) {
         e.printStackTrace();

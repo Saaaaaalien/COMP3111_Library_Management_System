@@ -3,6 +3,7 @@ package com.library.ui;
 import com.library.model.User;
 import com.library.service.UserService;
 import com.library.utils.PasswordValidator;
+import org.example.app.WindowStateKeeper;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -43,6 +44,16 @@ public class LoginMenu implements Initializable{
 
     public LoginMenu() {
         userService = new UserService();
+    }
+
+    private void setScenePreservingWindowState(Scene scene, String title) {
+        if (primaryStage == null) {
+            return;
+        }
+        WindowStateKeeper.Snapshot snapshot = WindowStateKeeper.capture(primaryStage);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(title);
+        WindowStateKeeper.applyAfterSceneSwap(primaryStage, snapshot);
     }
 
     public void setPrimaryStage(Stage primaryStage) {
@@ -134,9 +145,7 @@ public class LoginMenu implements Initializable{
             }
 
             Scene scene = new Scene(root);
-            primaryStage.setScene(scene);
-            primaryStage.setTitle("Library Management System - " + user.getRole());
-            primaryStage.show();
+            setScenePreservingWindowState(scene, "Library Management System - " + user.getRole());
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -154,9 +163,7 @@ public class LoginMenu implements Initializable{
             registerMenu.setPrimaryStage(primaryStage);
 
             Scene scene = new Scene(root);
-            primaryStage.setScene(scene);
-            primaryStage.setTitle("Library Management System - Register");
-            primaryStage.show();
+            setScenePreservingWindowState(scene, "Library Management System - Register");
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -250,9 +257,7 @@ public class LoginMenu implements Initializable{
             loginMenu.setPrimaryStage(primaryStage);
 
             Scene scene = new Scene(root);
-            primaryStage.setScene(scene);
-            primaryStage.setTitle("Library Management System - Login");
-            primaryStage.show();
+            setScenePreservingWindowState(scene, "Library Management System - Login");
 
         } catch (IOException e) {
             e.printStackTrace();

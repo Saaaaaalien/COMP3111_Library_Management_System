@@ -43,7 +43,8 @@ public final class StudentStaffNotificationBoardScreen {
                 NotificationService.CAT_BOOK_REMOVED,
                 NotificationService.CAT_ANNOUNCEMENT,
                 NotificationService.CAT_BORROW_EVENT,
-                NotificationService.CAT_RETURN_EVENT
+                NotificationService.CAT_RETURN_EVENT,
+                NotificationService.CAT_AUTHOR_REVIEW_REPLY
         ));
         category.getSelectionModel().selectFirst();
 
