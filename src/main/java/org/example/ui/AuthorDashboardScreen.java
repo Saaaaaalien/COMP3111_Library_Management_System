@@ -146,6 +146,11 @@ public final class AuthorDashboardScreen {
         myBooksBtn.setPrefWidth(140);
         myBooksBtn.setOnAction(e -> navigator.showAuthorPublishedBooks(currentUser));
 
+        Button statsBtn = new Button("View Stats");
+        statsBtn.getStyleClass().add("secondary-button");
+        statsBtn.setPrefWidth(140);
+        statsBtn.setOnAction(e -> navigator.showAuthorStats(currentUser));
+
         Button profileBtn = new Button("Profile");
         profileBtn.getStyleClass().add("secondary-button");
         profileBtn.setPrefWidth(140);
@@ -166,7 +171,7 @@ public final class AuthorDashboardScreen {
         } catch (SQLException ignored) {
         }
         notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
-        phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
+        phase2Links.getChildren().addAll(myBooksBtn, statsBtn, profileBtn, notifBtn);
 
         // Publish Book Card
         VBox publishCard = createPublishBookCard();

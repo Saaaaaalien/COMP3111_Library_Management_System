@@ -34,6 +34,16 @@ public class Navigator {
         this.stage.sceneProperty().addListener((obs, oldScene, newScene) -> attachDevCrashShortcut(newScene));
     }
 
+    /**
+     * Switches main scenes while preserving the current window state.
+     * If the user is in fullscreen/maximized/manual resize mode, keep it across navigation.
+     */
+    private void showScenePreservingWindowState(Scene scene) {
+        WindowStateKeeper.Snapshot snapshot = WindowStateKeeper.capture(stage);
+        stage.setScene(scene);
+        WindowStateKeeper.applyAfterSceneSwap(stage, snapshot);
+    }
+
     private void setAppIcon() {
         try {
             String iconPath = "/icons/app-icon.png";
@@ -68,8 +78,7 @@ public class Navigator {
     public void showWelcome() {
         SessionService.clear();
         Scene scene = org.example.ui.WelcomeScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     /** Opens each role's main hub after a partial session restore. */
@@ -94,36 +103,31 @@ public class Navigator {
     public void showStudentStaffPortal() {
         SessionService.save("STUDENT_PORTAL", 0);
         Scene scene = org.example.ui.StudentStaffEntryScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showStudentStaffLogin() {
         SessionService.save("STUDENT_LOGIN", 0);
         Scene scene = org.example.ui.StudentStaffLoginScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showStudentStaffRegister() {
         SessionService.save("STUDENT_REGISTER", 0);
         Scene scene = org.example.ui.StudentStaffRegisterScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAvailableBooks(User studentOrStaff) {
         SessionService.save("AVAILABLE_BOOKS", studentOrStaff.getId());
         Scene scene = org.example.ui.AvailableBooksScreen.create(this, studentOrStaff);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showMyBorrowedBooks(User studentOrStaff) {
         SessionService.save("MY_BORROWS", studentOrStaff.getId());
         Scene scene = org.example.ui.MyBorrowedBooksScreen.create(this, studentOrStaff);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showPdfReader(User user,
@@ -155,8 +159,7 @@ public class Navigator {
             // the PDF reader appears on top of it (both for normal and crash recovery restores).
             // This does not overwrite session.json because we are not calling SessionService.save here.
             Scene borrowedScene = org.example.ui.MyBorrowedBooksScreen.create(this, user);
-            stage.setScene(borrowedScene);
-            stage.show();
+            showScenePreservingWindowState(borrowedScene);
 
             org.example.ui.PdfReaderScreen.open(
                     this,
@@ -176,8 +179,7 @@ public class Navigator {
     public void showStudentStaffProfile(User user) {
         SessionService.save("PROFILE_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffProfileScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showStudentStaffNotifications(User user) {
@@ -187,128 +189,116 @@ public class Navigator {
     public void showStudentStaffNotifications(User user, boolean returnToBorrowedBooks) {
         SessionService.save("NOTIFICATIONS_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user, returnToBorrowedBooks);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorPortal() {
         SessionService.save("AUTHOR_PORTAL", 0);
         Scene scene = org.example.ui.AuthorEntryScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorLogin() {
         SessionService.save("AUTHOR_LOGIN", 0);
         Scene scene = org.example.ui.AuthorLoginScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorRegister() {
         SessionService.save("AUTHOR_REGISTER", 0);
         Scene scene = org.example.ui.AuthorRegisterScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorDashboard(User user) {
         SessionService.save("AUTHOR_DASH", user.getId());
         Scene scene = org.example.ui.AuthorDashboardScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showPublishBook(User user) {
         SessionService.save("AUTHOR_PUBLISH", user.getId());
         Scene scene = org.example.ui.PublishBookScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorPublishedBooks(User user) {
         SessionService.save("AUTHOR_PUBLISHED", user.getId());
         Scene scene = org.example.ui.AuthorPublishedBooksScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showAuthorStats(User user) {
+        SessionService.save("AUTHOR_STATS", user.getId());
+        Scene scene = org.example.ui.AuthorStatsScreen.create(this, user);
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorProfile(User user) {
         SessionService.save("AUTHOR_PROFILE", user.getId());
         Scene scene = org.example.ui.AuthorProfileScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showAuthorNotifications(User user) {
         SessionService.save("AUTHOR_NOTIFICATIONS", user.getId());
         Scene scene = org.example.ui.AuthorNotificationsScreen.create(this, user);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianPortal() {
         SessionService.save("LIBRARIAN_PORTAL", 0);
         Scene scene = org.example.ui.LibrarianEntryScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianLogin() {
         SessionService.save("LIBRARIAN_LOGIN", 0);
         Scene scene = org.example.ui.LibrarianLoginScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianRegister() {
         SessionService.save("LIBRARIAN_REGISTER", 0);
         Scene scene = org.example.ui.LibrarianRegisterScreen.create(this);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianApproval(User librarian) {
         SessionService.save("LIBRARIAN_APPROVAL", librarian.getId());
         Scene scene = org.example.ui.LibrarianApprovalScreen.create(this, librarian);
         scene.setUserData(librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianManageUsers(User librarian) {
         SessionService.save("LIBRARIAN_MANAGE_USERS", librarian.getId());
         Scene scene = org.example.ui.LibrarianManageUsersScreen.create(this, librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianProfile(User librarian) {
         SessionService.save("LIBRARIAN_PROFILE", librarian.getId());
         Scene scene = org.example.ui.LibrarianProfileScreen.create(this, librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianBorrowRecords(User librarian) {
         SessionService.save("LIBRARIAN_BORROW_RECORDS", librarian.getId());
         Scene scene = org.example.ui.LibrarianBorrowRecordsScreen.create(this, librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianNotifications(User librarian) {
         SessionService.save("LIBRARIAN_NOTIFICATIONS", librarian.getId());
         Scene scene = org.example.ui.LibrarianNotificationBoardScreen.create(this, librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianCatalog(User librarian) {
         SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
         Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
-        stage.setScene(scene);
-        stage.show();
+        showScenePreservingWindowState(scene);
     }
 
     public Stage getStage() {

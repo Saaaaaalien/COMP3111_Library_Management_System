@@ -284,6 +284,13 @@ public final class SessionService {
                     return false;
                 }
             }
+            case "AUTHOR_STATS" -> {
+                if (role == Role.AUTHOR) {
+                    navigator.showAuthorStats(user);
+                } else {
+                    return false;
+                }
+            }
             case "AUTHOR_PROFILE" -> {
                 if (role == Role.AUTHOR) {
                     navigator.showAuthorProfile(user);

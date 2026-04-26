@@ -147,7 +147,7 @@ public final class PublishBookScreen {
         root.getStyleClass().add("app-root");
 
         // Create scene with default size - let the stage handle fullscreen
-        Scene scene = new Scene(root, 900, 700);
+        Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
 
         // Add listener to handle full-screen properly
         scene.windowProperty().addListener((obs, oldWindow, newWindow) -> {
