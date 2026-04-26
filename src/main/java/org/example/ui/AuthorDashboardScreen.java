@@ -171,7 +171,11 @@ public final class AuthorDashboardScreen {
         } catch (SQLException ignored) {
         }
         notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
-        phase2Links.getChildren().addAll(myBooksBtn, statsBtn, profileBtn, notifBtn);
+        Button reviewsBtn = new Button("Review Handling");
+        reviewsBtn.getStyleClass().add("secondary-button");
+        reviewsBtn.setPrefWidth(140);
+        reviewsBtn.setOnAction(e -> navigator.showAuthorReviews(currentUser));
+        phase2Links.getChildren().addAll(myBooksBtn, statsBtn, profileBtn, notifBtn, reviewsBtn);
 
         // Publish Book Card
         VBox publishCard = createPublishBookCard();

@@ -30,6 +30,10 @@ public final class NotificationService {
     public static final String CAT_AUTHOR_REJECTED = "AUTHOR_REJECTED";
     /** Librarian removed the author's book from the catalog. */
     public static final String CAT_AUTHOR_BOOK_REMOVED = "AUTHOR_BOOK_REMOVED";
+    /** Author replied to a user review. */
+    public static final String CAT_AUTHOR_REVIEW_REPLY = "AUTHOR_REVIEW_REPLY";
+    /** Author flagged review and receives confirmation. */
+    public static final String CAT_AUTHOR_REVIEW_FLAGGED = "AUTHOR_REVIEW_FLAGGED";
 
     private NotificationService() {}
 

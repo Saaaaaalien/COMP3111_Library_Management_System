@@ -149,6 +149,21 @@ public final class Database {
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS book_reviews (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER NOT NULL,
+                    reviewer_user_id INTEGER NOT NULL,
+                    rating INTEGER NOT NULL,
+                    review_text TEXT,
+                    created_at TEXT NOT NULL,
+                    author_reply_text TEXT,
+                    author_reply_at TEXT,
+                    flagged_by_author_at TEXT,
+                    FOREIGN KEY (book_id) REFERENCES books(id),
+                    FOREIGN KEY (reviewer_user_id) REFERENCES users(id)
+                )
+                """);
             try {
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(user_id, dedupe_key);");
             } catch (SQLException ignored) {
@@ -211,6 +226,28 @@ public final class Database {
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
             migrateBooksTable(conn);
+            migrateBookReviewsTable(conn);
+        }
+    }
+
+    private static void migrateBookReviewsTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN author_reply_text TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN author_reply_at TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN flagged_by_author_at TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
         }
     }
 

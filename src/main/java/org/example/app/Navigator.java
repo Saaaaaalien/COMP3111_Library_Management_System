@@ -246,6 +246,12 @@ public class Navigator {
         showScenePreservingWindowState(scene);
     }
 
+    public void showAuthorReviews(User user) {
+        SessionService.save("AUTHOR_REVIEWS", user.getId());
+        Scene scene = org.example.ui.AuthorReviewsScreen.create(this, user);
+        showScenePreservingWindowState(scene);
+    }
+
     public void showLibrarianPortal() {
         SessionService.save("LIBRARIAN_PORTAL", 0);
         Scene scene = org.example.ui.LibrarianEntryScreen.create(this);
