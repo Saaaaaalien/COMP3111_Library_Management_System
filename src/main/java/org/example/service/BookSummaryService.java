@@ -5,7 +5,6 @@ import org.example.util.BookPreviewUtil;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -25,12 +24,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class BookSummaryService {
+    private static final int SUMMARY_SOURCE_MAX_PAGES = 10;
     private static final int MAX_PROMPT_CHARS = 3500;
     private static final int FALLBACK_MAX_CHARS = 900;
     private static final int FALLBACK_MIN_SENTENCES = 2;
     private static final int FALLBACK_MAX_SENTENCES = 4;
-    private static final int REMOTE_MIN_LENGTH = 16;
-    private static final int REMOTE_MAX_LENGTH = 256;
+    private static final int SHORT_MIN_LENGTH = 10;
+    private static final int SHORT_MAX_LENGTH = 45;
+    private static final int MEDIUM_MIN_LENGTH = 45;
+    private static final int MEDIUM_MAX_LENGTH = 100;
+    private static final int DETAILED_MIN_LENGTH = 100;
+    private static final int DETAILED_MAX_LENGTH = 220;
     private static final int REMOTE_NO_REPEAT_NGRAM_SIZE = 3;
     private static final int REMOTE_ENCODER_NO_REPEAT_NGRAM_SIZE = 3;
     private static final double REMOTE_REPETITION_PENALTY = 3.5;
@@ -44,6 +48,22 @@ public final class BookSummaryService {
 
     private final Function<RequestPayload, ApiResponse> apiCaller;
     private final BooleanSupplier hfConfiguredChecker;
+
+    public enum SummaryStyle {
+        SHORT("Short"),
+        MEDIUM("Medium"),
+        DETAILED("Detailed");
+
+        private final String label;
+
+        SummaryStyle(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+    }
 
     public BookSummaryService() {
         this(new HttpApiCaller(), AppConfig::isHfConfigured);
@@ -59,7 +79,12 @@ public final class BookSummaryService {
     }
 
     public SummaryResult generateSummaryFromBookFile(String filePath) {
-        String rawPreview = BookPreviewUtil.readTextPreview(filePath);
+        return generateSummaryFromBookFile(filePath, SummaryStyle.MEDIUM);
+    }
+
+    public SummaryResult generateSummaryFromBookFile(String filePath, SummaryStyle style) {
+        SummaryStyle selectedStyle = style == null ? SummaryStyle.MEDIUM : style;
+        String rawPreview = BookPreviewUtil.readTextContentFirstPages(filePath, SUMMARY_SOURCE_MAX_PAGES);
         if (rawPreview == null || rawPreview.isBlank()) {
             return SummaryResult.failure(
                     "Could not extract readable text from the selected file. You can still write the summary manually.");
@@ -72,21 +97,21 @@ public final class BookSummaryService {
         }
 
         if (!hfConfiguredChecker.getAsBoolean()) {
-            String fallback = buildLocalExtractiveSummary(normalizedPreview);
+            String fallback = buildLocalExtractiveSummary(normalizedPreview, selectedStyle);
             if (fallback.isBlank()) {
                 return SummaryResult.failure(
                         "Summary generation is unavailable right now. You can still write/edit the summary manually.");
             }
             return SummaryResult.success(
                     fallback,
-                    "Summary generated with local demo mode. Review and edit before finalizing.");
+                    selectedStyle.label() + " summary generated. Review and edit before finalizing.");
         }
 
-        String modelInput = buildModelInput(normalizedPreview);
+        String modelInput = buildModelInput(normalizedPreview, selectedStyle);
         try {
-            ApiResponse response = apiCaller.apply(new RequestPayload(modelInput));
+            ApiResponse response = apiCaller.apply(new RequestPayload(modelInput, selectedStyle));
             if (!response.ok) {
-                String fallback = buildLocalExtractiveSummary(normalizedPreview);
+                String fallback = buildLocalExtractiveSummary(normalizedPreview, selectedStyle);
                 if (!fallback.isBlank()) {
                     return SummaryResult.success(
                             fallback,
@@ -99,7 +124,7 @@ public final class BookSummaryService {
 
             String summary = parseSummary(response.body);
             if (summary == null || summary.isBlank()) {
-                String fallback = buildLocalExtractiveSummary(normalizedPreview);
+                String fallback = buildLocalExtractiveSummary(normalizedPreview, selectedStyle);
                 if (!fallback.isBlank()) {
                     return SummaryResult.success(
                             fallback,
@@ -108,9 +133,9 @@ public final class BookSummaryService {
                 return SummaryResult.failure(
                         "Summary service returned no usable text. You can still write/edit the summary manually.");
             }
-            return SummaryResult.success(summary, "Summary generated. Review and edit before finalizing.");
+            return SummaryResult.success(summary, selectedStyle.label() + " summary generated. Review and edit before finalizing.");
         } catch (Exception ex) {
-            String fallback = buildLocalExtractiveSummary(normalizedPreview);
+            String fallback = buildLocalExtractiveSummary(normalizedPreview, selectedStyle);
             if (!fallback.isBlank()) {
                 return SummaryResult.success(
                         fallback,
@@ -122,12 +147,21 @@ public final class BookSummaryService {
     }
 
     static String buildModelInput(String previewText) {
+        return buildModelInput(previewText, SummaryStyle.MEDIUM);
+    }
+
+    static String buildModelInput(String previewText, SummaryStyle style) {
+        SummaryStyle selectedStyle = style == null ? SummaryStyle.MEDIUM : style;
         String clean = normalizeWhitespace(previewText);
         if (clean.length() > MAX_PROMPT_CHARS) {
             clean = clean.substring(0, MAX_PROMPT_CHARS);
         }
-        return "Summarize the following book excerpt in 110-160 words. " +
-                "Focus on core topic, key themes, and target audience. " +
+        String targetRange = switch (selectedStyle) {
+            case SHORT -> "one to three sentences";
+            case MEDIUM -> "four to six sentences";
+            case DETAILED -> "eight to ten sentences";
+        };
+        return "Summarize the following book excerpt in " + targetRange + ". " +
                 "Return only the summary text without bullets or headers.\n\n" + clean;
     }
 
@@ -222,22 +256,104 @@ public final class BookSummaryService {
     }
 
     static String toInferenceBody(String input) {
+        return toInferenceBody(input, SummaryStyle.MEDIUM);
+    }
+
+    static String toInferenceBody(String input, SummaryStyle style) {
+        SummaryStyle selectedStyle = style == null ? SummaryStyle.MEDIUM : style;
+        int minLength = switch (selectedStyle) {
+            case SHORT -> SHORT_MIN_LENGTH;
+            case MEDIUM -> MEDIUM_MIN_LENGTH;
+            case DETAILED -> DETAILED_MIN_LENGTH;
+        };
+        int maxLength = switch (selectedStyle) {
+            case SHORT -> SHORT_MAX_LENGTH;
+            case MEDIUM -> MEDIUM_MAX_LENGTH;
+            case DETAILED -> DETAILED_MAX_LENGTH;
+        };
         String escapedInput = escapeJson(input);
         return "{"
                 + "\"inputs\":\"" + escapedInput + "\","
                 + "\"parameters\":{"
-                + "\"min_length\":" + REMOTE_MIN_LENGTH + ","
-                + "\"max_length\":" + REMOTE_MAX_LENGTH + ","
+                + "\"min_length\":" + minLength + ","
+                + "\"max_length\":" + maxLength + ","
                 + "\"no_repeat_ngram_size\":" + REMOTE_NO_REPEAT_NGRAM_SIZE + ","
                 + "\"encoder_no_repeat_ngram_size\":" + REMOTE_ENCODER_NO_REPEAT_NGRAM_SIZE + ","
                 + "\"repetition_penalty\":" + REMOTE_REPETITION_PENALTY + ","
                 + "\"num_beams\":" + REMOTE_NUM_BEAMS + ","
                 + "\"early_stopping\":true"
+                + "},"
+                + "\"options\":{"
+                + "\"wait_for_model\":true"
                 + "}"
                 + "}";
     }
 
     static String buildLocalExtractiveSummary(String previewText) {
+        return buildLocalExtractiveSummary(previewText, SummaryStyle.MEDIUM);
+    }
+
+    static String adjustSummaryByStyle(String generatedSummary, String sourceText, SummaryStyle style) {
+        SummaryStyle selectedStyle = style == null ? SummaryStyle.MEDIUM : style;
+        String cleanGenerated = trimToSentenceEnd(normalizeWhitespace(generatedSummary));
+        String cleanSource = normalizeWhitespace(sourceText);
+
+        String base = cleanGenerated.isBlank() ? buildLocalExtractiveSummary(cleanSource, selectedStyle) : cleanGenerated;
+        if (base.isBlank()) {
+            return "";
+        }
+
+        return switch (selectedStyle) {
+            case SHORT -> clampByWords(base, 30);
+            case MEDIUM -> keepFirstSentences(base, 2);
+            case DETAILED -> base;
+        };
+    }
+
+    private static String clampByWords(String text, int maxWords) {
+        String clean = normalizeWhitespace(text);
+        if (clean.isBlank() || maxWords <= 0) {
+            return "";
+        }
+        String[] words = clean.split("\\s+");
+        if (words.length <= maxWords) {
+            return clean;
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < maxWords; i++) {
+            if (i > 0) {
+                out.append(' ');
+            }
+            out.append(words[i]);
+        }
+        String shortened = out.toString().trim();
+        if (!shortened.endsWith(".") && !shortened.endsWith("!") && !shortened.endsWith("?")) {
+            shortened += "...";
+        }
+        return shortened;
+    }
+
+    private static String keepFirstSentences(String text, int count) {
+        String clean = normalizeWhitespace(text);
+        if (clean.isBlank() || count <= 0) {
+            return "";
+        }
+        String[] sentences = clean.split("(?<=[.!?])\\s+");
+        if (sentences.length <= count) {
+            return clean;
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(normalizeWhitespace(sentences[i]));
+        }
+        return trimToSentenceEnd(out.toString());
+    }
+
+    static String buildLocalExtractiveSummary(String previewText, SummaryStyle style) {
+        SummaryStyle selectedStyle = style == null ? SummaryStyle.MEDIUM : style;
         String clean = normalizeWhitespace(previewText);
         if (clean.isBlank()) {
             return "";
@@ -275,7 +391,16 @@ public final class BookSummaryService {
             scored.add(new SentenceScore(i, sentence, score));
         }
 
-        int targetCount = Math.max(FALLBACK_MIN_SENTENCES, Math.min(FALLBACK_MAX_SENTENCES, sentences.size()));
+        int targetCount = switch (selectedStyle) {
+            case SHORT -> Math.min(1, sentences.size());
+            case MEDIUM -> Math.max(FALLBACK_MIN_SENTENCES, Math.min(FALLBACK_MAX_SENTENCES, sentences.size()));
+            case DETAILED -> Math.min(6, sentences.size());
+        };
+        int maxChars = switch (selectedStyle) {
+            case SHORT -> 260;
+            case MEDIUM -> FALLBACK_MAX_CHARS;
+            case DETAILED -> 1400;
+        };
         scored.sort(Comparator.comparingDouble((SentenceScore s) -> s.score).reversed());
         ArrayList<SentenceScore> selected = new ArrayList<>(scored.subList(0, targetCount));
         selected.sort(Comparator.comparingInt(s -> s.index));
@@ -286,13 +411,13 @@ public final class BookSummaryService {
                 out.append(' ');
             }
             out.append(s.text);
-            if (out.length() >= FALLBACK_MAX_CHARS) {
+            if (out.length() >= maxChars) {
                 break;
             }
         }
         String summary = out.toString().trim();
-        if (summary.length() > FALLBACK_MAX_CHARS) {
-            summary = summary.substring(0, FALLBACK_MAX_CHARS).trim();
+        if (summary.length() > maxChars) {
+            summary = summary.substring(0, maxChars).trim();
             if (!summary.endsWith(".") && !summary.endsWith("!") && !summary.endsWith("?")) {
                 summary += "...";
             }
@@ -348,7 +473,7 @@ public final class BookSummaryService {
         }
     }
 
-    record RequestPayload(String input) {}
+    record RequestPayload(String input, SummaryStyle style) {}
 
     record ApiResponse(boolean ok, String reason, String body) {}
 
@@ -370,7 +495,7 @@ public final class BookSummaryService {
         @Override
         public ApiResponse apply(RequestPayload payload) {
             String endpoint = AppConfig.getHfInferenceEndpoint();
-            String body = toInferenceBody(payload.input());
+            String body = toInferenceBody(payload.input(), payload.style());
             HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
                     .timeout(Duration.ofSeconds(AppConfig.HF_API_TIMEOUT_SECONDS))
                     .header("Authorization", "Bearer " + AppConfig.HF_API_TOKEN)

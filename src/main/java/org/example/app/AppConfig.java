@@ -9,9 +9,9 @@ public final class AppConfig {
             Boolean.parseBoolean(System.getProperty("app.devMode", "true"));
 
     public static final String HF_API_TOKEN = env("HF_API_TOKEN", "");
-    public static final String HF_MODEL_ID = env("HF_MODEL_ID", "sshleifer/distilbart-cnn-12-6");
+    public static final String HF_MODEL_ID = env("HF_MODEL_ID", "pszemraj/led-large-book-summary");
     public static final String HF_API_BASE = env("HF_API_BASE", "https://api-inference.huggingface.co");
-    public static final int HF_API_TIMEOUT_SECONDS = envInt("HF_API_TIMEOUT_SECONDS", 25);
+    public static final int HF_API_TIMEOUT_SECONDS = envInt("HF_API_TIMEOUT_SECONDS", 120);
 
     public static boolean isHfConfigured() {
         return !HF_API_TOKEN.isBlank();

@@ -49,6 +49,7 @@ public final class PublishBookScreen {
     private static Label coverNameLabel;
     private static Label summaryStatusLabel;
     private static Button generateSummaryButton;
+    private static ComboBox<BookSummaryService.SummaryStyle> summaryStyleComboBox;
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -344,10 +345,31 @@ public final class PublishBookScreen {
         generateSummaryButton.setPrefWidth(160);
         generateSummaryButton.setOnAction(e -> onGenerateSummary());
 
+        Label summaryStyleLabel = new Label("Summary style:");
+        summaryStyleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+        summaryStyleComboBox = new ComboBox<>();
+        summaryStyleComboBox.getItems().addAll(BookSummaryService.SummaryStyle.values());
+        summaryStyleComboBox.setValue(BookSummaryService.SummaryStyle.MEDIUM);
+        summaryStyleComboBox.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(BookSummaryService.SummaryStyle item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+            }
+        });
+        summaryStyleComboBox.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(BookSummaryService.SummaryStyle item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.label());
+            }
+        });
+        summaryStyleComboBox.setPrefWidth(140);
+
         summaryStatusLabel = new Label("Summary status: Draft");
         summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
 
-        HBox summaryActionBox = new HBox(10, generateSummaryButton);
+        HBox summaryActionBox = new HBox(10, summaryStyleLabel, summaryStyleComboBox, generateSummaryButton);
         summaryActionBox.setAlignment(Pos.CENTER_LEFT);
         VBox summaryControlsBox = new VBox(8, summaryActionBox, summaryStatusLabel);
 
@@ -830,16 +852,22 @@ public final class PublishBookScreen {
         }
 
         generateSummaryButton.setDisable(true);
+        if (summaryStyleComboBox != null) {
+            summaryStyleComboBox.setDisable(true);
+        }
         String originalText = generateSummaryButton.getText();
         generateSummaryButton.setText("Generating...");
         summaryStatusLabel.setText("Summary status: Generating...");
         summaryStatusLabel.setStyle("-fx-text-fill: #2980b9;");
+        BookSummaryService.SummaryStyle selectedStyle = summaryStyleComboBox != null && summaryStyleComboBox.getValue() != null
+                ? summaryStyleComboBox.getValue()
+                : BookSummaryService.SummaryStyle.MEDIUM;
 
         Task<BookSummaryService.SummaryResult> task = new Task<>() {
             @Override
             protected BookSummaryService.SummaryResult call() {
                 BookSummaryService service = new BookSummaryService();
-                return service.generateSummaryFromBookFile(selectedBookFile.getAbsolutePath());
+                return service.generateSummaryFromBookFile(selectedBookFile.getAbsolutePath(), selectedStyle);
             }
         };
 
@@ -858,6 +886,9 @@ public final class PublishBookScreen {
             }
             generateSummaryButton.setText(originalText);
             generateSummaryButton.setDisable(false);
+            if (summaryStyleComboBox != null) {
+                summaryStyleComboBox.setDisable(false);
+            }
         });
 
         task.setOnFailed(e -> {
@@ -865,6 +896,9 @@ public final class PublishBookScreen {
             summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
             generateSummaryButton.setText(originalText);
             generateSummaryButton.setDisable(false);
+            if (summaryStyleComboBox != null) {
+                summaryStyleComboBox.setDisable(false);
+            }
             Throwable ex = task.getException();
             String message = ex == null ? "Unexpected error during summary generation." : ex.getMessage();
             showError("Summary Generation Failed", message);
