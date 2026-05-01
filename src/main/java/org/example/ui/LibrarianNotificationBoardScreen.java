@@ -226,7 +226,7 @@ public final class LibrarianNotificationBoardScreen {
         });
 
         // ── Footer ────────────────────────────────────────────────────────────
-        Button backBtn = new Button("← Back to Dashboard");
+        Button backBtn = new Button("Back");
         backBtn.getStyleClass().add("secondary-button");
         backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
 

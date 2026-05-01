@@ -20,6 +20,7 @@ import org.example.domain.User;
  * Creates in-app notifications (due reminders, catalog removal, author workflow, announcements).
  */
 public final class NotificationService {
+    private static final int URGENT_PRIORITY = 8;
 
     public static final String CAT_DUE_REMINDER = "DUE_REMINDER";
     public static final String CAT_BOOK_REMOVED = "BOOK_REMOVED";
@@ -40,7 +41,7 @@ public final class NotificationService {
     /** True for urgent items that should be visually highlighted (rejection, removal, high numeric priority). */
     public static boolean isUrgentHighlight(AppNotification n) {
         if (n == null) return false;
-        if (n.getPriority() >= 8) return true;
+        if (n.getPriority() >= URGENT_PRIORITY) return true;
         String c = n.getCategory();
         return CAT_AUTHOR_REJECTED.equals(c)
                 || CAT_BOOK_REMOVED.equals(c)
@@ -70,7 +71,7 @@ public final class NotificationService {
             }
             String bucket = days + "d";
             String dedupe = "DUE:" + row.borrowId() + ":" + bucket + ":" + today;
-            int priority = days == 0 ? 3 : (days == 1 ? 2 : 1);
+            int priority = days == 0 ? URGENT_PRIORITY : (days == 1 ? 2 : 1);
             String title = days == 0 ? "Due today" : (days == 1 ? "Due tomorrow" : "Due in 3 days");
             String body = "\"" + row.bookTitle() + "\" is due on " + dueDay + ".";
             NotificationDao.insertDeduped(
@@ -136,7 +137,7 @@ public final class NotificationService {
                 title,
                 body,
                 Instant.now().toString(),
-                autoReturn ? 3 : 1,
+                autoReturn ? URGENT_PRIORITY : 1,
                 null
         );
     }
@@ -229,7 +230,7 @@ public final class NotificationService {
                                                      String authorName) throws SQLException {
         String title = "New book submission";
         String body  = "\"" + bookTitle + "\" submitted by " + authorName + " is awaiting approval.";
-        notifyAllLibrarians(CAT_NEW_SUBMISSION, title, body, 7,
+        notifyAllLibrarians(CAT_NEW_SUBMISSION, title, body, URGENT_PRIORITY,
                 "NEW_SUB:" + submissionId);
     }
 
@@ -259,7 +260,7 @@ public final class NotificationService {
             String authorName = pb.getAuthorFullName() != null ? pb.getAuthorFullName() : "Unknown author";
             String title = "New book submission";
             String body  = "\"" + pb.getTitle() + "\" submitted by " + authorName + " is awaiting approval.";
-            notifyAllLibrarians(librarians, CAT_NEW_SUBMISSION, title, body, 7,
+            notifyAllLibrarians(librarians, CAT_NEW_SUBMISSION, title, body, URGENT_PRIORITY,
                     "NEW_SUB:" + pb.getId());
         }
     }
@@ -282,7 +283,7 @@ public final class NotificationService {
             String dedupeBase = "OVERDUE:" + row.borrowId() + ":" + today;
             String title = "Overdue borrow";
             String body  = "\"" + row.bookTitle() + "\" is overdue (due " + row.dueAt().substring(0, 10) + ").";
-            notifyAllLibrarians(librarians, CAT_OVERDUE_BORROW, title, body, 8, dedupeBase);
+            notifyAllLibrarians(librarians, CAT_OVERDUE_BORROW, title, body, URGENT_PRIORITY, dedupeBase);
         }
     }
 }
