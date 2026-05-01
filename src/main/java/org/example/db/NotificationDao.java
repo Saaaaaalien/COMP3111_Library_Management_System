@@ -224,6 +224,16 @@ public final class NotificationDao {
         }
     }
 
+    public static void unarchive(long id, long userId) throws SQLException {
+        String sql = "UPDATE notifications SET archived_at = NULL WHERE id = ? AND user_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.setLong(2, userId);
+            ps.executeUpdate();
+        }
+    }
+
     public static Optional<AppNotification> findById(long id, long userId) throws SQLException {
         String sql = """
             SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority

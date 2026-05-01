@@ -73,6 +73,10 @@ public final class BorrowService {
                 NotificationService.notifyBorrowSuccess(borrowerUserId, book.getTitle(), b.getDueAt());
             } catch (SQLException ignored) {
             }
+            try {
+                NotificationService.notifyLibrariansBorrowActivity(b.getId(), borrowerUserId, book.getTitle(), b.getDueAt());
+            } catch (SQLException ignored) {
+            }
             return b;
         } catch (BorrowException | SQLException e) {
             rollback(conn);
@@ -127,6 +131,7 @@ public final class BorrowService {
                         .ifPresent(book -> {
                             try {
                                 NotificationService.notifyReturnSuccess(borrowerUserId, book.getTitle(), false);
+                                NotificationService.notifyLibrariansReturnActivity(borrow.getId(), borrowerUserId, book.getTitle(), false);
                             } catch (SQLException ignored) {
                             }
                         });
@@ -180,6 +185,7 @@ public final class BorrowService {
                         .ifPresent(book -> {
                             try {
                                 NotificationService.notifyReturnSuccess(borrow.getBorrowerUserId(), book.getTitle(), true);
+                                NotificationService.notifyLibrariansReturnActivity(borrow.getId(), borrow.getBorrowerUserId(), book.getTitle(), true);
                             } catch (SQLException ignored) {
                             }
                         });
@@ -254,6 +260,7 @@ public final class BorrowService {
                     BookDao.findById(b.getBookId()).ifPresent(book -> {
                         try {
                             NotificationService.notifyBorrowSuccess(borrowerUserId, book.getTitle(), b.getDueAt());
+                            NotificationService.notifyLibrariansBorrowActivity(b.getId(), borrowerUserId, book.getTitle(), b.getDueAt());
                         } catch (SQLException ignored) {
                         }
                     });

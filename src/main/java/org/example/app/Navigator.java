@@ -2,6 +2,7 @@ package org.example.app;
 
 import org.example.db.BookDao;
 import org.example.db.BorrowDao;
+import org.example.db.NotificationDao;
 import org.example.domain.Book;
 import org.example.domain.Borrow;
 import org.example.domain.Role;
@@ -26,6 +27,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+
+import java.sql.SQLException;
 
 /**
  * Central navigation for the app. Holds the main Stage and switches scenes
@@ -122,6 +125,12 @@ public class Navigator {
             Object ud = scene.getUserData();
             if (ud instanceof User u) {
                 Role r = u.getRole();
+                int unread = 0;
+                try {
+                    unread = NotificationDao.countUnread(u.getId());
+                } catch (SQLException ignored) {
+                }
+                notifBtn.setText(formatNotificationsLabel(unread));
                 // Common links for librarians
                 if (r == Role.LIBRARIAN) {
                     Hyperlink b1 = new Hyperlink("Dashboard");
@@ -139,6 +148,7 @@ public class Navigator {
                     Hyperlink b5 = new Hyperlink("Notifications");
                     b5.getStyleClass().add("drawer-link");
                     b5.setOnAction(ev -> showLibrarianNotifications(u));
+                    b5.setText(formatNotificationsLabel(unread));
                     Hyperlink b6 = new Hyperlink("Manage Users");
                     b6.getStyleClass().add("drawer-link");
                     b6.setOnAction(ev -> showLibrarianManageUsers(u));
@@ -165,6 +175,7 @@ public class Navigator {
                     Hyperlink b7 = new Hyperlink("Notifications");
                     b7.getStyleClass().add("drawer-link");
                     b7.setOnAction(ev -> showAuthorNotifications(u));
+                    b7.setText(formatNotificationsLabel(unread));
                     drawer.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7);
                 } else if (r == Role.STUDENT || r == Role.STAFF) {
                     Hyperlink b1 = new Hyperlink("Available Books");
@@ -179,6 +190,7 @@ public class Navigator {
                     Hyperlink b4 = new Hyperlink("Notifications");
                     b4.getStyleClass().add("drawer-link");
                     b4.setOnAction(ev -> showStudentStaffNotifications(u));
+                    b4.setText(formatNotificationsLabel(unread));
                     drawer.getChildren().addAll(b1, b2, b3, b4);
                 }
 
@@ -524,5 +536,9 @@ public class Navigator {
 
     public static double getPreferredHeight() {
         return HEIGHT;
+    }
+
+    private static String formatNotificationsLabel(int unread) {
+        return unread > 0 ? "Notifications (" + unread + ")" : "Notifications";
     }
 }
