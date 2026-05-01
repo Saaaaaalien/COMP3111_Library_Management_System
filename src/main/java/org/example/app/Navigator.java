@@ -152,7 +152,10 @@ public class Navigator {
                     Hyperlink b6 = new Hyperlink("Manage Users");
                     b6.getStyleClass().add("drawer-link");
                     b6.setOnAction(ev -> showLibrarianManageUsers(u));
-                    drawer.getChildren().addAll(b1, b6, b2, b3, b4, b5);
+                    Hyperlink b7 = new Hyperlink("Manage Book Requests");
+                    b7.getStyleClass().add("drawer-link");
+                    b7.setOnAction(ev -> showLibrarianManageBookRequests(u));
+                    drawer.getChildren().addAll(b1, b6, b2, b3, b7, b4, b5);
                 } else if (r == Role.AUTHOR) {
                     Hyperlink b1 = new Hyperlink("Dashboard");
                     b1.getStyleClass().add("drawer-link");
@@ -522,6 +525,13 @@ public class Navigator {
     public void showLibrarianCatalog(User librarian) {
         SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
         Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
+        scene.setUserData(librarian);
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showLibrarianManageBookRequests(User librarian) {
+        SessionService.save("LIBRARIAN_BOOK_REQUESTS", librarian.getId());
+        Scene scene = org.example.ui.LibrarianManageBookRequestsScreen.create(this, librarian);
         scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
