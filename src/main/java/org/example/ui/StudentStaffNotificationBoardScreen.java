@@ -1,5 +1,16 @@
 package org.example.ui;
 
+import java.sql.SQLException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
+import org.example.app.Navigator;
+import org.example.db.NotificationDao;
+import org.example.domain.AppNotification;
+import org.example.domain.User;
+import org.example.service.NotificationService;
+
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,17 +25,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import org.example.app.Navigator;
-import org.example.db.NotificationDao;
-import org.example.domain.AppNotification;
-import org.example.domain.User;
-import org.example.service.NotificationService;
-
-import java.sql.SQLException;
-import java.time.Instant;
-import java.util.stream.Collectors;
 
 /**
  * Notification board for students and staff.
@@ -34,13 +35,8 @@ public final class StudentStaffNotificationBoardScreen {
     private StudentStaffNotificationBoardScreen() {}
 
     public static Scene create(Navigator navigator, User user, boolean returnToBorrowedBooks) {
-        Label title = new Label("Notification Board");
+        Label title = new Label("Notifications");
         title.getStyleClass().add("screen-title");
-        Label subLbl = new Label("Student/Staff: " + user.getFullName());
-        subLbl.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
-        VBox headerBox = new VBox(4, title, subLbl);
-        headerBox.setPadding(new Insets(20, 20, 0, 20));
-        headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
         ComboBox<String> category = new ComboBox<>(FXCollections.observableArrayList(
                 "ALL",
@@ -58,15 +54,23 @@ public final class StudentStaffNotificationBoardScreen {
         search.setMaxWidth(220);
 
         CheckBox showArchived = new CheckBox("Show archived");
-        CheckBox urgentOnly = new CheckBox("⚠ Urgent only");
-        urgentOnly.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold;");
-
-        Label unreadBadge = new Label();
-        unreadBadge.setStyle("-fx-font-size: 11; -fx-text-fill: #c0392b; -fx-font-weight: bold;");
-        refreshUnreadBadge(unreadBadge, user.getId());
 
         ListView<AppNotification> list = new ListView<>();
-        list.setCellFactory(lv -> NotificationListCellFactory.create());
+        list.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(AppNotification n, boolean empty) {
+                super.updateItem(n, empty);
+                if (empty || n == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    String rd = n.isRead() ? "read" : "unread";
+                    String created = formatCreatedAt(n.getCreatedAt());
+                    setText("[" + n.getCategory() + "] " + n.getTitle() + " (" + rd + ")\n"
+                            + "Time: " + created + "\n" + n.getBody());
+                }
+            }
+        });
 
         Runnable refresh = () -> {
             try {
@@ -80,13 +84,7 @@ public final class StudentStaffNotificationBoardScreen {
                         search.getText(),
                         showArchived.isSelected()
                 );
-                if (urgentOnly.isSelected()) {
-                    rows = rows.stream()
-                            .filter(NotificationService::isUrgentHighlight)
-                            .collect(Collectors.toList());
-                }
                 list.setItems(FXCollections.observableArrayList(rows));
-                refreshUnreadBadge(unreadBadge, user.getId());
             } catch (SQLException ex) {
                 list.setItems(FXCollections.observableArrayList());
             }
@@ -96,7 +94,6 @@ public final class StudentStaffNotificationBoardScreen {
         category.setOnAction(e -> refresh.run());
         search.textProperty().addListener((a, b, c) -> refresh.run());
         showArchived.setOnAction(e -> refresh.run());
-        urgentOnly.setOnAction(e -> refresh.run());
 
         Button readBtn = new Button("Mark read");
         readBtn.getStyleClass().add("primary-button");
@@ -141,41 +138,20 @@ public final class StudentStaffNotificationBoardScreen {
             }
         });
 
-        Button refreshBtn = new Button("⟳ Refresh");
-        refreshBtn.setOnAction(e -> refresh.run());
+        // Back navigation now provided by global menu; per-screen Back removed.
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> {
-            if (returnToBorrowedBooks) {
-                navigator.showMyBorrowedBooks(user);
-            } else {
-                navigator.showAvailableBooks(user);
-            }
-        });
-
-        HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived, urgentOnly);
+        HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
-        filters.setPadding(new Insets(10, 20, 6, 20));
+        HBox actions = new HBox(10, readBtn, readAllBtn, archBtn);
 
-        javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox actions = new HBox(10, readBtn, readAllBtn, archBtn, refreshBtn, spacer, unreadBadge);
-        actions.setAlignment(Pos.CENTER_LEFT);
-        actions.setPadding(new Insets(0, 20, 0, 20));
-
-        HBox footer = new HBox(backBtn);
-        footer.setAlignment(Pos.CENTER_RIGHT);
-        footer.setPadding(new Insets(15, 20, 15, 20));
-
-        VBox top = new VBox(0, headerBox, filters, actions);
+        VBox top = new VBox(8, title, filters, actions);
+        top.setPadding(new Insets(10));
 
         BorderPane root = new BorderPane();
         root.setTop(top);
         root.setCenter(list);
-        root.setBottom(footer);
+        root.setPadding(new Insets(10));
         root.getStyleClass().add("app-root");
-        BorderPane.setMargin(list, new Insets(6, 20, 0, 20));
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
         var css = StudentStaffNotificationBoardScreen.class.getResource("/app.css");
@@ -191,12 +167,13 @@ public final class StudentStaffNotificationBoardScreen {
         return create(navigator, user, false);
     }
 
-    private static void refreshUnreadBadge(Label badge, long userId) {
+    private static String formatCreatedAt(String iso) {
+        if (iso == null || iso.isBlank()) return "Unknown";
         try {
-            int unread = NotificationDao.countUnread(userId);
-            badge.setText(unread > 0 ? unread + " unread" : "All read");
-        } catch (SQLException ex) {
-            badge.setText("");
+            return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                    .format(Instant.parse(iso).atZone(ZoneId.systemDefault()));
+        } catch (Exception ex) {
+            return iso;
         }
     }
 }

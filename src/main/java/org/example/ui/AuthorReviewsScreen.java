@@ -37,9 +37,7 @@ public final class AuthorReviewsScreen {
         title.getStyleClass().add("screen-title");
         Label subtitle = new Label("Review and respond to feedback on your books.");
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(authorUser));
+        // Navigation handled by global menu; removed per-screen Back button
 
         TableView<BookReviewDao.AuthorVisibleReview> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -168,7 +166,7 @@ public final class AuthorReviewsScreen {
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
-        root.setTop(new VBox(8, backBtn, title, subtitle));
+        root.setTop(new VBox(8, title, subtitle));
         root.setCenter(tableBox);
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

@@ -137,23 +137,20 @@ public final class LibrarianBorrowRecordsScreen {
         HBox.setHgrow(summaryLbl, Priority.ALWAYS);
 
         // Footer navigation
-        Button notificationsBtn = new Button("🔔 Notifications");
-        notificationsBtn.getStyleClass().add("secondary-button");
-        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+        // Button notificationsBtn = new Button("🔔 Notifications");
+        // notificationsBtn.getStyleClass().add("secondary-button");
+        // notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
 
-        Button backBtn = new Button("← Back to Dashboard");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
-
-        HBox footerBox = new HBox(10, notificationsBtn, backBtn);
-        footerBox.setPadding(new Insets(15, 20, 15, 20));
-        footerBox.setAlignment(Pos.CENTER_RIGHT);
+            // Navigation handled by global menu; remove per-screen Back button
+            // HBox footerBox = new HBox(10, notificationsBtn);
+        // footerBox.setPadding(new Insets(15, 20, 15, 20));
+        // footerBox.setAlignment(Pos.CENTER_RIGHT);
 
         // Root
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
         root.setCenter(new VBox(actionBar, scroll));
-        root.setBottom(footerBox);
+        // root.setBottom(footerBox);
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

@@ -1,5 +1,13 @@
 package org.example.ui;
 
+import java.sql.SQLException;
+
+import org.example.app.Navigator;
+import org.example.domain.Role;
+import org.example.service.AuthService;
+import org.example.util.ValidationException;
+import org.example.util.Validators;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -13,13 +21,6 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import org.example.app.Navigator;
-import org.example.domain.Role;
-import org.example.service.AuthService;
-import org.example.util.ValidationException;
-import org.example.util.Validators;
-
-import java.sql.SQLException;
 
 /**
  * Student/Staff registration: username, first name, last name, password (with strength meter), role (radio buttons).
@@ -97,10 +98,6 @@ public final class StudentStaffRegisterScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showStudentStaffPortal());
-
         VBox usernameBox = new VBox(5, usernameLbl, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
 
@@ -119,7 +116,8 @@ public final class StudentStaffRegisterScreen {
         VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, passwordBox, roleBoxContainer);
         form.setAlignment(Pos.CENTER);
 
-        VBox content = new VBox(18, title, form, registerBtn, backBtn);
+        // Navigation handled by global menu; remove per-screen Back button
+        VBox content = new VBox(18, title, form, registerBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(520);
         content.getStyleClass().add("content-card");

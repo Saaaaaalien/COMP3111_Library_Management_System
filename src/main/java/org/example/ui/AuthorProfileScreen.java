@@ -211,16 +211,7 @@ public final class AuthorProfileScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(140);
-        backBtn.setOnAction(e -> {
-            try {
-                navigator.showAuthorDashboard(UserDao.findById(user.getId()).orElse(user));
-            } catch (SQLException ex) {
-                navigator.showAuthorDashboard(user);
-            }
-        });
+        // Navigation handled by global menu; remove per-screen Back button
 
         // ── Password grid ────────────────────────────────────────────────────
         GridPane pwGrid = new GridPane();
@@ -248,7 +239,7 @@ public final class AuthorProfileScreen {
                 new Label("Bio"), bioArea,
                 new javafx.scene.control.Separator(),
                 new Label("Password"), pwGrid,
-                saveBtn, backBtn);
+                saveBtn);
         form.setAlignment(Pos.CENTER);
         form.setPadding(new Insets(24));
 
