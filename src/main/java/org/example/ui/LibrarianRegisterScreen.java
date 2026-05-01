@@ -69,7 +69,7 @@ public final class LibrarianRegisterScreen {
                 AuthService.registerLibrarian(username, firstName, lastName, password, employeeId);
                 showAlert(Alert.AlertType.INFORMATION, "Registration successful",
                         "You can now log in with your librarian username and password.");
-                navigator.showLibrarianPortal();
+                navigator.showLibrarianLogin();
             } catch (ValidationException ex) {
                 showAlert(Alert.AlertType.ERROR, "Registration failed", ex.getMessage());
             } catch (SQLException ex) {
@@ -77,9 +77,6 @@ public final class LibrarianRegisterScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showLibrarianPortal());
 
         VBox usernameBox = new VBox(5, usernameLabel, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
@@ -99,7 +96,8 @@ public final class LibrarianRegisterScreen {
         VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, employeeIdBox, passwordBox);
         form.setAlignment(Pos.CENTER);
 
-        VBox content = new VBox(18, title, form, registerBtn, backBtn);
+        // Navigation handled by global menu; remove per-screen Back button
+        VBox content = new VBox(18, title, form, registerBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(520);
         content.getStyleClass().add("content-card");

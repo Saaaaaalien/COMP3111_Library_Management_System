@@ -87,39 +87,36 @@ public final class LibrarianManageUsersScreen {
         actionBar.setPadding(new Insets(10, 20, 0, 20));
         actionBar.setAlignment(Pos.CENTER_LEFT);
 
-        Button backBtn = new Button("← Back to Dashboard");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
+        // Navigation handled by global menu; removed per-screen Back button
+        // Button myProfileBtn = new Button("My Profile");
+        // myProfileBtn.getStyleClass().add("secondary-button");
+        // myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
 
-        Button myProfileBtn = new Button("My Profile");
-        myProfileBtn.getStyleClass().add("secondary-button");
-        myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
+        // Button borrowRecordsBtn = new Button("Borrow Records");
+        // borrowRecordsBtn.getStyleClass().add("secondary-button");
+        // borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
 
-        Button borrowRecordsBtn = new Button("Borrow Records");
-        borrowRecordsBtn.getStyleClass().add("secondary-button");
-        borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
-
-        Button notificationsBtn = new Button("🔔 Notifications");
-        notificationsBtn.getStyleClass().add("secondary-button");
-        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+        // Button notificationsBtn = new Button("🔔 Notifications");
+        // notificationsBtn.getStyleClass().add("secondary-button");
+        // notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
 
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtns = new HBox(10, borrowRecordsBtn, notificationsBtn, myProfileBtn, backBtn);
-        footerBtns.setAlignment(Pos.CENTER_RIGHT);
+        // HBox footerBtns = new HBox(10, borrowRecordsBtn, notificationsBtn, myProfileBtn);
+        // footerBtns.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox footerBox = new VBox();
-        footerBox.setPadding(new Insets(15, 20, 15, 20));
-        footerBox.setAlignment(Pos.CENTER_RIGHT);
-        footerBox.getChildren().add(footerBtns);
+        // VBox footerBox = new VBox();
+        // footerBox.setPadding(new Insets(15, 20, 15, 20));
+        // footerBox.setAlignment(Pos.CENTER_RIGHT);
+        // footerBox.getChildren().add(footerBtns);
 
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
         root.setCenter(new VBox(actionBar, scrollPane));
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        root.setBottom(footerBox);
+        // root.setBottom(footerBox);
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

@@ -4,18 +4,28 @@ import org.example.db.BookDao;
 import org.example.db.BorrowDao;
 import org.example.domain.Book;
 import org.example.domain.Borrow;
+import org.example.domain.Role;
 import org.example.domain.User;
 
+import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Hyperlink;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 /**
  * Central navigation for the app. Holds the main Stage and switches scenes
@@ -40,6 +50,186 @@ public class Navigator {
      */
     private void showScenePreservingWindowState(Scene scene) {
         WindowStateKeeper.Snapshot snapshot = WindowStateKeeper.capture(stage);
+        // Wrap scene root with a lightweight app header overlay (menu + notifications)
+        Object installed = scene.getProperties().get("appHeaderInstalled");
+        if (!Boolean.TRUE.equals(installed)) {
+            var originalRoot = scene.getRoot();
+            BorderPane wrapper = new BorderPane();
+            wrapper.setCenter(originalRoot);
+
+            // Top bar with menu button (left) and notification button (right)
+            HBox topBar = new HBox();
+            topBar.setPadding(new Insets(8));
+            topBar.setAlignment(Pos.CENTER_LEFT);
+            Button menuBtn = new Button("☰");
+            menuBtn.getStyleClass().add("menu-button");
+            menuBtn.setFocusTraversable(false);
+
+            // Drawer pane (left) - will contain navigation links
+            VBox drawer = new VBox(8);
+            drawer.setPadding(new Insets(12));
+            drawer.setStyle("-fx-background-color: white; -fx-border-color: #ddd;");
+            drawer.setVisible(false);
+
+            // Responsive width: 20% of window, with sensible min/max
+            drawer.prefWidthProperty().bind(stage.widthProperty().multiply(0.20));
+            drawer.minWidthProperty().bind(stage.widthProperty().multiply(0.12));
+            drawer.maxWidthProperty().bind(stage.widthProperty().multiply(0.15));
+            drawer.setMaxHeight(Double.MAX_VALUE);
+
+            // Ensure the drawer is aligned to the left of the StackPane and does not expand to full width
+            StackPane.setAlignment(drawer, Pos.TOP_LEFT);
+
+            // Initialize translateX off-screen (use stage width until drawer computes its layout)
+            drawer.setTranslateX(-Math.max(200, stage.getWidth() * 0.20));
+
+            // Keep translateX in sync when drawer width changes (stay hidden when closed)
+            drawer.widthProperty().addListener((obs, oldW, newW) -> {
+                if (drawer.getTranslateX() < 0) {
+                    drawer.setTranslateX(-newW.doubleValue());
+                }
+            });
+
+            // Toggle drawer with slide animation (compute width dynamically)
+            menuBtn.setOnAction(e -> {
+                boolean opening = drawer.getTranslateX() < 0;
+                TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawer);
+                double w = drawer.getWidth() > 0 ? drawer.getWidth() : Math.max(200, stage.getWidth() * 0.20);
+                if (opening) {
+                    drawer.setVisible(true);
+                    tt.setFromX(-w);
+                    tt.setToX(0);
+                } else {
+                    tt.setFromX(0);
+                    tt.setToX(-w);
+                    tt.setOnFinished(ev -> drawer.setVisible(false));
+                }
+                tt.play();
+            });
+
+            // Notification button (constant)
+            Button notifBtn = new Button("Notifications");
+            notifBtn.getStyleClass().add("secondary-button");
+            notifBtn.setFocusTraversable(false);
+            HBox rightBox = new HBox(notifBtn);
+            rightBox.setAlignment(Pos.CENTER_RIGHT);
+            HBox.setHgrow(rightBox, javafx.scene.layout.Priority.ALWAYS);
+
+            topBar.getChildren().addAll(menuBtn, rightBox);
+
+            // Populate drawer links based on user stored in scene.userData, if present
+            drawer.getChildren().clear();
+            Object ud = scene.getUserData();
+            if (ud instanceof User u) {
+                Role r = u.getRole();
+                // Common links for librarians
+                if (r == Role.LIBRARIAN) {
+                    Hyperlink b1 = new Hyperlink("Dashboard");
+                    b1.getStyleClass().add("drawer-link");
+                    b1.setOnAction(ev -> showLibrarianApproval(u));
+                    Hyperlink b2 = new Hyperlink("Manage Published Books");
+                    b2.getStyleClass().add("drawer-link");
+                    b2.setOnAction(ev -> showLibrarianCatalog(u));
+                    Hyperlink b3 = new Hyperlink("Borrow Records");
+                    b3.getStyleClass().add("drawer-link");
+                    b3.setOnAction(ev -> showLibrarianBorrowRecords(u));
+                    Hyperlink b4 = new Hyperlink("My Profile");
+                    b4.getStyleClass().add("drawer-link");
+                    b4.setOnAction(ev -> showLibrarianProfile(u));
+                    Hyperlink b5 = new Hyperlink("Notifications");
+                    b5.getStyleClass().add("drawer-link");
+                    b5.setOnAction(ev -> showLibrarianNotifications(u));
+                    Hyperlink b6 = new Hyperlink("Manage Users");
+                    b6.getStyleClass().add("drawer-link");
+                    b6.setOnAction(ev -> showLibrarianManageUsers(u));
+                    drawer.getChildren().addAll(b1, b6, b2, b3, b4, b5);
+                } else if (r == Role.AUTHOR) {
+                    Hyperlink b1 = new Hyperlink("Dashboard");
+                    b1.getStyleClass().add("drawer-link");
+                    b1.setOnAction(ev -> showAuthorDashboard(u));
+                    Hyperlink b2 = new Hyperlink("My Books");
+                    b2.getStyleClass().add("drawer-link");
+                    b2.setOnAction(ev -> showAuthorPublishedBooks(u));
+                    Hyperlink b3 = new Hyperlink("Publish");
+                    b3.getStyleClass().add("drawer-link");
+                    b3.setOnAction(ev -> showPublishBook(u));
+                    Hyperlink b4 = new Hyperlink("View Stats");
+                    b4.getStyleClass().add("drawer-link");
+                    b4.setOnAction(ev -> showAuthorStats(u));
+                    Hyperlink b5 = new Hyperlink("Review Handling");
+                    b5.getStyleClass().add("drawer-link");
+                    b5.setOnAction(ev -> showAuthorReviews(u));
+                    Hyperlink b6 = new Hyperlink("Profile");
+                    b6.getStyleClass().add("drawer-link");
+                    b6.setOnAction(ev -> showAuthorProfile(u));
+                    Hyperlink b7 = new Hyperlink("Notifications");
+                    b7.getStyleClass().add("drawer-link");
+                    b7.setOnAction(ev -> showAuthorNotifications(u));
+                    drawer.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7);
+                } else if (r == Role.STUDENT || r == Role.STAFF) {
+                    Hyperlink b1 = new Hyperlink("Available Books");
+                    b1.getStyleClass().add("drawer-link");
+                    b1.setOnAction(ev -> showAvailableBooks(u));
+                    Hyperlink b2 = new Hyperlink("My Borrows");
+                    b2.getStyleClass().add("drawer-link");
+                    b2.setOnAction(ev -> showMyBorrowedBooks(u));
+                    Hyperlink b3 = new Hyperlink("Profile");
+                    b3.getStyleClass().add("drawer-link");
+                    b3.setOnAction(ev -> showStudentStaffProfile(u));
+                    Hyperlink b4 = new Hyperlink("Notifications");
+                    b4.getStyleClass().add("drawer-link");
+                    b4.setOnAction(ev -> showStudentStaffNotifications(u));
+                    drawer.getChildren().addAll(b1, b2, b3, b4);
+                }
+
+                // Notification button action
+                notifBtn.setOnAction(ev -> {
+                    switch (u.getRole()) {
+                        case LIBRARIAN -> showLibrarianNotifications(u);
+                        case AUTHOR -> showAuthorNotifications(u);
+                        case STUDENT, STAFF -> showStudentStaffNotifications(u);
+                        default -> {}
+                    }
+                });
+            } else {
+                // If no user data, disable notification button and show generic links
+                notifBtn.setDisable(true);
+                Label info = new Label("No account context available");
+                drawer.getChildren().add(info);
+            }
+
+            // Put content and drawer into a StackPane so the drawer slides over the content
+            StackPane stack = new StackPane(originalRoot, drawer);
+            // Ensure the drawer sits above the content but only occupies its bound width
+            StackPane.setAlignment(originalRoot, Pos.CENTER);
+            BorderPane overlayContainer = new BorderPane();
+            overlayContainer.setTop(topBar);
+            overlayContainer.setCenter(stack);
+
+            // If we captured a window size snapshot and are not preserving fullscreen/maximized,
+            // prefer that size for the new root so stage doesn't visibly resize when swapping scenes.
+            if (snapshot != null && !snapshot.wasFullScreen() && !snapshot.wasMaximized()
+                    && snapshot.width() > 0 && snapshot.height() > 0) {
+                overlayContainer.setPrefSize(snapshot.width(), snapshot.height());
+            }
+
+            // Add a logout hyperlink immediately after the links
+            Hyperlink logoutLink = new Hyperlink("Logout");
+            logoutLink.getStyleClass().add("drawer-link-logout");
+            logoutLink.setOnAction(ev -> {
+                SessionService.clear();
+                showWelcome();
+            });
+            drawer.getChildren().add(logoutLink);
+            // Spacer to push any following content to the bottom (keeps logout just under links)
+            Region spacer = new Region();
+            VBox.setVgrow(spacer, Priority.ALWAYS);
+            drawer.getChildren().add(spacer);
+
+            scene.setRoot(overlayContainer);
+            scene.getProperties().put("appHeaderInstalled", true);
+        }
+
         stage.setScene(scene);
         WindowStateKeeper.applyAfterSceneSwap(stage, snapshot);
     }
@@ -121,12 +311,14 @@ public class Navigator {
     public void showAvailableBooks(User studentOrStaff) {
         SessionService.save("AVAILABLE_BOOKS", studentOrStaff.getId());
         Scene scene = org.example.ui.AvailableBooksScreen.create(this, studentOrStaff);
+        scene.setUserData(studentOrStaff);
         showScenePreservingWindowState(scene);
     }
 
     public void showMyBorrowedBooks(User studentOrStaff) {
         SessionService.save("MY_BORROWS", studentOrStaff.getId());
         Scene scene = org.example.ui.MyBorrowedBooksScreen.create(this, studentOrStaff);
+        scene.setUserData(studentOrStaff);
         showScenePreservingWindowState(scene);
     }
 
@@ -159,6 +351,7 @@ public class Navigator {
             // the PDF reader appears on top of it (both for normal and crash recovery restores).
             // This does not overwrite session.json because we are not calling SessionService.save here.
             Scene borrowedScene = org.example.ui.MyBorrowedBooksScreen.create(this, user);
+            borrowedScene.setUserData(user);
             showScenePreservingWindowState(borrowedScene);
 
             org.example.ui.PdfReaderScreen.open(
@@ -179,6 +372,7 @@ public class Navigator {
     public void showStudentStaffProfile(User user) {
         SessionService.save("PROFILE_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffProfileScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
@@ -189,6 +383,7 @@ public class Navigator {
     public void showStudentStaffNotifications(User user, boolean returnToBorrowedBooks) {
         SessionService.save("NOTIFICATIONS_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user, returnToBorrowedBooks);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
@@ -213,42 +408,49 @@ public class Navigator {
     public void showAuthorDashboard(User user) {
         SessionService.save("AUTHOR_DASH", user.getId());
         Scene scene = org.example.ui.AuthorDashboardScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showPublishBook(User user) {
         SessionService.save("AUTHOR_PUBLISH", user.getId());
         Scene scene = org.example.ui.PublishBookScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showAuthorPublishedBooks(User user) {
         SessionService.save("AUTHOR_PUBLISHED", user.getId());
         Scene scene = org.example.ui.AuthorPublishedBooksScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showAuthorStats(User user) {
         SessionService.save("AUTHOR_STATS", user.getId());
         Scene scene = org.example.ui.AuthorStatsScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showAuthorProfile(User user) {
         SessionService.save("AUTHOR_PROFILE", user.getId());
         Scene scene = org.example.ui.AuthorProfileScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showAuthorNotifications(User user) {
         SessionService.save("AUTHOR_NOTIFICATIONS", user.getId());
         Scene scene = org.example.ui.AuthorNotificationsScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
     public void showAuthorReviews(User user) {
         SessionService.save("AUTHOR_REVIEWS", user.getId());
         Scene scene = org.example.ui.AuthorReviewsScreen.create(this, user);
+        scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }
 
@@ -280,30 +482,35 @@ public class Navigator {
     public void showLibrarianManageUsers(User librarian) {
         SessionService.save("LIBRARIAN_MANAGE_USERS", librarian.getId());
         Scene scene = org.example.ui.LibrarianManageUsersScreen.create(this, librarian);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianProfile(User librarian) {
         SessionService.save("LIBRARIAN_PROFILE", librarian.getId());
         Scene scene = org.example.ui.LibrarianProfileScreen.create(this, librarian);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianBorrowRecords(User librarian) {
         SessionService.save("LIBRARIAN_BORROW_RECORDS", librarian.getId());
         Scene scene = org.example.ui.LibrarianBorrowRecordsScreen.create(this, librarian);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianNotifications(User librarian) {
         SessionService.save("LIBRARIAN_NOTIFICATIONS", librarian.getId());
         Scene scene = org.example.ui.LibrarianNotificationBoardScreen.create(this, librarian);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 
     public void showLibrarianCatalog(User librarian) {
         SessionService.save("LIBRARIAN_CATALOG", librarian.getId());
         Scene scene = org.example.ui.LibrarianCatalogScreen.create(this, librarian);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 

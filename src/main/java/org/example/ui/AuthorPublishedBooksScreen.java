@@ -288,11 +288,6 @@ public final class AuthorPublishedBooksScreen {
 
 
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(120);
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
-
         // pbar removed - unified controls below
 
         Button editBookBtn = new Button("Edit");
@@ -576,9 +571,7 @@ public final class AuthorPublishedBooksScreen {
         bbar.setAlignment(Pos.CENTER_LEFT);
         bbar.setPadding(new Insets(16, 0, 0, 0));
 
-        HBox bottomBar = new HBox(10, backBtn);
-        bottomBar.setAlignment(Pos.CENTER_LEFT);
-        bottomBar.setPadding(new Insets(16, 0, 0, 0));
+        // bottom navigation removed - navigation available via global menu
 
         HBox searchBox = pendingFilters; // reuse existing search/filter controls
 
@@ -593,7 +586,7 @@ public final class AuthorPublishedBooksScreen {
         scrollPane.setStyle("-fx-background: white;");
 
         // Buttons stay fixed below the scrollable list so the list can grow taller
-        VBox main = new VBox(12, scrollPane, bbar, bottomBar);
+        VBox main = new VBox(12, scrollPane, bbar);
         main.setPadding(new Insets(0, 16, 16, 16));
 
         Scene scene = new Scene(main, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

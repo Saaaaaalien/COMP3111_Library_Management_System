@@ -1,5 +1,7 @@
 package org.example.ui;
 
+import org.example.app.Navigator;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -7,7 +9,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
-import org.example.app.Navigator;
 
 /**
  * Student/Staff portal entry: Login or Register.
@@ -42,11 +43,7 @@ public final class StudentStaffEntryScreen {
         hintLbl.setMaxWidth(280);
         hintLbl.getStyleClass().add("login-hint");
 
-        Button backBtn = new Button("Back to Welcome");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showWelcome());
-
-        VBox content = new VBox(18, title, hintLbl, loginBtn, registerBtn, backBtn);
+        VBox content = new VBox(18, title, hintLbl, loginBtn, registerBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(440);
         content.getStyleClass().add("content-card");

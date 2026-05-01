@@ -1,15 +1,20 @@
 package org.example.db;
 
-import org.example.domain.Availability;
-import org.example.domain.Book;
-import org.example.security.CryptoUtil;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import org.example.domain.Availability;
+import org.example.domain.Book;
+import org.example.security.CryptoUtil;
 
 /**
  * Data access for books table (published books).
@@ -341,6 +346,46 @@ public final class BookDao {
             }
             ps.setLong(6, id);
             ps.executeUpdate();
+        }
+    }
+
+    public static void updatePublishedByLibrarian(long id,
+                                                  String title,
+                                                  long authorUserId,
+                                                  String authorFullNameSnapshot,
+                                                  String genre,
+                                                  String summary,
+                                                  String filePath,
+                                                  String coverImagePath) throws SQLException {
+        String sql = """
+            UPDATE books
+            SET title = ?,
+                author_user_id = ?,
+                author_full_name_snapshot = ?,
+                genre = ?,
+                summary = ?,
+                file_path = ?,
+                cover_image_path = ?
+            WHERE id = ?
+            """;
+        String encryptedFilePath = CryptoUtil.encryptToString(filePath);
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title);
+            ps.setLong(2, authorUserId);
+            ps.setString(3, authorFullNameSnapshot);
+            ps.setString(4, genre);
+            ps.setString(5, summary);
+            ps.setString(6, encryptedFilePath);
+            if (coverImagePath != null) {
+                ps.setString(7, coverImagePath);
+            } else {
+                ps.setNull(7, Types.VARCHAR);
+            }
+            ps.setLong(8, id);
+            if (ps.executeUpdate() == 0) {
+                throw new SQLException("Book not found.");
+            }
         }
     }
 

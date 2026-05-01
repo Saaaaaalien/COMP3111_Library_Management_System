@@ -35,18 +35,13 @@ public final class WindowStateKeeper {
             return;
         }
         applyOnce(stage, snapshot);
-        Platform.runLater(() -> {
-            applyOnce(stage, snapshot);
-            Platform.runLater(() -> applyOnce(stage, snapshot));
-        });
+        Platform.runLater(() -> applyOnce(stage, snapshot));
     }
 
     private static void applyOnce(Stage stage, Snapshot snapshot) {
         if (snapshot.wasFullScreen()) {
+            stage.setMaximized(false);
             stage.setFullScreen(true);
-            if (!stage.isFullScreen()) {
-                stage.setMaximized(true);
-            }
             return;
         }
         if (snapshot.wasMaximized()) {

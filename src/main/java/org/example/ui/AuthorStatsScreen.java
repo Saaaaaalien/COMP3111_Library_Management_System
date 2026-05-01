@@ -70,15 +70,8 @@ public final class AuthorStatsScreen {
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        Button backBtn = new Button("Back to Dashboard");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
-
-        HBox footer = new HBox(backBtn);
-        footer.setPadding(new Insets(12, 0, 0, 0));
-        footer.setAlignment(Pos.CENTER_LEFT);
-
-        VBox center = new VBox(10, scrollPane, footer);
+        // Navigation handled by global menu; remove per-screen Back button
+        VBox center = new VBox(10, scrollPane);
         root.setCenter(center);
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

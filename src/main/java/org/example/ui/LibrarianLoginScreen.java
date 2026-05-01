@@ -1,5 +1,12 @@
 package org.example.ui;
 
+import java.sql.SQLException;
+
+import org.example.app.Navigator;
+import org.example.domain.User;
+import org.example.service.AuthException;
+import org.example.service.AuthService;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -10,12 +17,6 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
-import org.example.app.Navigator;
-import org.example.domain.User;
-import org.example.service.AuthException;
-import org.example.service.AuthService;
-
-import java.sql.SQLException;
 
 /**
  * Librarian login: username and password, then navigate to Book Approval screen.
@@ -56,10 +57,6 @@ public final class LibrarianLoginScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showLibrarianPortal());
-
         VBox usernameBox = new VBox(5, usernameLbl, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
 
@@ -74,7 +71,7 @@ public final class LibrarianLoginScreen {
         hintLbl.setMaxWidth(280);
         hintLbl.getStyleClass().add("login-hint");
 
-        VBox content = new VBox(18, title, form, hintLbl, loginBtn, backBtn);
+        VBox content = new VBox(18, title, form, hintLbl, loginBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(440);
         content.getStyleClass().add("content-card");

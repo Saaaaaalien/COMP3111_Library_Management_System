@@ -97,4 +97,24 @@
     -fx-border-width: 1;
     -fx-padding: 10;
 }
+/* Drawer / navigation links */
+.menu-button {
+    -fx-font-size: 18px;
+    -fx-background-color: transparent;
+    -fx-text-fill: #2b333f;
+    -fx-padding: 6 10;
+}
+.drawer-link {
+    -fx-font-size: 14px;
+    -fx-text-fill: #2d7dd2;
+    -fx-padding: 6 4;
+}
+.drawer-link:hover {
+    -fx-underline: true;
+}
+.drawer-link-logout {
+    -fx-font-size: 14px;
+    -fx-text-fill: #e74c3c;
+    -fx-padding: 6 4;
+}
 

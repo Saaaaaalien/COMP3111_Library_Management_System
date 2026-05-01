@@ -41,10 +41,7 @@ public final class AuthorNotificationsScreen {
     );
 
     public static Scene create(Navigator navigator, User user) {
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(140);
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
+        // Navigation handled by global menu; removed per-screen Back button
 
 
 
@@ -140,7 +137,6 @@ public final class AuthorNotificationsScreen {
         });
 
 
-        HBox back = new HBox(5, backBtn);
         HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
         HBox actions = new HBox(5, readBtn, readAllBtn, archBtn);
         actions.setPadding(new Insets(16, 0, 0, 0));
@@ -150,7 +146,7 @@ public final class AuthorNotificationsScreen {
         javafx.scene.layout.VBox.setVgrow(list, javafx.scene.layout.Priority.ALWAYS);
 
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(8, back, title, filters, actions));
+        root.setTop(new VBox(8, title, filters, actions));
         root.setCenter(listWrapper);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
