@@ -182,9 +182,6 @@ public final class StudentStaffProfileScreen {
                 }
 
                 if (passwordChangeRequested) {
-                    if (PasswordHasher.verify(newPassword, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("New password must be different from current password.");
-                    }
                     Validators.validatePasswordStrength(newPassword);
                     if (!newPassword.equals(confirm)) {
                         throw new ValidationException("New passwords do not match.");

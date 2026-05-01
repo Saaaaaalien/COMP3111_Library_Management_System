@@ -183,9 +183,6 @@ public final class LibrarianProfileScreen {
                 }
 
                 if (passwordChangeRequested) {
-                    if (PasswordHasher.verify(newPassword, librarian.getPasswordSalt(), librarian.getPasswordHash())) {
-                        throw new ValidationException("New password must be different from current password.");
-                    }
                     Validators.validatePasswordStrength(newPassword);
                     if (!newPassword.equals(pw2.getText())) {
                         throw new ValidationException("New passwords do not match.");

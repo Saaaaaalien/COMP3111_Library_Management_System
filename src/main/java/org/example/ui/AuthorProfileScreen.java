@@ -187,9 +187,6 @@ public final class AuthorProfileScreen {
                 }
 
                 if (passwordChangeRequested) {
-                    if (PasswordHasher.verify(np, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("New password must be different from current password.");
-                    }
                     Validators.validatePasswordStrength(np);
                     if (!np.equals(pw2.getText())) {
                         throw new ValidationException("New passwords do not match.");
