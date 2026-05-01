@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.Locale;
+import java.util.Set;
 
 import org.example.app.Navigator;
 import org.example.db.UserDao;
@@ -28,30 +30,22 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
-import org.example.app.Navigator;
-import org.example.db.UserDao;
-import org.example.domain.User;
-import org.example.security.PasswordHasher;
-import org.example.util.ValidationException;
-import org.example.util.Validators;
-
-import java.io.File;
 import java.net.URL;
-import java.sql.SQLException;
 
 /**
  * Student/Staff profile: full name and optional password change.
  */
 public final class StudentStaffProfileScreen {
 
-    private static final long MAX_AVATAR_SIZE_BYTES = 2L * 1024L * 1024L;
+    private static final long MAX_AVATAR_BYTES = 2L * 1024 * 1024;
+    private static final Set<String> ALLOWED_AVATAR_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif");
     /** Classpath default when the user has no custom avatar (add under {@code src/main/resources/images/}). */
     private static final String DEFAULT_AVATAR_RESOURCE = "/images/empty-pfp.png";
 
     private StudentStaffProfileScreen() {}
 
     public static Scene create(Navigator navigator, User user) {
-        Label title = new Label("My Profile");
+        Label title = new Label("Profile");
         title.getStyleClass().add("screen-title");
 
         // ── Name field ───────────────────────────────────────────────────────
@@ -69,49 +63,67 @@ public final class StudentStaffProfileScreen {
         pw2.setPromptText("Confirm new password");
         pw2.setMaxWidth(320);
 
-        Label strengthLbl = new Label("Strength: Empty");
-        strengthLbl.getStyleClass().add("password-strength");
+        Label strengthLbl = new Label("");
+        strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #555;");
+        Label strengthHintLbl = new Label("Use 8+ chars with uppercase, number, and special character.");
+        strengthHintLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #666;");
         pw1.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null || newVal.isBlank()) {
+                strengthLbl.setText("");
+                strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #555;");
+                return;
+            }
             String strength = Validators.getPasswordStrengthLabel(newVal);
-            strengthLbl.setText("Strength: " + (strength == null || strength.isBlank() ? "Empty" : strength));
+            strengthLbl.setText("Strength: " + strength);
+            strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: " + strengthColor(strength) + ";");
         });
 
-        Label avatarLbl = new Label("Profile picture (optional)");
+        Label avatarLbl = new Label("Profile picture");
         ImageView avatarView = new ImageView();
         avatarView.setFitWidth(80);
         avatarView.setFitHeight(80);
         avatarView.setPreserveRatio(true);
-        String[] selectedAvatarPath = new String[] { user.getAvatarPath() };
-        loadAvatarInto(avatarView, selectedAvatarPath[0]);
+        avatarView.setStyle("-fx-border-color: #ccc; -fx-border-width: 1;");
+        final File[] pendingAvatar = {null};
+        loadAvatarInto(avatarView, user.getAvatarPath());
 
-        Label avatarHint = new Label("Allowed: JPG/JPEG/PNG, max 2MB. Default: empty-pfp.png");
+        Label avatarHint = new Label("Allowed: JPG/JPEG/PNG/GIF, max 2MB.");
         avatarHint.getStyleClass().add("login-hint");
-        Button chooseAvatarBtn = new Button("Choose picture");
+        Label avatarStatusLbl = new Label("");
+        avatarStatusLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #555;");
+        Button chooseAvatarBtn = new Button("Upload Picture");
         chooseAvatarBtn.getStyleClass().add("secondary-button");
         chooseAvatarBtn.setOnAction(ev -> {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Choose Profile Picture");
             chooser.getExtensionFilters().addAll(
-                    new FileChooser.ExtensionFilter("Image Files", "*.jpg", "*.jpeg", "*.png")
+                    new FileChooser.ExtensionFilter("Image Files", "*.jpg", "*.jpeg", "*.png", "*.gif")
             );
             File picked = chooser.showOpenDialog(navigator.getStage());
             if (picked == null) {
                 return;
             }
-            String lower = picked.getName().toLowerCase();
-            if (!(lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png"))) {
-                new Alert(Alert.AlertType.WARNING, "Invalid image format. Please select JPG/JPEG/PNG.").showAndWait();
+            String extension = getFileExtension(picked.getName());
+            if (extension == null || !ALLOWED_AVATAR_EXTENSIONS.contains(extension)) {
+                new Alert(Alert.AlertType.WARNING, "Invalid image format. Please choose a JPG, PNG, or GIF file.").showAndWait();
                 return;
             }
-            if (picked.length() > MAX_AVATAR_SIZE_BYTES) {
-                new Alert(Alert.AlertType.WARNING, "Image too large. Maximum allowed size is 2MB.").showAndWait();
+            if (picked.length() > MAX_AVATAR_BYTES) {
+                new Alert(Alert.AlertType.WARNING, "Image is too large. Maximum allowed size is 2 MB.").showAndWait();
                 return;
             }
-            selectedAvatarPath[0] = picked.getAbsolutePath();
-            loadAvatarInto(avatarView, selectedAvatarPath[0]);
+            Image selectedImage = new Image(picked.toURI().toString(), false);
+            if (selectedImage.isError()) {
+                new Alert(Alert.AlertType.WARNING,
+                        "Selected file could not be loaded as an image. Please choose a valid image file.").showAndWait();
+                return;
+            }
+            pendingAvatar[0] = picked;
+            avatarView.setImage(selectedImage);
+            avatarStatusLbl.setText("New picture selected (not saved yet): " + picked.getName());
         });
 
-        Label hint = new Label("Password must meet strength rules if you change it. Your current password is required to change it.");
+        Label hint = new Label("Current password is required to save any profile, picture, or password changes.");
         hint.setWrapText(true);
         hint.setMaxWidth(360);
 
@@ -122,57 +134,73 @@ public final class StudentStaffProfileScreen {
             try {
                 Validators.validateFullName(nameField.getText());
                 String trimmedFullName = nameField.getText().trim();
-                String avatarPath = selectedAvatarPath[0];
                 String current = currentPw.getText();
                 String newPassword = pw1.getText();
                 String confirm = pw2.getText();
+                boolean profileChanged = !trimmedFullName.equals(user.getFullName().trim());
+                boolean passwordChangeRequested = newPassword != null && !newPassword.isBlank();
+                boolean avatarChanged = pendingAvatar[0] != null;
 
-                boolean anyPasswordFieldEntered =
-                        (current != null && !current.isBlank())
-                                || (newPassword != null && !newPassword.isBlank())
-                                || (confirm != null && !confirm.isBlank());
+                if (!profileChanged && !passwordChangeRequested && !avatarChanged) {
+                    new Alert(Alert.AlertType.INFORMATION, "No changes to save.").showAndWait();
+                    return;
+                }
 
-                // Password change is optional, but if the user starts entering password fields,
-                // we validate that the change request is well-formed.
-                if (anyPasswordFieldEntered) {
-                    if (newPassword == null || newPassword.isBlank()) {
-                        throw new ValidationException("Enter a new password to update it.");
+                if (current == null || current.isBlank()) {
+                    throw new ValidationException("Re-enter your current password to confirm these changes.");
+                }
+                if (!PasswordHasher.verify(current, user.getPasswordSalt(), user.getPasswordHash())) {
+                    throw new ValidationException("Current password is incorrect.");
+                }
+
+                if (profileChanged) {
+                    UserDao.updateFullName(user.getId(), trimmedFullName);
+                }
+
+                if (avatarChanged) {
+                    File src = pendingAvatar[0];
+                    String extension = getFileExtension(src.getName());
+                    if (extension == null || !ALLOWED_AVATAR_EXTENSIONS.contains(extension)) {
+                        throw new ValidationException("Invalid image format. Please choose a JPG, PNG, or GIF file.");
                     }
-                    if (confirm == null || confirm.isBlank()) {
-                        throw new ValidationException("Confirm new password is required.");
+                    if (src.length() > MAX_AVATAR_BYTES) {
+                        throw new ValidationException("Image is too large. Maximum allowed size is 2 MB.");
                     }
+                    Image imageToSave = new Image(src.toURI().toString(), false);
+                    if (imageToSave.isError()) {
+                        throw new ValidationException("Selected file could not be loaded as an image.");
+                    }
+                    File avatarDir = new File("avatars");
+                    if (!avatarDir.exists() && !avatarDir.mkdirs()) {
+                        throw new IOException("Could not create avatar storage directory.");
+                    }
+                    File dest = new File(avatarDir, "user_" + user.getId() + extension);
+                    Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    UserDao.updateAvatarPath(user.getId(), dest.getAbsolutePath());
+                    avatarStatusLbl.setText("Profile picture saved.");
+                    pendingAvatar[0] = null;
+                }
 
+                if (passwordChangeRequested) {
                     Validators.validatePasswordStrength(newPassword);
                     if (!newPassword.equals(confirm)) {
-                        throw new ValidationException("New password and confirmation do not match.");
+                        throw new ValidationException("New passwords do not match.");
                     }
-
-                    if (current == null || current.isBlank()) {
-                        throw new ValidationException("Enter your current password to set a new one.");
-                    }
-                    if (!PasswordHasher.verify(current, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("Current password is incorrect.");
-                    }
-
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(newPassword, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
-                    // Only update name/avatar after password change validation succeeds.
-                    UserDao.updateFullName(user.getId(), trimmedFullName);
-                    UserDao.updateAvatarPath(user.getId(), avatarPath);
-                    new Alert(Alert.AlertType.INFORMATION, "Password updated. Please sign in again.").showAndWait();
+                    new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showStudentStaffPortal();
                     return;
                 }
 
-                // No password change requested; safe to persist name/avatar now.
-                UserDao.updateFullName(user.getId(), trimmedFullName);
-                UserDao.updateAvatarPath(user.getId(), avatarPath);
                 new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAvailableBooks(refreshed);
             } catch (ValidationException ex) {
                 new Alert(Alert.AlertType.WARNING, ex.getMessage()).showAndWait();
+            } catch (IOException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not save profile picture: " + ex.getMessage()).showAndWait();
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, "Update failed: " + ex.getMessage()).showAndWait();
             }
@@ -189,21 +217,24 @@ public final class StudentStaffProfileScreen {
             }
         });
 
-        VBox avatarActions = new VBox(chooseAvatarBtn);
-        avatarActions.setAlignment(Pos.CENTER);
+        HBox avatarRow = new HBox(12, avatarView, new VBox(6, chooseAvatarBtn, avatarStatusLbl));
+        avatarRow.setAlignment(Pos.CENTER_LEFT);
 
         VBox form = new VBox(10,
+                title,
+                new javafx.scene.control.Separator(),
                 new Label("Full name"),
                 nameField,
                 avatarLbl,
-                avatarView,
-                avatarActions,
+                avatarRow,
                 avatarHint,
+                new javafx.scene.control.Separator(),
                 new Label("Change password"),
                 currentPw,
                 pw1,
                 pw2,
                 strengthLbl,
+                strengthHintLbl,
                 hint,
                 saveBtn,
                 backBtn);
@@ -232,7 +263,10 @@ public final class StudentStaffProfileScreen {
             try {
                 File f = new File(avatarPath);
                 if (f.isFile()) {
-                    image = new Image(f.toURI().toString(), true);
+                    Image candidate = new Image(f.toURI().toString(), false);
+                    if (!candidate.isError()) {
+                        image = candidate;
+                    }
                 }
             } catch (Exception ignored) {
             }
@@ -247,5 +281,23 @@ public final class StudentStaffProfileScreen {
             }
         }
         target.setImage(image);
+    }
+
+    private static String getFileExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot == fileName.length() - 1) {
+            return null;
+        }
+        return fileName.substring(lastDot).toLowerCase(Locale.ROOT);
+    }
+
+    private static String strengthColor(String strengthLabel) {
+        if ("Weak".equals(strengthLabel)) return "#e74c3c";
+        if ("Medium".equals(strengthLabel)) return "#e67e22";
+        if ("Strong".equals(strengthLabel)) return "#27ae60";
+        return "#555";
     }
 }

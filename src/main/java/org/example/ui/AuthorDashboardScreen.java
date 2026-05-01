@@ -158,7 +158,8 @@ public final class AuthorDashboardScreen {
 
         Button notifBtn = new Button("Notifications");
         notifBtn.getStyleClass().add("secondary-button");
-        notifBtn.setPrefWidth(140);
+        notifBtn.setPrefWidth(220);
+        notifBtn.setMinWidth(220);
         try {
             int n = NotificationDao.countUnread(currentUser.getId());
             notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");
@@ -171,20 +172,23 @@ public final class AuthorDashboardScreen {
         } catch (SQLException ignored) {
         }
         notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
-        Button reviewsBtn = new Button("Review Handling");
-        reviewsBtn.getStyleClass().add("secondary-button");
-        reviewsBtn.setPrefWidth(140);
-        reviewsBtn.setOnAction(e -> navigator.showAuthorReviews(currentUser));
-        phase2Links.getChildren().addAll(myBooksBtn, statsBtn, profileBtn, notifBtn, reviewsBtn);
+        phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
 
         // Publish Book Card
         VBox publishCard = createPublishBookCard();
+        HBox insightsCards = new HBox(20,
+                createActionCard("View Stats", "See your publishing performance and trends.", "Open Stats →",
+                        "#8e7bf0", "#7a67df", () -> navigator.showAuthorStats(currentUser)),
+                createActionCard("Review Handling", "Read and manage reader reviews.", "Open Reviews →",
+                        "#4cb1a5", "#3b9d91", () -> navigator.showAuthorReviews(currentUser))
+        );
+        insightsCards.setAlignment(Pos.CENTER);
 
         // Add some extra space at the bottom to ensure scrolling works well
         Label bottomSpacer = new Label("");
         bottomSpacer.setPrefHeight(50);
 
-        content.getChildren().addAll(welcomeCard, phase2Links, publishCard, bottomSpacer);
+        content.getChildren().addAll(welcomeCard, phase2Links, publishCard, insightsCards, bottomSpacer);
 
         return content;
     }
@@ -321,6 +325,70 @@ public final class AuthorDashboardScreen {
 
         card.getChildren().addAll(titleLabel, descriptionLabel, publishBtn);
 
+        return card;
+    }
+
+    private static VBox createActionCard(String title, String description, String buttonText,
+                                         String colorStart, String colorEnd, Runnable action) {
+        VBox card = new VBox(18);
+        card.setPadding(new Insets(28));
+        card.setPrefWidth(380);
+        card.setAlignment(Pos.CENTER);
+        card.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, " + colorStart + ", " + colorEnd + ");" +
+                        "-fx-background-radius: 5;"
+        );
+        card.setOnMouseEntered(e -> card.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, " + colorStart + ", " + colorStart + ");" +
+                        "-fx-cursor: hand;" +
+                        "-fx-background-radius: 5;"
+        ));
+        card.setOnMouseExited(e -> card.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, " + colorStart + ", " + colorEnd + ");" +
+                        "-fx-background-radius: 5;"
+        ));
+
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel.setStyle("-fx-text-fill: white;");
+
+        Label descriptionLabel = new Label(description);
+        descriptionLabel.setWrapText(true);
+        descriptionLabel.setPrefWidth(Double.MAX_VALUE);
+        descriptionLabel.setAlignment(Pos.CENTER);
+        descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 15px;");
+
+        Button actionBtn = new Button(buttonText);
+        actionBtn.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-text-fill: " + colorStart + ";" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-font-size: 16px;" +
+                        "-fx-padding: 12 24 12 24;" +
+                        "-fx-background-radius: 5;" +
+                        "-fx-cursor: hand;"
+        );
+        actionBtn.setPrefWidth(220);
+        actionBtn.setOnMouseEntered(e -> actionBtn.setStyle(
+                "-fx-background-color: #f8f8f8;" +
+                        "-fx-text-fill: " + colorStart + ";" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-font-size: 16px;" +
+                        "-fx-padding: 12 24 12 24;" +
+                        "-fx-cursor: hand;"
+        ));
+        actionBtn.setOnMouseExited(e -> actionBtn.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-text-fill: " + colorStart + ";" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-font-size: 16px;" +
+                        "-fx-padding: 12 24 12 24;"
+        ));
+
+        card.setOnMouseClicked(e -> action.run());
+        actionBtn.setOnAction(e -> action.run());
+
+        card.getChildren().addAll(titleLabel, descriptionLabel, actionBtn);
         return card;
     }
 
