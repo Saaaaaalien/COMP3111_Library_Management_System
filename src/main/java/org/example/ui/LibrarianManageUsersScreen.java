@@ -11,6 +11,7 @@ import org.example.app.Navigator;
 import org.example.db.UserDao;
 import org.example.domain.Role;
 import org.example.domain.User;
+import org.example.service.NotificationService;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -442,6 +443,13 @@ public final class LibrarianManageUsersScreen {
             if (confirmed.isPresent() && confirmed.get() == ButtonType.OK) {
                 try {
                     UserDao.updateProfile(user.getId(), newFullName, newEmpId, newBio);
+                    try {
+                        NotificationService.notifyUserAccountUpdatedByLibrarian(
+                                user.getId(),
+                                "A librarian updated your profile details."
+                        );
+                    } catch (SQLException ignored) {
+                    }
                     showSuccess("User Updated", "Profile for \"" + user.getUsername() + "\" has been updated.");
                     loadUsers(container, librarian);
                 } catch (SQLException ex) {
@@ -470,6 +478,10 @@ public final class LibrarianManageUsersScreen {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 UserDao.setActive(user.getId(), false);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(user.getId(), false);
+                } catch (SQLException ignored) {
+                }
                 showSuccess("Account Deactivated", "\"" + user.getUsername() + "\" has been deactivated.");
                 loadUsers(container, librarian);
             } catch (SQLException ex) {
@@ -489,6 +501,10 @@ public final class LibrarianManageUsersScreen {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 UserDao.setActive(user.getId(), true);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(user.getId(), true);
+                } catch (SQLException ignored) {
+                }
                 showSuccess("Account Reactivated", "\"" + user.getUsername() + "\" has been reactivated.");
                 loadUsers(container, librarian);
             } catch (SQLException ex) {
@@ -541,6 +557,10 @@ public final class LibrarianManageUsersScreen {
         for (User u : targets) {
             try {
                 UserDao.setActive(u.getId(), false);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(u.getId(), false);
+                } catch (SQLException ignored) {
+                }
             } catch (SQLException ex) {
                 failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
             }
@@ -596,6 +616,10 @@ public final class LibrarianManageUsersScreen {
         for (User u : targets) {
             try {
                 UserDao.setActive(u.getId(), true);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(u.getId(), true);
+                } catch (SQLException ignored) {
+                }
             } catch (SQLException ex) {
                 failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
             }

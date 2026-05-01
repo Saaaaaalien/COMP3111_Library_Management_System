@@ -8,6 +8,7 @@ import org.example.app.Navigator;
 import org.example.db.UserDao;
 import org.example.domain.User;
 import org.example.security.PasswordHasher;
+import org.example.service.NotificationService;
 import org.example.util.ValidationException;
 import org.example.util.Validators;
 
@@ -147,6 +148,10 @@ public final class StudentStaffProfileScreen {
                     // Only update name/avatar after password change validation succeeds.
                     UserDao.updateFullName(user.getId(), trimmedFullName);
                     UserDao.updateAvatarPath(user.getId(), avatarPath);
+                    try {
+                        NotificationService.notifyLibrariansUserProfileUpdated(user.getId(), user.getUsername(), user.getRole().name());
+                    } catch (SQLException ignored) {
+                    }
                     new Alert(Alert.AlertType.INFORMATION, "Password updated. Please sign in again.").showAndWait();
                     navigator.showStudentStaffPortal();
                     return;
@@ -155,6 +160,10 @@ public final class StudentStaffProfileScreen {
                 // No password change requested; safe to persist name/avatar now.
                 UserDao.updateFullName(user.getId(), trimmedFullName);
                 UserDao.updateAvatarPath(user.getId(), avatarPath);
+                try {
+                    NotificationService.notifyLibrariansUserProfileUpdated(user.getId(), user.getUsername(), user.getRole().name());
+                } catch (SQLException ignored) {
+                }
                 new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAvailableBooks(refreshed);

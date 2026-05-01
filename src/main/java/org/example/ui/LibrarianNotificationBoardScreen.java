@@ -38,6 +38,9 @@ public final class LibrarianNotificationBoardScreen {
             new Pair<>("All categories",          "ALL"),
             new Pair<>("New book submissions",    NotificationService.CAT_NEW_SUBMISSION),
             new Pair<>("User registrations",      NotificationService.CAT_USER_REGISTERED),
+            new Pair<>("Borrow activity",         NotificationService.CAT_LIB_BORROW_ACTIVITY),
+            new Pair<>("Return activity",         NotificationService.CAT_LIB_RETURN_ACTIVITY),
+            new Pair<>("User account updates",    NotificationService.CAT_LIB_USER_PROFILE_UPDATED),
             new Pair<>("Overdue borrows",         NotificationService.CAT_OVERDUE_BORROW),
             new Pair<>("Announcements",           NotificationService.CAT_ANNOUNCEMENT)
     );
@@ -45,8 +48,10 @@ public final class LibrarianNotificationBoardScreen {
     public static Scene create(Navigator navigator, User librarian) {
         // Back navigation now provided by global menu; per-screen Back removed.
 
-        Label title = new Label("Librarian notifications");
+        Label title = new Label("Notifications");
         title.getStyleClass().add("screen-title");
+        Label unreadCountLabel = new Label("Unread: 0");
+        unreadCountLabel.getStyleClass().add("info-label");
 
         ComboBox<Pair<String, String>> category =
                 new ComboBox<>(FXCollections.observableArrayList(LIBRARIAN_CATEGORY_FILTERS));
@@ -63,6 +68,8 @@ public final class LibrarianNotificationBoardScreen {
         ListView<AppNotification> list = new ListView<>();
         list.setCellFactory(lv -> NotificationListCellFactory.create());
 
+        final Runnable[] syncArchiveBtnLabel = new Runnable[] { () -> {} };
+
         Runnable refresh = () -> {
             try {
                 Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
@@ -70,9 +77,14 @@ public final class LibrarianNotificationBoardScreen {
                 list.setItems(FXCollections.observableArrayList(
                         NotificationDao.findForUserFiltered(librarian.getId(), cat, search.getText(), showArchived.isSelected())
                 ));
+                int unread = NotificationDao.countUnread(librarian.getId());
+                unreadCountLabel.setText("Unread: " + unread);
+                title.setText(unread > 0 ? ("Notifications (" + unread + ")") : "Notifications");
             } catch (SQLException ex) {
                 list.setItems(FXCollections.observableArrayList());
+                unreadCountLabel.setText("Unread: --");
             }
+            syncArchiveBtnLabel[0].run();
         };
         refresh.run();
         category.setOnAction(e -> refresh.run());
@@ -110,25 +122,35 @@ public final class LibrarianNotificationBoardScreen {
             }
         });
 
-        Button archiveBtn = new Button("Archive");
-        archiveBtn.getStyleClass().add("secondary-button");
-        archiveBtn.setPrefWidth(140);
-        archiveBtn.setOnAction(e -> {
+        Button archiveToggleBtn = new Button("Archive");
+        archiveToggleBtn.getStyleClass().add("secondary-button");
+        archiveToggleBtn.setPrefWidth(140);
+        syncArchiveBtnLabel[0] = () -> {
+            AppNotification selected = list.getSelectionModel().getSelectedItem();
+            archiveToggleBtn.setText(selected != null && selected.isArchived() ? "Unarchive" : "Archive");
+        };
+        list.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> syncArchiveBtnLabel[0].run());
+        archiveToggleBtn.setOnAction(e -> {
             AppNotification n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
                 return;
             }
             try {
-                NotificationDao.archive(n.getId(), librarian.getId(), Instant.now().toString());
+                if (n.isArchived()) {
+                    NotificationDao.unarchive(n.getId(), librarian.getId());
+                } else {
+                    NotificationDao.archive(n.getId(), librarian.getId(), Instant.now().toString());
+                }
                 refresh.run();
             } catch (SQLException ex) {
-                new Alert(Alert.AlertType.ERROR, "Could not archive.").showAndWait();
+                new Alert(Alert.AlertType.ERROR, "Could not update archive status.").showAndWait();
             }
         });
 
         HBox back = new HBox(5);
-        HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
-        HBox actions = new HBox(5, markReadBtn, markAllReadBtn, archiveBtn);
+        HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
+        HBox actions = new HBox(10, markReadBtn, markAllReadBtn, archiveToggleBtn, unreadCountLabel);
+        actions.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         actions.setPadding(new Insets(16, 0, 0, 0));
 
         VBox listWrapper = new VBox(list);
