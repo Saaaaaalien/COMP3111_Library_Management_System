@@ -2,10 +2,13 @@ package org.example.ui;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 import org.example.app.Navigator;
 import org.example.db.UserDao;
@@ -36,11 +39,14 @@ import javafx.stage.FileChooser;
  * Author profile: name, bio, optional password (requires current password).
  */
 public final class AuthorProfileScreen {
+    private static final long MAX_AVATAR_BYTES = 2L * 1024 * 1024;
+    private static final Set<String> ALLOWED_AVATAR_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif");
+    private static final String DEFAULT_AVATAR_RESOURCE = "/images/empty-pfp.png";
 
     private AuthorProfileScreen() {}
 
     public static Scene create(Navigator navigator, User user) {
-        Label title = new Label("Author profile");
+        Label title = new Label("Profile");
         title.getStyleClass().add("screen-title");
 
         // ── Profile picture ──────────────────────────────────────────────────
@@ -49,9 +55,7 @@ public final class AuthorProfileScreen {
         avatarView.setFitHeight(80);
         avatarView.setPreserveRatio(true);
         avatarView.setStyle("-fx-border-color: #ccc; -fx-border-width: 1;");
-        if (user.getAvatarPath() != null && new File(user.getAvatarPath()).exists()) {
-            avatarView.setImage(new Image(new File(user.getAvatarPath()).toURI().toString()));
-        }
+        loadAvatarInto(avatarView, user.getAvatarPath());
 
         final File[] pendingAvatar = {null};
 
@@ -65,15 +69,27 @@ public final class AuthorProfileScreen {
             fc.setTitle("Choose Profile Picture");
             fc.getExtensionFilters().add(
                     new FileChooser.ExtensionFilter("Images (JPG, PNG, GIF)", "*.jpg", "*.jpeg", "*.png", "*.gif"));
-            File chosen = fc.showOpenDialog(null);
+            File chosen = fc.showOpenDialog(navigator.getStage());
             if (chosen == null) return;
-            if (chosen.length() > 2 * 1024 * 1024) {
+            String extension = getFileExtension(chosen.getName());
+            if (extension == null || !ALLOWED_AVATAR_EXTENSIONS.contains(extension)) {
+                new Alert(Alert.AlertType.WARNING,
+                        "Invalid image format. Please choose a JPG, PNG, or GIF file.").showAndWait();
+                return;
+            }
+            if (chosen.length() > MAX_AVATAR_BYTES) {
                 new Alert(Alert.AlertType.WARNING,
                         "Image is too large. Maximum allowed size is 2 MB.").showAndWait();
                 return;
             }
+            Image selectedImage = new Image(chosen.toURI().toString(), false);
+            if (selectedImage.isError()) {
+                new Alert(Alert.AlertType.WARNING,
+                        "Selected file could not be loaded as an image. Please choose a valid image file.").showAndWait();
+                return;
+            }
             pendingAvatar[0] = chosen;
-            avatarView.setImage(new Image(chosen.toURI().toString()));
+            avatarView.setImage(selectedImage);
             avatarStatusLbl.setText("New picture selected (not saved yet): " + chosen.getName());
         });
 
@@ -102,15 +118,17 @@ public final class AuthorProfileScreen {
 
         // ── Password strength meter ──────────────────────────────────────────
         Label strengthLbl = new Label("");
-        strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold;");
+        strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #555;");
+        Label strengthHintLbl = new Label("Use 8+ chars with uppercase, number, and special character.");
+        strengthHintLbl.setStyle("-fx-font-size: 10; -fx-text-fill: #666;");
         pw1.textProperty().addListener((obs, old, val) -> {
             if (val == null || val.isBlank()) {
                 strengthLbl.setText("");
+                strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: #555;");
             } else {
                 String level = Validators.getPasswordStrengthLabel(val);
                 strengthLbl.setText("Strength: " + level);
-                String color = "Weak".equals(level) ? "#e74c3c"
-                             : "Medium".equals(level) ? "#e67e22" : "#27ae60";
+                String color = strengthColor(level);
                 strengthLbl.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
             }
         });
@@ -149,9 +167,18 @@ public final class AuthorProfileScreen {
 
                 if (avatarChanged) {
                     File src = pendingAvatar[0];
+                    String ext = getFileExtension(src.getName());
+                    if (ext == null || !ALLOWED_AVATAR_EXTENSIONS.contains(ext)) {
+                        throw new ValidationException("Invalid image format. Please choose a JPG, PNG, or GIF file.");
+                    }
+                    Image imageToSave = new Image(src.toURI().toString(), false);
+                    if (imageToSave.isError()) {
+                        throw new ValidationException("Selected file could not be loaded as an image.");
+                    }
                     File avatarDir = new File("avatars");
-                    avatarDir.mkdirs();
-                    String ext = src.getName().substring(src.getName().lastIndexOf('.'));
+                    if (!avatarDir.exists() && !avatarDir.mkdirs()) {
+                        throw new IOException("Could not create avatar storage directory.");
+                    }
                     File dest = new File(avatarDir, "user_" + user.getId() + ext);
                     Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     UserDao.updateAvatarPath(user.getId(), dest.getAbsolutePath());
@@ -160,6 +187,9 @@ public final class AuthorProfileScreen {
                 }
 
                 if (passwordChangeRequested) {
+                    if (PasswordHasher.verify(np, user.getPasswordSalt(), user.getPasswordHash())) {
+                        throw new ValidationException("New password must be different from current password.");
+                    }
                     Validators.validatePasswordStrength(np);
                     if (!np.equals(pw2.getText())) {
                         throw new ValidationException("New passwords do not match.");
@@ -205,8 +235,10 @@ public final class AuthorProfileScreen {
         pwGrid.add(pw1, 1, 1);
         pwGrid.add(new Label(""), 0, 2);
         pwGrid.add(strengthLbl, 1, 2);
-        pwGrid.add(new Label("Confirm password"), 0, 3);
-        pwGrid.add(pw2, 1, 3);
+        pwGrid.add(new Label(""), 0, 3);
+        pwGrid.add(strengthHintLbl, 1, 3);
+        pwGrid.add(new Label("Confirm password"), 0, 4);
+        pwGrid.add(pw2, 1, 4);
 
         // ── Layout ───────────────────────────────────────────────────────────
         VBox form = new VBox(12,
@@ -236,5 +268,49 @@ public final class AuthorProfileScreen {
             scene.getStylesheets().add(css.toExternalForm());
         }
         return scene;
+    }
+
+    private static String getFileExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot == fileName.length() - 1) {
+            return null;
+        }
+        return fileName.substring(lastDot).toLowerCase(Locale.ROOT);
+    }
+
+    private static String strengthColor(String strengthLabel) {
+        if ("Weak".equals(strengthLabel)) return "#e74c3c";
+        if ("Medium".equals(strengthLabel)) return "#e67e22";
+        if ("Strong".equals(strengthLabel)) return "#27ae60";
+        return "#555";
+    }
+
+    private static void loadAvatarInto(ImageView target, String avatarPath) {
+        Image image = null;
+        if (avatarPath != null && !avatarPath.isBlank()) {
+            try {
+                File f = new File(avatarPath);
+                if (f.isFile()) {
+                    Image candidate = new Image(f.toURI().toString(), false);
+                    if (!candidate.isError()) {
+                        image = candidate;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (image == null) {
+            try {
+                URL res = AuthorProfileScreen.class.getResource(DEFAULT_AVATAR_RESOURCE);
+                if (res != null) {
+                    image = new Image(res.toExternalForm(), true);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        target.setImage(image);
     }
 }
