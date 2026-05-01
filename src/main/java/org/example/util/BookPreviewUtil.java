@@ -79,6 +79,37 @@ public final class BookPreviewUtil {
         return null;
     }
 
+    /**
+     * Reads the full text content from a supported file type.
+     * Supported formats: .txt, .pdf, .docx, .doc.
+     *
+     * @param filePath absolute path to the book file (may be null or empty)
+     * @return full text content, or null if unavailable/unsupported
+     */
+    public static String readTextContent(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return null;
+        }
+        Path path = Paths.get(filePath);
+        if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+            return null;
+        }
+        String lower = filePath.toLowerCase();
+        if (lower.endsWith(".txt")) {
+            return readTxtContent(path);
+        }
+        if (lower.endsWith(".pdf")) {
+            return readPdfContent(path);
+        }
+        if (lower.endsWith(".docx")) {
+            return readDocxContent(path);
+        }
+        if (lower.endsWith(".doc")) {
+            return readDocContent(path);
+        }
+        return null;
+    }
+
     private static String readTxtPreview(Path path) {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
@@ -86,6 +117,18 @@ public final class BookPreviewUtil {
                 return null;
             }
             return truncateAtBoundary(content, MAX_PREVIEW_CHARS);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String readTxtContent(Path path) {
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            if (content == null || content.isEmpty()) {
+                return null;
+            }
+            return content;
         } catch (IOException e) {
             return null;
         }
@@ -102,6 +145,24 @@ public final class BookPreviewUtil {
                     return null;
                 }
                 return truncateAtBoundary(text.trim(), MAX_PREVIEW_CHARS);
+            } finally {
+                document.close();
+            }
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String readPdfContent(Path path) {
+        try {
+            PDDocument document = Loader.loadPDF(path.toFile());
+            try {
+                org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                String text = stripper.getText(document);
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return text.trim();
             } finally {
                 document.close();
             }
@@ -128,6 +189,24 @@ public final class BookPreviewUtil {
         }
     }
 
+    private static String readDocxContent(Path path) {
+        try (InputStream in = Files.newInputStream(path)) {
+            org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument(in);
+            org.apache.poi.xwpf.extractor.XWPFWordExtractor extractor = new org.apache.poi.xwpf.extractor.XWPFWordExtractor(document);
+            try {
+                String text = extractor.getText();
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return text.trim();
+            } finally {
+                extractor.close();
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
     private static String readDocPreview(Path path) {
         try (InputStream in = Files.newInputStream(path)) {
             org.apache.poi.hwpf.HWPFDocument document = new org.apache.poi.hwpf.HWPFDocument(in);
@@ -138,6 +217,24 @@ public final class BookPreviewUtil {
                     return null;
                 }
                 return truncateAtBoundary(text.trim(), MAX_PREVIEW_CHARS);
+            } finally {
+                extractor.close();
+            }
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static String readDocContent(Path path) {
+        try (InputStream in = Files.newInputStream(path)) {
+            org.apache.poi.hwpf.HWPFDocument document = new org.apache.poi.hwpf.HWPFDocument(in);
+            org.apache.poi.hwpf.extractor.WordExtractor extractor = new org.apache.poi.hwpf.extractor.WordExtractor(document);
+            try {
+                String text = extractor.getText();
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return text.trim();
             } finally {
                 extractor.close();
             }

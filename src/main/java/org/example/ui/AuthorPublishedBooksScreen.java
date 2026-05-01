@@ -1,6 +1,9 @@
 package org.example.ui;
 
+import java.io.File;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,7 +14,11 @@ import org.example.db.PendingDao;
 import org.example.domain.Book;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
+import org.example.util.BookPreviewUtil;
 
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,6 +26,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -26,6 +34,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -33,6 +42,8 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 /**
  * Author view of pending submissions and published catalog with edit/delete rules.
@@ -40,6 +51,44 @@ import javafx.stage.FileChooser;
 public final class AuthorPublishedBooksScreen {
 
     private AuthorPublishedBooksScreen() {}
+
+    @FunctionalInterface
+    interface BorrowCounter {
+        int count(long bookId) throws SQLException;
+    }
+
+    static final class DeletionDecision {
+        private final BookRow row;
+        private final boolean deletable;
+        private final String reason;
+
+        DeletionDecision(BookRow row, boolean deletable, String reason) {
+            this.row = row;
+            this.deletable = deletable;
+            this.reason = reason;
+        }
+
+        public BookRow row() { return row; }
+        public boolean deletable() { return deletable; }
+        public String reason() { return reason; }
+    }
+
+    static final class BulkDeletePlan {
+        private final List<DeletionDecision> deletable;
+        private final List<DeletionDecision> blocked;
+        private final LinkedHashMap<String, Integer> blockedCounts;
+
+        BulkDeletePlan(List<DeletionDecision> deletable, List<DeletionDecision> blocked,
+                       LinkedHashMap<String, Integer> blockedCounts) {
+            this.deletable = deletable;
+            this.blocked = blocked;
+            this.blockedCounts = blockedCounts;
+        }
+
+        public List<DeletionDecision> deletable() { return deletable; }
+        public List<DeletionDecision> blocked() { return blocked; }
+        public LinkedHashMap<String, Integer> blockedCounts() { return blockedCounts; }
+    }
 
     public static class PendingRow {
         private final long id;
@@ -73,6 +122,7 @@ public final class AuthorPublishedBooksScreen {
         private final boolean isPending;
         private final String coverPath;
         private final boolean hiddenFromCatalog;
+        private final BooleanProperty bulkDeleteSelected = new SimpleBooleanProperty(false);
 
         BookRow(Book b) {
             this(b, false);
@@ -111,6 +161,9 @@ public final class AuthorPublishedBooksScreen {
         public boolean isPending() { return isPending; }
         public String getCoverPath() { return coverPath; }
         public boolean isHiddenFromCatalog() { return hiddenFromCatalog; }
+        public BooleanProperty bulkDeleteSelectedProperty() { return bulkDeleteSelected; }
+        public boolean isBulkDeleteSelected() { return bulkDeleteSelected.get(); }
+        public void setBulkDeleteSelected(boolean selected) { bulkDeleteSelected.set(selected); }
     }
 
     public static Scene create(Navigator navigator, User user) {
@@ -121,6 +174,11 @@ public final class AuthorPublishedBooksScreen {
         Label lb = new Label("My books & submissions");
         TableView<BookRow> bookTable = new TableView<>();
         var bItems = FXCollections.<BookRow>observableArrayList();
+        TableColumn<BookRow, Boolean> bc0 = new TableColumn<>("Delete?");
+        bc0.setCellValueFactory(cd -> cd.getValue().bulkDeleteSelectedProperty());
+        bc0.setCellFactory(CheckBoxTableCell.forTableColumn(bc0));
+        bc0.setEditable(true);
+        bc0.setPrefWidth(80);
         TableColumn<BookRow, BookRow> bc1 = new TableColumn<>("Title");
         bc1.setCellValueFactory(cd -> new javafx.beans.property.SimpleObjectProperty<>(cd.getValue()));
         bc1.setCellFactory(col -> new javafx.scene.control.TableCell<>() {
@@ -155,8 +213,9 @@ public final class AuthorPublishedBooksScreen {
         bc2.setCellValueFactory(new PropertyValueFactory<>("genre"));
         TableColumn<BookRow, String> bc3 = new TableColumn<>("Status");
         bc3.setCellValueFactory(new PropertyValueFactory<>("status"));
-        bookTable.getColumns().addAll(List.of(bc1, bc2, bc3));
+        bookTable.getColumns().addAll(List.of(bc0, bc1, bc2, bc3));
         bookTable.setItems(bItems);
+        bookTable.setEditable(true);
         // Make the table taller so the submission list can display more rows without scrolling
         bookTable.setPrefHeight(Math.max(400, (int)Navigator.getPreferredHeight() - 240));
 
@@ -429,59 +488,91 @@ public final class AuthorPublishedBooksScreen {
         delBookBtn.getStyleClass().add("secondary-button");
         delBookBtn.setPrefWidth(140);
         delBookBtn.setOnAction(e -> {
-            BookRow r = bookTable.getSelectionModel().getSelectedItem();
-            if (r == null) return;
-            if (r.getAuthorUserId() != user.getId()) {
-                new Alert(Alert.AlertType.WARNING, "You can only delete your own books.").showAndWait();
-                return;
-            }
-
-            try {
-                if (r.isPending()) {
-                    // allow delete of pending (PENDING) or rejected
-                    new Alert(Alert.AlertType.CONFIRMATION, "Delete this submission permanently?").showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
-                        try {
-                            PendingDao.deleteByIdForAuthor(r.getPendingId(), user.getId());
-                            refresh.run();
-                        } catch (SQLException ex) {
-                            new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
-                        }
-                    });
-                    return;
-                }
-
-                // published book deletion — only when not borrowed
-                if (BorrowDao.countActiveBorrowsForBook(r.getId()) > 0) {
+            List<BookRow> checkedRows = bItems.stream()
+                    .filter(BookRow::isBulkDeleteSelected)
+                    .toList();
+            List<BookRow> deleteTargets;
+            if (!checkedRows.isEmpty()) {
+                deleteTargets = checkedRows;
+            } else {
+                BookRow selectedRow = bookTable.getSelectionModel().getSelectedItem();
+                if (selectedRow == null) {
                     new Alert(Alert.AlertType.WARNING,
-                            "Cannot delete this book while it is borrowed by a student or staff member.")
-                            .showAndWait();
+                            "Select a row or tick checkbox(es) before deleting.").showAndWait();
                     return;
                 }
-                new Alert(Alert.AlertType.CONFIRMATION, "Remove this book from the catalog?")
-                        .showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
-                            try {
-                                // Remove any pending edits that reference this book to avoid re-creating it later
-                                try {
-                                    PendingDao.deleteByOriginalBookId(r.getId());
-                                } catch (SQLException ignored) {}
-                                // Also remove legacy/unlinked reviewed submissions for this title+author
-                                // so the librarian can't approve them later and recreate the catalog row.
-                                try {
-                                    PendingDao.deleteUnlinkedApprovedOrRejectedForAuthorTitle(user.getId(), r.getTitle());
-                                } catch (SQLException ignored) {}
-                                // Soft-remove so student/staff borrow history stays visible.
-                                BookDao.removeFromCatalogButKeepHistory(r.getId());
-                                refresh.run();
-                            } catch (SQLException ex) {
-                                new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
-                            }
-                        });
+                deleteTargets = List.of(selectedRow);
+            }
+            try {
+                BulkDeletePlan plan = buildBulkDeletePlan(deleteTargets, user.getId(), BorrowDao::countActiveBorrowsForBook);
+                if (plan.deletable().isEmpty()) {
+                    new Alert(Alert.AlertType.INFORMATION, buildBulkDeleteSummary(plan)).showAndWait();
+                    return;
+                }
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                confirm.setTitle("Confirm Delete");
+                confirm.setHeaderText("Delete " + plan.deletable().size() + " item(s)?");
+                confirm.setContentText(buildBulkDeleteSummary(plan));
+                confirm.showAndWait().filter(b -> b == ButtonType.OK).ifPresent(b -> {
+                    int success = 0;
+                    List<String> failures = new ArrayList<>();
+                    for (DeletionDecision d : plan.deletable()) {
+                        try {
+                            deleteRowForAuthor(d.row(), user.getId());
+                            success++;
+                        } catch (SQLException ex) {
+                            failures.add(d.row().getTitle() + " (" + ex.getMessage() + ")");
+                        }
+                    }
+                    Alert result = new Alert(Alert.AlertType.INFORMATION);
+                    result.setTitle("Delete Result");
+                    result.setHeaderText("Deleted " + success + " of " + plan.deletable().size() + " eligible item(s)");
+                    result.setContentText(buildBulkDeleteResultSummary(plan, success, failures));
+                    result.showAndWait();
+                    bItems.forEach(row -> row.setBulkDeleteSelected(false));
+                    refresh.run();
+                });
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
             }
         });
 
-        HBox bbar = new HBox(10, editBookBtn, delBookBtn);
+        Button readBtn = new Button("Read");
+        readBtn.getStyleClass().add("secondary-button");
+        readBtn.setPrefWidth(140);
+        readBtn.setOnAction(e -> {
+            BookRow selected = bookTable.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                new Alert(Alert.AlertType.WARNING, "Please select a row to read.").showAndWait();
+                return;
+            }
+            try {
+                if (selected.isPending()) {
+                    Optional<PendingBook> pendingOpt = PendingDao.findById(selected.getPendingId());
+                    if (pendingOpt.isEmpty()) {
+                        new Alert(Alert.AlertType.ERROR, "Submission not found.").showAndWait();
+                        return;
+                    }
+                    PendingBook pending = pendingOpt.get();
+                    openFullFile(pending.getFilePath(), pending.getTitle());
+                } else {
+                    Optional<Book> bookOpt = BookDao.findById(selected.getId());
+                    if (bookOpt.isEmpty()) {
+                        new Alert(Alert.AlertType.ERROR, "Book not found.").showAndWait();
+                        return;
+                    }
+                    Book book = bookOpt.get();
+                    openFullFile(book.getFilePath(), book.getTitle());
+                }
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, ex.getMessage()).showAndWait();
+            }
+        });
+
+        editBookBtn.disableProperty().bind(Bindings.size(bookTable.getSelectionModel().getSelectedItems()).isNotEqualTo(1));
+        readBtn.disableProperty().bind(Bindings.size(bookTable.getSelectionModel().getSelectedItems()).isNotEqualTo(1));
+
+        HBox bbar = new HBox(10, editBookBtn, delBookBtn, readBtn);
         bbar.setAlignment(Pos.CENTER_LEFT);
         bbar.setPadding(new Insets(16, 0, 0, 0));
 
@@ -511,5 +602,206 @@ public final class AuthorPublishedBooksScreen {
             scene.getStylesheets().add(css.toExternalForm());
         }
         return scene;
+    }
+
+    static BulkDeletePlan buildBulkDeletePlan(List<BookRow> selectedRows, long authorId, BorrowCounter borrowCounter)
+            throws SQLException {
+        List<DeletionDecision> deletable = new ArrayList<>();
+        List<DeletionDecision> blocked = new ArrayList<>();
+        LinkedHashMap<String, Integer> blockedCounts = new LinkedHashMap<>();
+        for (BookRow row : selectedRows) {
+            DeletionDecision decision = evaluateDeletionEligibility(row, authorId, borrowCounter);
+            if (decision.deletable()) {
+                deletable.add(decision);
+            } else {
+                blocked.add(decision);
+                blockedCounts.merge(decision.reason(), 1, Integer::sum);
+            }
+        }
+        return new BulkDeletePlan(deletable, blocked, blockedCounts);
+    }
+
+    static DeletionDecision evaluateDeletionEligibility(BookRow row, long authorId, BorrowCounter borrowCounter)
+            throws SQLException {
+        if (row == null) return new DeletionDecision(null, false, "Invalid row");
+        if (row.getAuthorUserId() != authorId) {
+            return new DeletionDecision(row, false, "Not owned by current author");
+        }
+        if (row.isPending()) {
+            if (row.getPendingId() <= 0) {
+                return new DeletionDecision(row, false, "Invalid pending submission reference");
+            }
+            return new DeletionDecision(row, true, "");
+        }
+        if (row.getId() <= 0) {
+            return new DeletionDecision(row, false, "Invalid published book reference");
+        }
+        if (borrowCounter.count(row.getId()) > 0) {
+            return new DeletionDecision(row, false, "Published book is currently borrowed");
+        }
+        return new DeletionDecision(row, true, "");
+    }
+
+    private static String buildBulkDeleteSummary(BulkDeletePlan plan) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Selected: ").append(plan.deletable().size() + plan.blocked().size()).append('\n');
+        sb.append("Eligible for deletion: ").append(plan.deletable().size()).append('\n');
+        sb.append("Blocked: ").append(plan.blocked().size());
+        if (!plan.blockedCounts().isEmpty()) {
+            sb.append("\n\nBlocked reasons:");
+            for (var e : plan.blockedCounts().entrySet()) {
+                sb.append("\n- ").append(e.getKey()).append(": ").append(e.getValue());
+            }
+        }
+        if (!plan.deletable().isEmpty()) {
+            sb.append("\n\nSample deletable titles:");
+            for (int i = 0; i < Math.min(5, plan.deletable().size()); i++) {
+                sb.append("\n- ").append(plan.deletable().get(i).row().getTitle());
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String buildBulkDeleteResultSummary(BulkDeletePlan plan, int success, List<String> failures) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Success: ").append(success).append('\n');
+        sb.append("Failed during execution: ").append(failures.size()).append('\n');
+        sb.append("Skipped/blocked before execution: ").append(plan.blocked().size());
+        if (!plan.blockedCounts().isEmpty()) {
+            sb.append("\n\nSkipped reasons:");
+            for (var e : plan.blockedCounts().entrySet()) {
+                sb.append("\n- ").append(e.getKey()).append(": ").append(e.getValue());
+            }
+        }
+        if (!failures.isEmpty()) {
+            sb.append("\n\nExecution failures:");
+            for (String f : failures) {
+                sb.append("\n- ").append(f);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static void deleteRowForAuthor(BookRow row, long authorId) throws SQLException {
+        if (row.isPending()) {
+            PendingDao.deleteByIdForAuthor(row.getPendingId(), authorId);
+            return;
+        }
+        try {
+            PendingDao.deleteByOriginalBookId(row.getId());
+        } catch (SQLException ignored) {}
+        try {
+            PendingDao.deleteUnlinkedApprovedOrRejectedForAuthorTitle(authorId, row.getTitle());
+        } catch (SQLException ignored) {}
+        BookDao.removeFromCatalogButKeepHistory(row.getId());
+    }
+
+    private static void openFullFile(String filePath, String title) {
+        if (filePath == null || filePath.isBlank()) {
+            new Alert(Alert.AlertType.INFORMATION,
+                    "No file path is available for \"" + title + "\".").showAndWait();
+            return;
+        }
+        File file = new File(filePath);
+        if (!file.exists() || !file.isFile()) {
+            new Alert(Alert.AlertType.ERROR, "Book file not found on disk:\n" + filePath).showAndWait();
+            return;
+        }
+        String lowerPath = filePath.toLowerCase();
+        if (lowerPath.endsWith(".pdf")) {
+            openPdfInPopup(file, title);
+            return;
+        }
+        openTextBasedFileInPopup(filePath, title);
+    }
+
+    private static void openPdfInPopup(File file, String title) {
+        int pageCount = BookPreviewUtil.getPdfPageCount(file.toPath());
+        if (pageCount <= 0) {
+            new Alert(Alert.AlertType.ERROR,
+                    "Could not load PDF pages for in-app reading.\nPath: " + file.getAbsolutePath()).showAndWait();
+            return;
+        }
+        List<Image> pages = BookPreviewUtil.readPdfPreviewImages(file.getAbsolutePath(), pageCount);
+        if (pages.isEmpty()) {
+            new Alert(Alert.AlertType.ERROR,
+                    "PDF content could not be rendered in-app.\nPath: " + file.getAbsolutePath()).showAndWait();
+            return;
+        }
+
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setTitle("Read — " + title);
+
+        Label info = new Label("Showing full PDF content (" + pages.size() + " page(s)).");
+        info.setWrapText(true);
+
+        VBox pdfPagesBox = new VBox(12);
+        pdfPagesBox.setPadding(new Insets(8));
+        for (int i = 0; i < pages.size(); i++) {
+            ImageView imageView = new ImageView(pages.get(i));
+            imageView.setPreserveRatio(true);
+            imageView.setFitWidth(900);
+            Label pageLabel = new Label("Page " + (i + 1));
+            pageLabel.setStyle("-fx-font-weight: bold;");
+            pdfPagesBox.getChildren().addAll(pageLabel, imageView);
+        }
+        ScrollPane scrollPane = new ScrollPane(pdfPagesBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("secondary-button");
+        closeBtn.setOnAction(e -> stage.close());
+
+        VBox root = new VBox(10, info, scrollPane, closeBtn);
+        root.setPadding(new Insets(12));
+        root.setPrefSize(980, 720);
+        VBox.setVgrow(scrollPane, javafx.scene.layout.Priority.ALWAYS);
+
+        Scene scene = new Scene(root, 980, 720);
+        var css = AuthorPublishedBooksScreen.class.getResource("/app.css");
+        if (css != null) {
+            scene.getStylesheets().add(css.toExternalForm());
+        }
+        stage.setScene(scene);
+        stage.showAndWait();
+    }
+
+    private static void openTextBasedFileInPopup(String filePath, String title) {
+        String content = BookPreviewUtil.readTextContent(filePath);
+        if (content == null || content.isBlank()) {
+            new Alert(Alert.AlertType.ERROR,
+                    "Could not read file content in-app.\nPath: " + filePath).showAndWait();
+            return;
+        }
+
+        Stage stage = new Stage();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setTitle("Read — " + title);
+
+        Label info = new Label("Showing full extracted content from: " + new File(filePath).getName());
+        info.setWrapText(true);
+
+        TextArea textArea = new TextArea(content);
+        textArea.setWrapText(true);
+        textArea.setEditable(false);
+
+        Button closeBtn = new Button("Close");
+        closeBtn.getStyleClass().add("secondary-button");
+        closeBtn.setOnAction(e -> stage.close());
+
+        VBox root = new VBox(10, info, textArea, closeBtn);
+        root.setPadding(new Insets(12));
+        VBox.setVgrow(textArea, javafx.scene.layout.Priority.ALWAYS);
+
+        Scene scene = new Scene(root, 980, 720);
+        var css = AuthorPublishedBooksScreen.class.getResource("/app.css");
+        if (css != null) {
+            scene.getStylesheets().add(css.toExternalForm());
+        }
+        stage.setScene(scene);
+        stage.showAndWait();
     }
 }
