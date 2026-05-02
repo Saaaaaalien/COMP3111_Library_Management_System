@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Locale;
 
 /**
  * SQLite database connection and schema initialization.
@@ -160,6 +161,8 @@ public final class Database {
                     author_reply_text TEXT,
                     author_reply_at TEXT,
                     flagged_by_author_at TEXT,
+                    sentiment_label TEXT,
+                    sentiment_source TEXT,
                     FOREIGN KEY (book_id) REFERENCES books(id),
                     FOREIGN KEY (reviewer_user_id) REFERENCES users(id)
                 )
@@ -252,21 +255,38 @@ public final class Database {
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE book_reviews ADD COLUMN author_reply_text TEXT");
         } catch (SQLException e) {
-            String msg = e.getMessage();
-            if (msg == null || !msg.contains("duplicate column")) throw e;
+            if (!isDuplicateColumnError(e)) throw e;
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE book_reviews ADD COLUMN author_reply_at TEXT");
         } catch (SQLException e) {
-            String msg = e.getMessage();
-            if (msg == null || !msg.contains("duplicate column")) throw e;
+            if (!isDuplicateColumnError(e)) throw e;
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE book_reviews ADD COLUMN flagged_by_author_at TEXT");
         } catch (SQLException e) {
-            String msg = e.getMessage();
-            if (msg == null || !msg.contains("duplicate column")) throw e;
+            if (!isDuplicateColumnError(e)) throw e;
         }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN sentiment_label TEXT");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN sentiment_source TEXT");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+    }
+
+    /** SQLite/JDBC duplicate-column wording varies; ignore during additive migrations. */
+    private static boolean isDuplicateColumnError(SQLException e) {
+        String msg = e.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        String lower = msg.toLowerCase(Locale.ROOT);
+        return lower.contains("duplicate") && lower.contains("column");
     }
 
     private static void migrateReadingHighlightsTable(Connection conn) throws SQLException {
