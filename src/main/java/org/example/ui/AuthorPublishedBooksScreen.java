@@ -597,6 +597,26 @@ public final class AuthorPublishedBooksScreen {
         return scene;
     }
 
+    public record ReadPreviewData(String content, String statusMessage) {}
+
+    /**
+     * Builds a short inline preview for the author's book file path, falling back to the stored summary.
+     */
+    public static ReadPreviewData buildReadPreviewData(String filePath, String fallbackSummary) {
+        String fb = fallbackSummary == null ? "" : fallbackSummary;
+        String preview = BookPreviewUtil.readTextPreview(filePath);
+        if (preview != null && !preview.isBlank()) {
+            return new ReadPreviewData(preview, "Showing extracted file preview.");
+        }
+        if (filePath != null && !filePath.isBlank()) {
+            String lower = filePath.toLowerCase();
+            if (lower.endsWith(".txt") || lower.endsWith(".pdf") || lower.endsWith(".docx") || lower.endsWith(".doc")) {
+                return new ReadPreviewData(fb, "Showing extracted file preview.");
+            }
+        }
+        return new ReadPreviewData(fb, "Unsupported file format for inline preview.");
+    }
+
     static BulkDeletePlan buildBulkDeletePlan(List<BookRow> selectedRows, long authorId, BorrowCounter borrowCounter)
             throws SQLException {
         List<DeletionDecision> deletable = new ArrayList<>();

@@ -26,6 +26,7 @@ public final class BookPreviewUtil {
 
     /** Maximum number of characters to include in a text preview (roughly first few pages). */
     private static final int MAX_PREVIEW_CHARS = 5000;
+    private static final int APPROX_CHARS_PER_PAGE = 2200;
 
     private BookPreviewUtil() {}
 
@@ -110,6 +111,44 @@ public final class BookPreviewUtil {
         return null;
     }
 
+    /**
+     * Reads roughly the first {@code maxPages} pages worth of content.
+     * For PDF, this uses real page boundaries. For text/Word, it truncates by
+     * an approximate characters-per-page budget.
+     *
+     * @param filePath absolute path to the book file (may be null or empty)
+     * @param maxPages max number of pages to read (must be > 0)
+     * @return extracted text for the first pages, or null if unavailable/unsupported
+     */
+    public static String readTextContentFirstPages(String filePath, int maxPages) {
+        if (filePath == null || filePath.isBlank() || maxPages <= 0) {
+            return null;
+        }
+        Path path = Paths.get(filePath);
+        if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+            return null;
+        }
+        String lower = filePath.toLowerCase();
+        if (lower.endsWith(".pdf")) {
+            return readPdfContentFirstPages(path, maxPages);
+        }
+        int maxChars = maxPages * APPROX_CHARS_PER_PAGE;
+        String fullText;
+        if (lower.endsWith(".txt")) {
+            fullText = readTxtContent(path);
+        } else if (lower.endsWith(".docx")) {
+            fullText = readDocxContent(path);
+        } else if (lower.endsWith(".doc")) {
+            fullText = readDocContent(path);
+        } else {
+            return null;
+        }
+        if (fullText == null || fullText.isBlank()) {
+            return null;
+        }
+        return truncateAtBoundary(fullText.trim(), maxChars);
+    }
+
     private static String readTxtPreview(Path path) {
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
@@ -158,6 +197,25 @@ public final class BookPreviewUtil {
             PDDocument document = Loader.loadPDF(path.toFile());
             try {
                 org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                String text = stripper.getText(document);
+                if (text == null || text.isBlank()) {
+                    return null;
+                }
+                return text.trim();
+            } finally {
+                document.close();
+            }
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static String readPdfContentFirstPages(Path path, int maxPages) {
+        try {
+            PDDocument document = Loader.loadPDF(path.toFile());
+            try {
+                org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                stripper.setEndPage(Math.min(maxPages, document.getNumberOfPages()));
                 String text = stripper.getText(document);
                 if (text == null || text.isBlank()) {
                     return null;
