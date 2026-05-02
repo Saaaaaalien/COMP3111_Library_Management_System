@@ -160,6 +160,8 @@ public final class Database {
                     author_reply_text TEXT,
                     author_reply_at TEXT,
                     flagged_by_author_at TEXT,
+                    sentiment_label TEXT,
+                    sentiment_source TEXT,
                     FOREIGN KEY (book_id) REFERENCES books(id),
                     FOREIGN KEY (reviewer_user_id) REFERENCES users(id)
                 )
@@ -245,6 +247,18 @@ public final class Database {
         }
         try (Statement st = conn.createStatement()) {
             st.execute("ALTER TABLE book_reviews ADD COLUMN flagged_by_author_at TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN sentiment_label TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN sentiment_source TEXT");
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;

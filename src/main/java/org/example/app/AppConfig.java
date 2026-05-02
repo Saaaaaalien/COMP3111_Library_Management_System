@@ -10,6 +10,12 @@ public final class AppConfig {
 
     public static final String HF_API_TOKEN = env("HF_API_TOKEN", "");
     public static final String HF_MODEL_ID = env("HF_MODEL_ID", "pszemraj/led-large-book-summary");
+    /**
+     * Hugging Face Inference API model id for text classification (review sentiment).
+     * Override with env {@code HF_SENTIMENT_MODEL_ID}; default is a common 3-label RoBERTa classifier.
+     */
+    public static final String HF_SENTIMENT_MODEL_ID =
+            env("HF_SENTIMENT_MODEL_ID", "cardiffnlp/twitter-roberta-base-sentiment-latest");
     public static final String HF_API_BASE = env("HF_API_BASE", "https://api-inference.huggingface.co");
     public static final int HF_API_TIMEOUT_SECONDS = envInt("HF_API_TIMEOUT_SECONDS", 120);
 
@@ -20,6 +26,12 @@ public final class AppConfig {
     public static String getHfInferenceEndpoint() {
         String base = HF_API_BASE.endsWith("/") ? HF_API_BASE.substring(0, HF_API_BASE.length() - 1) : HF_API_BASE;
         return base + "/models/" + HF_MODEL_ID;
+    }
+
+    /** Inference endpoint for the sentiment classification model (separate from summarization {@link #HF_MODEL_ID}). */
+    public static String getHfSentimentInferenceEndpoint() {
+        String base = HF_API_BASE.endsWith("/") ? HF_API_BASE.substring(0, HF_API_BASE.length() - 1) : HF_API_BASE;
+        return base + "/models/" + HF_SENTIMENT_MODEL_ID;
     }
 
     private static String env(String key, String defaultValue) {

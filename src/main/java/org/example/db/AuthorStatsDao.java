@@ -29,9 +29,8 @@ public final class AuthorStatsDao {
         int totalReads = countTotalReads(authorUserId);
         int distinctReaders = countDistinctReaders(authorUserId);
 
-        // Rating and review persistence is not implemented in this schema yet.
-        double averageRating = 0.0;
-        int reviewCount = 0;
+        double averageRating = loadAverageReviewRating(authorUserId);
+        int reviewCount = countVisibleReviews(authorUserId);
 
         List<BookBorrowStat> topBorrowedBooks = loadTopBorrowedBooks(authorUserId);
         List<GenreStat> genreDistribution = loadGenreDistribution(authorUserId);
@@ -140,6 +139,38 @@ public final class AuthorStatsDao {
         } catch (DateTimeParseException ex) {
             return null;
         }
+    }
+
+    private static double loadAverageReviewRating(long authorUserId) throws SQLException {
+        String sql = """
+                SELECT AVG(r.rating)
+                FROM book_reviews r
+                JOIN books b ON b.id = r.book_id
+                WHERE b.author_user_id = ? AND b.is_visible = 1
+                  AND (r.flagged_by_author_at IS NULL OR r.flagged_by_author_at = '')
+                """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, authorUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    double v = rs.getDouble(1);
+                    return rs.wasNull() ? 0.0 : v;
+                }
+            }
+        }
+        return 0.0;
+    }
+
+    private static int countVisibleReviews(long authorUserId) throws SQLException {
+        String sql = """
+                SELECT COUNT(*)
+                FROM book_reviews r
+                JOIN books b ON b.id = r.book_id
+                WHERE b.author_user_id = ? AND b.is_visible = 1
+                  AND (r.flagged_by_author_at IS NULL OR r.flagged_by_author_at = '')
+                """;
+        return querySingleInt(sql, authorUserId);
     }
 
     private static int countPublishedBooks(long authorUserId) throws SQLException {
