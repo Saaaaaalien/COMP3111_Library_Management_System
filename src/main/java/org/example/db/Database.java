@@ -222,6 +222,24 @@ public final class Database {
                     FOREIGN KEY (author_user_id) REFERENCES users(id)
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS book_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    requested_by_user_id INTEGER NOT NULL,
+                    requested_by_name TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    author_name TEXT NOT NULL,
+                    description TEXT,
+                    genre TEXT,
+                    status TEXT NOT NULL,
+                    approval_notes TEXT,
+                    downloaded_file_path TEXT,
+                    generated_summary TEXT,
+                    created_at TEXT NOT NULL,
+                    processed_at TEXT,
+                    FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
+                )
+                """);
             migratePublishDraftsTable(conn);
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);

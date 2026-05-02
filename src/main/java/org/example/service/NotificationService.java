@@ -27,6 +27,8 @@ public final class NotificationService {
     public static final String CAT_ANNOUNCEMENT = "ANNOUNCEMENT";
     public static final String CAT_BORROW_EVENT = "BORROW_EVENT";
     public static final String CAT_RETURN_EVENT = "RETURN_EVENT";
+    public static final String CAT_ACCOUNT_UPDATED = "ACCOUNT_UPDATED";
+    public static final String CAT_ACCOUNT_STATUS = "ACCOUNT_STATUS";
     public static final String CAT_AUTHOR_APPROVED = "AUTHOR_APPROVED";
     public static final String CAT_AUTHOR_REJECTED = "AUTHOR_REJECTED";
     /** Librarian removed the author's book from the catalog. */
@@ -35,6 +37,12 @@ public final class NotificationService {
     public static final String CAT_AUTHOR_REVIEW_REPLY = "AUTHOR_REVIEW_REPLY";
     /** Author flagged review and receives confirmation. */
     public static final String CAT_AUTHOR_REVIEW_FLAGGED = "AUTHOR_REVIEW_FLAGGED";
+    /** Librarian feed: user borrowed a book. */
+    public static final String CAT_LIB_BORROW_ACTIVITY = "LIB_BORROW_ACTIVITY";
+    /** Librarian feed: user returned (or auto-returned) a book. */
+    public static final String CAT_LIB_RETURN_ACTIVITY = "LIB_RETURN_ACTIVITY";
+    /** Librarian feed: user updated account/profile details. */
+    public static final String CAT_LIB_USER_PROFILE_UPDATED = "LIB_USER_PROFILE_UPDATED";
 
     private NotificationService() {}
 
@@ -45,7 +53,8 @@ public final class NotificationService {
         String c = n.getCategory();
         return CAT_AUTHOR_REJECTED.equals(c)
                 || CAT_BOOK_REMOVED.equals(c)
-                || CAT_AUTHOR_BOOK_REMOVED.equals(c);
+            || CAT_AUTHOR_BOOK_REMOVED.equals(c)
+            || CAT_ACCOUNT_STATUS.equals(c);
     }
 
     /**
@@ -141,6 +150,91 @@ public final class NotificationService {
                 null
         );
     }
+
+            public static void notifyUserAccountUpdatedByLibrarian(long userId, String details) throws SQLException {
+            String body = (details == null || details.isBlank())
+                ? "A librarian updated your account details."
+                : details;
+            NotificationDao.insert(
+                userId,
+                CAT_ACCOUNT_UPDATED,
+                "Account updated by librarian",
+                body,
+                Instant.now().toString(),
+                5,
+                null
+            );
+            }
+
+            public static void notifyUserAccountStatusChangedByLibrarian(long userId, boolean active) throws SQLException {
+            String title = active ? "Account reactivated" : "Account deactivated";
+            String body = active
+                ? "A librarian reactivated your account."
+                : "A librarian deactivated your account. You may be unable to sign in until reactivated.";
+            NotificationDao.insert(
+                userId,
+                CAT_ACCOUNT_STATUS,
+                title,
+                body,
+                Instant.now().toString(),
+                active ? 5 : 10,
+                null
+            );
+            }
+
+            public static void notifyLibrariansBorrowActivity(long borrowId, long borrowerUserId,
+                                      String bookTitle, String dueAt) throws SQLException {
+            String actor = "User #" + borrowerUserId;
+            String roleName = "USER";
+            var borrower = UserDao.findById(borrowerUserId);
+            if (borrower.isPresent()) {
+                actor = borrower.get().getUsername();
+                roleName = borrower.get().getRole().name();
+            }
+            String body = actor + " (" + roleName + ") borrowed \"" + bookTitle + "\"."
+                + (dueAt != null && !dueAt.isBlank() ? " Due: " + dueAt : "");
+            notifyAllLibrarians(
+                CAT_LIB_BORROW_ACTIVITY,
+                "Borrow activity",
+                body,
+                4,
+                "LIB_BORROW:" + borrowId
+            );
+            }
+
+            public static void notifyLibrariansReturnActivity(long borrowId, long borrowerUserId,
+                                      String bookTitle, boolean autoReturn) throws SQLException {
+            String actor = "User #" + borrowerUserId;
+            String roleName = "USER";
+            var borrower = UserDao.findById(borrowerUserId);
+            if (borrower.isPresent()) {
+                actor = borrower.get().getUsername();
+                roleName = borrower.get().getRole().name();
+            }
+            String body = autoReturn
+                ? actor + " (" + roleName + ") had \"" + bookTitle + "\" auto-returned after due date."
+                : actor + " (" + roleName + ") returned \"" + bookTitle + "\".";
+            notifyAllLibrarians(
+                CAT_LIB_RETURN_ACTIVITY,
+                autoReturn ? "Auto-return activity" : "Return activity",
+                body,
+                autoReturn ? URGENT_PRIORITY : 4,
+                "LIB_RETURN:" + borrowId + ":" + (autoReturn ? "AUTO" : "MANUAL")
+            );
+            }
+
+            public static void notifyLibrariansUserProfileUpdated(long userId, String username, String roleName) throws SQLException {
+            String who = (username == null || username.isBlank()) ? ("User #" + userId) : username;
+            String role = (roleName == null || roleName.isBlank()) ? "USER" : roleName;
+            String body = who + " (" + role + ") updated account/profile details.";
+            notifyAllLibrarians(
+                CAT_LIB_USER_PROFILE_UPDATED,
+                "User account updated",
+                body,
+                3,
+                null
+            );
+            }
 
     public static void notifyAuthorSubmissionRejected(long authorUserId, String title, String reviewNotes) throws SQLException {
         String body = "Your submission \"" + title + "\" was rejected.";

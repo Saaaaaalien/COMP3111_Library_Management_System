@@ -1,14 +1,24 @@
 package org.example.ui;
 
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+
+import org.example.app.Navigator;
+import org.example.domain.BorrowWithBook;
+import org.example.domain.User;
+import org.example.service.BorrowService;
+
+import javafx.animation.PauseTransition;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -17,19 +27,8 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.animation.PauseTransition;
 import javafx.util.Duration;
-import org.example.app.Navigator;
-import org.example.db.NotificationDao;
-import org.example.domain.BorrowWithBook;
-import org.example.domain.User;
-import org.example.service.BorrowService;
-
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Screen showing the current user's borrowed books (active and previously returned).
@@ -77,18 +76,18 @@ public final class MyBorrowedBooksScreen {
         PauseTransition inactivityTimer = new PauseTransition(Duration.minutes(15));
         inactivityTimer.setOnFinished(ev -> navigator.showStudentStaffPortal());
 
-        Button notifBtn = new Button("Notification Board");
-        notifBtn.getStyleClass().add("secondary-button");
-        notifBtn.setOnAction(e -> navigator.showStudentStaffNotifications(currentUser, true));
+        // Button notifBtn = new Button("Notification Board");
+        // notifBtn.getStyleClass().add("secondary-button");
+        // notifBtn.setOnAction(e -> navigator.showStudentStaffNotifications(currentUser, true));
 
-        Runnable refreshNotifLabel = () -> {
-            try {
-                int n = NotificationDao.countUnread(currentUser.getId());
-                notifBtn.setText(n > 0 ? "Notification Board (" + n + ")" : "Notification Board");
-            } catch (Exception ignored) {
-                notifBtn.setText("Notification Board");
-            }
-        };
+        // Runnable refreshNotifLabel = () -> {
+        //     try {
+        //         int n = NotificationDao.countUnread(currentUser.getId());
+        //         notifBtn.setText(n > 0 ? "Notification Board (" + n + ")" : "Notification Board");
+        //     } catch (Exception ignored) {
+        //         notifBtn.setText("Notification Board");
+        //     }
+        // };
 
         // Spec: "currently borrowed" should show active loans by default.
         // Keep an option to reveal returned history for convenience.
@@ -108,7 +107,7 @@ public final class MyBorrowedBooksScreen {
                 runWithTimerPaused(inactivityTimer,
                     () -> showAlert(Alert.AlertType.ERROR, "Error", "Could not load borrowed books."));
             }
-            refreshNotifLabel.run();
+            // refreshNotifLabel.run();
         };
         refresh.run();
 
@@ -180,23 +179,23 @@ public final class MyBorrowedBooksScreen {
                     selected.getTitle(), selected.getFilePath());
         });
 
-        Button profileBtn = new Button("Manage Profile");
-        profileBtn.getStyleClass().add("secondary-button");
-        profileBtn.setOnAction(e -> navigator.showStudentStaffProfile(currentUser));
+        // Button profileBtn = new Button("Manage Profile");
+        // profileBtn.getStyleClass().add("secondary-button");
+        // profileBtn.setOnAction(e -> navigator.showStudentStaffProfile(currentUser));
 
-        Button availableBooksBtn = new Button("Go to Available Books");
-        availableBooksBtn.getStyleClass().add("secondary-button");
-        availableBooksBtn.setOnAction(e -> navigator.showAvailableBooks(currentUser));
+        // Button availableBooksBtn = new Button("Go to Available Books");
+        // availableBooksBtn.getStyleClass().add("secondary-button");
+        // availableBooksBtn.setOnAction(e -> navigator.showAvailableBooks(currentUser));
 
-        Button logoutBtn = new Button("Logout");
-        logoutBtn.getStyleClass().add("secondary-button");
-        logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
+        // Button logoutBtn = new Button("Logout");
+        // logoutBtn.getStyleClass().add("secondary-button");
+        // logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
 
         FlowPane buttons = new FlowPane();
         buttons.setHgap(10);
         buttons.setVgap(10);
         buttons.setAlignment(Pos.CENTER_LEFT);
-        buttons.getChildren().addAll(returnBtn, readPdfBtn, profileBtn, notifBtn, availableBooksBtn, logoutBtn);
+        buttons.getChildren().addAll(returnBtn, readPdfBtn);
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 

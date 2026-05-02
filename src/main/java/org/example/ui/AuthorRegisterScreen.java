@@ -117,12 +117,6 @@ public final class AuthorRegisterScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> {
-            DraftService.clearDraft("AUTHOR_REGISTER");
-            navigator.showAuthorPortal();
-        });
 
         VBox usernameBox = new VBox(5, usernameLabel, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
@@ -142,7 +136,7 @@ public final class AuthorRegisterScreen {
         VBox form = new VBox(12, usernameBox, firstNameBox, lastNameBox, bioBox, passwordBox);
         form.setAlignment(Pos.CENTER);
 
-        VBox content = new VBox(18, title, form, registerBtn, backBtn);
+        VBox content = new VBox(18, title, form, registerBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(440);
         content.getStyleClass().add("content-card");

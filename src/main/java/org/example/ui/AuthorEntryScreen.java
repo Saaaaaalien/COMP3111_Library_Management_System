@@ -35,11 +35,7 @@ public final class AuthorEntryScreen {
         hintLbl.getStyleClass().add("login-hint");
 
 
-        Button backBtn = new Button("Back to Welcome");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showWelcome());
-
-        VBox content = new VBox(18, title, hintLbl, loginBtn, registerBtn, backBtn);
+        VBox content = new VBox(18, title, hintLbl, loginBtn, registerBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(440);
         content.getStyleClass().add("content-card");

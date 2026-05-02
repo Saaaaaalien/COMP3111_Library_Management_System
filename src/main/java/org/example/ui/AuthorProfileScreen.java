@@ -14,6 +14,7 @@ import org.example.app.Navigator;
 import org.example.db.UserDao;
 import org.example.domain.User;
 import org.example.security.PasswordHasher;
+import org.example.service.NotificationService;
 import org.example.util.ValidationException;
 import org.example.util.Validators;
 
@@ -188,17 +189,25 @@ public final class AuthorProfileScreen {
 
                 if (passwordChangeRequested) {
                     Validators.validatePasswordStrength(np);
-                    if (!np.equals(pw2.getText())) {
+                    if (!Objects.equals(np, pw2.getText())) {
                         throw new ValidationException("New passwords do not match.");
                     }
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(np, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
+                    try {
+                        NotificationService.notifyLibrariansUserProfileUpdated(user.getId(), user.getUsername(), user.getRole().name());
+                    } catch (SQLException ignored) {
+                    }
                     new Alert(Alert.AlertType.INFORMATION, "Password changed. You have been logged out — please sign in again.").showAndWait();
                     navigator.showAuthorPortal();
                     return;
                 }
 
+                try {
+                    NotificationService.notifyLibrariansUserProfileUpdated(user.getId(), user.getUsername(), user.getRole().name());
+                } catch (SQLException ignored) {
+                }
                 new Alert(Alert.AlertType.INFORMATION, "Profile saved successfully.").showAndWait();
                 User refreshed = UserDao.findById(user.getId()).orElse(user);
                 navigator.showAuthorDashboard(refreshed);
@@ -211,16 +220,7 @@ public final class AuthorProfileScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(140);
-        backBtn.setOnAction(e -> {
-            try {
-                navigator.showAuthorDashboard(UserDao.findById(user.getId()).orElse(user));
-            } catch (SQLException ex) {
-                navigator.showAuthorDashboard(user);
-            }
-        });
+        // Navigation handled by global menu; remove per-screen Back button
 
         // ── Password grid ────────────────────────────────────────────────────
         GridPane pwGrid = new GridPane();
@@ -248,7 +248,7 @@ public final class AuthorProfileScreen {
                 new Label("Bio"), bioArea,
                 new javafx.scene.control.Separator(),
                 new Label("Password"), pwGrid,
-                saveBtn, backBtn);
+                saveBtn);
         form.setAlignment(Pos.CENTER);
         form.setPadding(new Insets(24));
 
