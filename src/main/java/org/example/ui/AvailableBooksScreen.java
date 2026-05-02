@@ -442,14 +442,14 @@ public final class AvailableBooksScreen {
             });
         });
 
-        Button myBorrowedBtn = new Button("Go to My Borrowed Books");
-        myBorrowedBtn.getStyleClass().add("secondary-button");
-        myBorrowedBtn.setOnAction(e -> navigator.showMyBorrowedBooks(currentUser));
+        // Button myBorrowedBtn = new Button("Go to My Borrowed Books");
+        // myBorrowedBtn.getStyleClass().add("secondary-button");
+        // myBorrowedBtn.setOnAction(e -> navigator.showMyBorrowedBooks(currentUser));
 
-        // Logout returns to Student/Staff portal (entry screen)
-        Button logoutBtn = new Button("Logout");
-        logoutBtn.getStyleClass().add("secondary-button");
-        logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
+        // // Logout returns to Student/Staff portal (entry screen)
+        // Button logoutBtn = new Button("Logout");
+        // logoutBtn.getStyleClass().add("secondary-button");
+        // logoutBtn.setOnAction(e -> navigator.showStudentStaffPortal());
 
         readSummaryBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         quickReviewBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
@@ -503,21 +503,21 @@ public final class AvailableBooksScreen {
         tableContainer.setPadding(new Insets(10));
 
         // Group primary and navigation actions
-        Button profileBtn = new Button("Manage Profile");
-        profileBtn.getStyleClass().add("secondary-button");
-        profileBtn.setTooltip(new Tooltip("Open your profile settings"));
-        profileBtn.setOnAction(e -> navigator.showStudentStaffProfile(currentUser));
-        Button notifBtn = new Button("Notification Board");
-        notifBtn.getStyleClass().add("secondary-button");
-        notifBtn.setTooltip(new Tooltip("View unread and archived notifications"));
-        notifBtn.setOnAction(e -> navigator.showStudentStaffNotifications(currentUser, false));
-        try {
-            int unread = NotificationDao.countUnread(currentUser.getId());
-            if (unread > 0) {
-                notifBtn.setText("Notification Board (" + unread + ")");
-            }
-        } catch (SQLException ignored) {
-        }
+        // Button profileBtn = new Button("Manage Profile");
+        // profileBtn.getStyleClass().add("secondary-button");
+        // profileBtn.setTooltip(new Tooltip("Open your profile settings"));
+        // profileBtn.setOnAction(e -> navigator.showStudentStaffProfile(currentUser));
+        // Button notifBtn = new Button("Notification Board");
+        // notifBtn.getStyleClass().add("secondary-button");
+        // notifBtn.setTooltip(new Tooltip("View unread and archived notifications"));
+        // notifBtn.setOnAction(e -> navigator.showStudentStaffNotifications(currentUser, false));
+        // try {
+        //     int unread = NotificationDao.countUnread(currentUser.getId());
+        //     if (unread > 0) {
+        //         notifBtn.setText("Notification Board (" + unread + ")");
+        //     }
+        // } catch (SQLException ignored) {
+        // }
 
         FlowPane buttons = new FlowPane();
         buttons.setHgap(10);
@@ -525,11 +525,7 @@ public final class AvailableBooksScreen {
         buttons.getChildren().addAll(
                 borrowBtn,
                 readSummaryBtn,
-                quickReviewBtn,
-                profileBtn,
-                notifBtn,
-                myBorrowedBtn,
-                logoutBtn
+                quickReviewBtn
         );
         buttons.setAlignment(Pos.CENTER_LEFT);
         buttons.setPadding(new Insets(10, 0, 0, 0));

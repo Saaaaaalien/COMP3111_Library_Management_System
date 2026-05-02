@@ -1,24 +1,10 @@
 package org.example.ui;
 
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.concurrent.Task;
-import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.VBox;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.animation.PauseTransition;
-import javafx.stage.FileChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.util.Duration;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import java.io.File;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+
 import org.example.app.Navigator;
 import org.example.db.PublishDraftDao;
 import org.example.domain.User;
@@ -26,10 +12,33 @@ import org.example.service.BookSummaryService;
 import org.example.service.PublishService;
 import org.example.util.BookPreviewUtil;
 
-import java.io.File;
-import java.sql.SQLException;
-import java.time.Instant;
-import java.util.List;
+import javafx.animation.PauseTransition;
+import javafx.concurrent.Task;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SelectionMode;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public final class PublishBookScreen {
 
@@ -84,15 +93,8 @@ public final class PublishBookScreen {
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setPrefWidth(200);
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(150);
-        backBtn.setOnAction(e -> {
-            persistDraftQuietly();
-            navigator.showAuthorDashboard(currentUser);
-        });
-
-        buttonBox.getChildren().addAll(submitBtn, backBtn);
+        // Navigation is handled by global menu; remove per-screen Back button.
+        buttonBox.getChildren().addAll(submitBtn);
 
         // Submit action
         submitBtn.setOnAction(e -> {

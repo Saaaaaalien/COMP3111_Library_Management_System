@@ -37,19 +37,17 @@ public final class AuthorNotificationsScreen {
             new Pair<>("Book rejected", NotificationService.CAT_AUTHOR_REJECTED),
             new Pair<>("Book removed (librarian)", NotificationService.CAT_AUTHOR_BOOK_REMOVED),
             new Pair<>("Review flagged confirmations", NotificationService.CAT_AUTHOR_REVIEW_FLAGGED),
+            new Pair<>("Account updates", NotificationService.CAT_ACCOUNT_UPDATED),
+            new Pair<>("Account status", NotificationService.CAT_ACCOUNT_STATUS),
             new Pair<>("Announcements", NotificationService.CAT_ANNOUNCEMENT)
     );
 
     public static Scene create(Navigator navigator, User user) {
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setPrefWidth(140);
-        backBtn.setOnAction(e -> navigator.showAuthorDashboard(user));
-
-
-
-        Label title = new Label("Author notifications");
+        // Navigation handled by global menu; removed per-screen Back button
+    Label title = new Label("Notifications");
         title.getStyleClass().add("screen-title");
+    Label unreadCountLabel = new Label("Unread: 0");
+    unreadCountLabel.getStyleClass().add("info-label");
 
         ComboBox<Pair<String, String>> category = new ComboBox<>(FXCollections.observableArrayList(AUTHOR_CATEGORY_FILTERS));
         category.setButtonCell(new javafx.scene.control.ListCell<>() {
@@ -76,6 +74,8 @@ public final class AuthorNotificationsScreen {
         ListView<AppNotification> list = new ListView<>();
         list.setCellFactory(lv -> NotificationListCellFactory.create());
 
+        final Runnable[] syncArchiveBtnLabel = new Runnable[] { () -> {} };
+
         Runnable refresh = () -> {
             try {
                 Pair<String, String> sel = category.getSelectionModel().getSelectedItem();
@@ -83,9 +83,14 @@ public final class AuthorNotificationsScreen {
                 list.setItems(FXCollections.observableArrayList(
                         NotificationDao.findForUserFiltered(user.getId(), cat, search.getText(), showArchived.isSelected())
                 ));
+                int unread = NotificationDao.countUnread(user.getId());
+                unreadCountLabel.setText("Unread: " + unread);
+                title.setText(unread > 0 ? ("Notifications (" + unread + ")") : "Notifications");
             } catch (SQLException ex) {
                 list.setItems(FXCollections.observableArrayList());
+                unreadCountLabel.setText("Unread: --");
             }
+            syncArchiveBtnLabel[0].run();
         };
         refresh.run();
         category.setOnAction(e -> refresh.run());
@@ -123,26 +128,35 @@ public final class AuthorNotificationsScreen {
             }
         });
 
-        Button archBtn = new Button("Archive");
-        archBtn.getStyleClass().add("secondary-button");
-        archBtn.setPrefWidth(140);
-        archBtn.setOnAction(e -> {
+        Button archiveToggleBtn = new Button("Archive");
+        archiveToggleBtn.getStyleClass().add("secondary-button");
+        archiveToggleBtn.setPrefWidth(140);
+        syncArchiveBtnLabel[0] = () -> {
+            var selected = list.getSelectionModel().getSelectedItem();
+            archiveToggleBtn.setText(selected != null && selected.isArchived() ? "Unarchive" : "Archive");
+        };
+        list.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> syncArchiveBtnLabel[0].run());
+        archiveToggleBtn.setOnAction(e -> {
             var n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
                 return;
             }
             try {
-                NotificationDao.archive(n.getId(), user.getId(), Instant.now().toString());
+                if (n.isArchived()) {
+                    NotificationDao.unarchive(n.getId(), user.getId());
+                } else {
+                    NotificationDao.archive(n.getId(), user.getId(), Instant.now().toString());
+                }
                 refresh.run();
             } catch (SQLException ex) {
-                new Alert(Alert.AlertType.ERROR, "Could not archive.").showAndWait();
+                new Alert(Alert.AlertType.ERROR, "Could not update archive status.").showAndWait();
             }
         });
 
 
-        HBox back = new HBox(5, backBtn);
-        HBox filters = new HBox(5, new Label("Category:"), category, search, showArchived);
-        HBox actions = new HBox(5, readBtn, readAllBtn, archBtn);
+        HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
+        HBox actions = new HBox(10, readBtn, readAllBtn, archiveToggleBtn, unreadCountLabel);
+        actions.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         actions.setPadding(new Insets(16, 0, 0, 0));
 
         VBox listWrapper = new VBox(list);
@@ -150,7 +164,7 @@ public final class AuthorNotificationsScreen {
         javafx.scene.layout.VBox.setVgrow(list, javafx.scene.layout.Priority.ALWAYS);
 
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(8, back, title, filters, actions));
+        root.setTop(new VBox(8, title, filters, actions));
         root.setCenter(listWrapper);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");

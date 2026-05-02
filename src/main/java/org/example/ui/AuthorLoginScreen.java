@@ -56,9 +56,6 @@ public final class AuthorLoginScreen {
             }
         });
 
-        Button backBtn = new Button("Back");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showAuthorPortal());
 
         VBox usernameBox = new VBox(5, usernameLbl, usernameField);
         usernameBox.setAlignment(Pos.CENTER);
@@ -74,7 +71,7 @@ public final class AuthorLoginScreen {
         hintLbl.setMaxWidth(280);
         hintLbl.getStyleClass().add("login-hint");
 
-        VBox content = new VBox(18, title, form, hintLbl, loginBtn, backBtn);
+        VBox content = new VBox(18, title, form, hintLbl, loginBtn);
         content.setAlignment(Pos.CENTER);
         content.setMaxWidth(440);
         content.getStyleClass().add("content-card");

@@ -86,43 +86,47 @@ public final class LibrarianApprovalScreen {
         refreshBox.setAlignment(Pos.CENTER_LEFT);
         refreshBox.getChildren().add(refreshBtn);
 
-        Button logoutBtn = new Button("Logout");
-        logoutBtn.getStyleClass().add("secondary-button");
-        logoutBtn.setOnAction(e -> navigator.showLibrarianPortal());
+        // Button logoutBtn = new Button("Logout");
+        // logoutBtn.getStyleClass().add("secondary-button");
+        // logoutBtn.setOnAction(e -> navigator.showLibrarianPortal());
 
-        Button manageUsersBtn = new Button("Manage Users");
-        manageUsersBtn.getStyleClass().add("primary-button");
-        manageUsersBtn.setOnAction(e -> navigator.showLibrarianManageUsers(librarian));
+        // Button manageUsersBtn = new Button("Manage Users");
+        // manageUsersBtn.getStyleClass().add("primary-button");
+        // manageUsersBtn.setOnAction(e -> navigator.showLibrarianManageUsers(librarian));
 
-        Button myProfileBtn = new Button("My Profile");
-        myProfileBtn.getStyleClass().add("secondary-button");
-        myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
+        // Button myProfileBtn = new Button("My Profile");
+        // myProfileBtn.getStyleClass().add("secondary-button");
+        // myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
 
-        Button borrowRecordsBtn = new Button("Borrow Records");
-        borrowRecordsBtn.getStyleClass().add("secondary-button");
-        borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
+        // Button borrowRecordsBtn = new Button("Borrow Records");
+        // borrowRecordsBtn.getStyleClass().add("secondary-button");
+        // borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
 
-        Button notificationsBtn = new Button("🔔 Notifications");
-        notificationsBtn.getStyleClass().add("secondary-button");
-        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+        // Button managePublishedBtn = new Button("Manage Published Books");
+        // managePublishedBtn.getStyleClass().add("secondary-button");
+        // managePublishedBtn.setOnAction(e -> navigator.showLibrarianCatalog(librarian));
+
+        // Button notificationsBtn = new Button("🔔 Notifications");
+        // notificationsBtn.getStyleClass().add("secondary-button");
+        // notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
 
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtnBox = new HBox(10, manageUsersBtn, borrowRecordsBtn, myProfileBtn, notificationsBtn, logoutBtn);
-        footerBtnBox.setAlignment(Pos.CENTER_RIGHT);
+        // HBox footerBtnBox = new HBox(10, manageUsersBtn, borrowRecordsBtn, managePublishedBtn, myProfileBtn, notificationsBtn, logoutBtn);
+        // footerBtnBox.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox footerBox = new VBox();
-        footerBox.setPadding(new Insets(15, 20, 15, 20));
-        footerBox.setAlignment(Pos.CENTER_RIGHT);
-        footerBox.getChildren().add(footerBtnBox);
+        // VBox footerBox = new VBox();
+        // footerBox.setPadding(new Insets(15, 20, 15, 20));
+        // footerBox.setAlignment(Pos.CENTER_RIGHT);
+        // footerBox.getChildren().add(footerBtnBox);
 
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
         root.setCenter(new VBox(refreshBox, scrollPane));
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        root.setBottom(footerBox);
+        // root.setBottom(footerBox);
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());

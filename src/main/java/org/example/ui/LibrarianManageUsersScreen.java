@@ -11,6 +11,7 @@ import org.example.app.Navigator;
 import org.example.db.UserDao;
 import org.example.domain.Role;
 import org.example.domain.User;
+import org.example.service.NotificationService;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -87,39 +88,36 @@ public final class LibrarianManageUsersScreen {
         actionBar.setPadding(new Insets(10, 20, 0, 20));
         actionBar.setAlignment(Pos.CENTER_LEFT);
 
-        Button backBtn = new Button("← Back to Dashboard");
-        backBtn.getStyleClass().add("secondary-button");
-        backBtn.setOnAction(e -> navigator.showLibrarianApproval(librarian));
+        // Navigation handled by global menu; removed per-screen Back button
+        // Button myProfileBtn = new Button("My Profile");
+        // myProfileBtn.getStyleClass().add("secondary-button");
+        // myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
 
-        Button myProfileBtn = new Button("My Profile");
-        myProfileBtn.getStyleClass().add("secondary-button");
-        myProfileBtn.setOnAction(e -> navigator.showLibrarianProfile(librarian));
+        // Button borrowRecordsBtn = new Button("Borrow Records");
+        // borrowRecordsBtn.getStyleClass().add("secondary-button");
+        // borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
 
-        Button borrowRecordsBtn = new Button("Borrow Records");
-        borrowRecordsBtn.getStyleClass().add("secondary-button");
-        borrowRecordsBtn.setOnAction(e -> navigator.showLibrarianBorrowRecords(librarian));
-
-        Button notificationsBtn = new Button("🔔 Notifications");
-        notificationsBtn.getStyleClass().add("secondary-button");
-        notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
+        // Button notificationsBtn = new Button("🔔 Notifications");
+        // notificationsBtn.getStyleClass().add("secondary-button");
+        // notificationsBtn.setOnAction(e -> navigator.showLibrarianNotifications(librarian));
 
         VBox headerBox = new VBox(8, title, librarianInfoLbl, searchFilterBox);
         headerBox.setPadding(new Insets(20, 20, 0, 20));
         headerBox.setStyle("-fx-border-color: #f0f0f0; -fx-border-width: 0 0 1 0;");
 
-        HBox footerBtns = new HBox(10, borrowRecordsBtn, notificationsBtn, myProfileBtn, backBtn);
-        footerBtns.setAlignment(Pos.CENTER_RIGHT);
+        // HBox footerBtns = new HBox(10, borrowRecordsBtn, notificationsBtn, myProfileBtn);
+        // footerBtns.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox footerBox = new VBox();
-        footerBox.setPadding(new Insets(15, 20, 15, 20));
-        footerBox.setAlignment(Pos.CENTER_RIGHT);
-        footerBox.getChildren().add(footerBtns);
+        // VBox footerBox = new VBox();
+        // footerBox.setPadding(new Insets(15, 20, 15, 20));
+        // footerBox.setAlignment(Pos.CENTER_RIGHT);
+        // footerBox.getChildren().add(footerBtns);
 
         BorderPane root = new BorderPane();
         root.setTop(headerBox);
         root.setCenter(new VBox(actionBar, scrollPane));
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        root.setBottom(footerBox);
+        // root.setBottom(footerBox);
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
@@ -445,6 +443,13 @@ public final class LibrarianManageUsersScreen {
             if (confirmed.isPresent() && confirmed.get() == ButtonType.OK) {
                 try {
                     UserDao.updateProfile(user.getId(), newFullName, newEmpId, newBio);
+                    try {
+                        NotificationService.notifyUserAccountUpdatedByLibrarian(
+                                user.getId(),
+                                "A librarian updated your profile details."
+                        );
+                    } catch (SQLException ignored) {
+                    }
                     showSuccess("User Updated", "Profile for \"" + user.getUsername() + "\" has been updated.");
                     loadUsers(container, librarian);
                 } catch (SQLException ex) {
@@ -473,6 +478,10 @@ public final class LibrarianManageUsersScreen {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 UserDao.setActive(user.getId(), false);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(user.getId(), false);
+                } catch (SQLException ignored) {
+                }
                 showSuccess("Account Deactivated", "\"" + user.getUsername() + "\" has been deactivated.");
                 loadUsers(container, librarian);
             } catch (SQLException ex) {
@@ -492,6 +501,10 @@ public final class LibrarianManageUsersScreen {
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
                 UserDao.setActive(user.getId(), true);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(user.getId(), true);
+                } catch (SQLException ignored) {
+                }
                 showSuccess("Account Reactivated", "\"" + user.getUsername() + "\" has been reactivated.");
                 loadUsers(container, librarian);
             } catch (SQLException ex) {
@@ -544,6 +557,10 @@ public final class LibrarianManageUsersScreen {
         for (User u : targets) {
             try {
                 UserDao.setActive(u.getId(), false);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(u.getId(), false);
+                } catch (SQLException ignored) {
+                }
             } catch (SQLException ex) {
                 failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
             }
@@ -599,6 +616,10 @@ public final class LibrarianManageUsersScreen {
         for (User u : targets) {
             try {
                 UserDao.setActive(u.getId(), true);
+                try {
+                    NotificationService.notifyUserAccountStatusChangedByLibrarian(u.getId(), true);
+                } catch (SQLException ignored) {
+                }
             } catch (SQLException ex) {
                 failed.add(u.getUsername() + " (" + ex.getMessage() + ")");
             }
