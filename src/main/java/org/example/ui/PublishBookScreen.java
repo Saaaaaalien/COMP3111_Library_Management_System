@@ -924,4 +924,31 @@ public final class PublishBookScreen {
                 extension.equals("doc") ||
                 extension.equals("docx");
     }
+
+    /**
+     * Adjusts generated summary length for display based on summary style (Short / Medium / Detailed).
+     */
+    public static String adjustSummaryForDisplay(String generated, String style) {
+        if (generated == null) {
+            return "";
+        }
+        if (style == null) {
+            return generated;
+        }
+        if (style.equalsIgnoreCase("short")) {
+            int idx = generated.indexOf(". ");
+            if (idx >= 0) {
+                return generated.substring(0, idx + 1);
+            }
+            return generated.trim();
+        }
+        if (style.equalsIgnoreCase("medium")) {
+            int half = generated.length() / 2;
+            return generated.substring(0, half);
+        }
+        if (style.equalsIgnoreCase("detailed")) {
+            return generated;
+        }
+        return generated;
+    }
 }
