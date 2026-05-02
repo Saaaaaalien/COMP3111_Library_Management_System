@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Data access for author-side review handling.
+ * Data access for <strong>author-side</strong> review handling (list, reply, flag, sentiment, analytics).
+ * Student/staff flows that <em>insert</em> ratings or review text are not part of this module yet; rows may
+ * exist from tests, migrations, or future reader UI.
  */
 public final class BookReviewDao {
 
@@ -62,6 +64,9 @@ public final class BookReviewDao {
             int sentimentNegativeCount,
             int sentimentUnclassifiedCount
     ) {}
+
+    private static final FeedbackAnalytics EMPTY_FEEDBACK_ANALYTICS =
+            new FeedbackAnalytics(0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
     public static List<AuthorVisibleReview> findVisibleForAuthor(long authorUserId) throws SQLException {
         String sql = """
@@ -151,10 +156,14 @@ public final class BookReviewDao {
                 SUM(CASE WHEN r.rating = 3 THEN 1 ELSE 0 END) AS star3,
                 SUM(CASE WHEN r.rating = 4 THEN 1 ELSE 0 END) AS star4,
                 SUM(CASE WHEN r.rating = 5 THEN 1 ELSE 0 END) AS star5,
-                SUM(CASE WHEN r.sentiment_label = 'positive' THEN 1 ELSE 0 END) AS pos_cnt,
-                SUM(CASE WHEN r.sentiment_label = 'neutral' THEN 1 ELSE 0 END) AS neu_cnt,
-                SUM(CASE WHEN r.sentiment_label = 'negative' THEN 1 ELSE 0 END) AS neg_cnt,
-                SUM(CASE WHEN r.sentiment_label IS NULL OR r.sentiment_label = '' THEN 1 ELSE 0 END) AS unclassified_cnt
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(r.sentiment_label, ''))) = 'positive' THEN 1 ELSE 0 END) AS pos_cnt,
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(r.sentiment_label, ''))) = 'neutral' THEN 1 ELSE 0 END) AS neu_cnt,
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(r.sentiment_label, ''))) = 'negative' THEN 1 ELSE 0 END) AS neg_cnt,
+                SUM(CASE
+                        WHEN r.sentiment_label IS NULL OR TRIM(r.sentiment_label) = '' THEN 1
+                        WHEN LOWER(TRIM(r.sentiment_label)) NOT IN ('positive', 'neutral', 'negative') THEN 1
+                        ELSE 0
+                    END) AS unclassified_cnt
             FROM book_reviews r
             JOIN books b ON b.id = r.book_id
             WHERE b.author_user_id = ?
@@ -165,7 +174,7 @@ public final class BookReviewDao {
             ps.setLong(1, authorUserId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
-                    return new FeedbackAnalytics(0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    return EMPTY_FEEDBACK_ANALYTICS;
                 }
                 int total = rs.getInt("total_reviews");
                 double avg = rs.getObject("avg_rating") == null ? 0.0 : rs.getDouble("avg_rating");

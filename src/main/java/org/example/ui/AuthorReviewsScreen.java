@@ -34,7 +34,9 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Author-side review handling (view, reply, flag), feedback analytics, and optional AI sentiment classification.
+ * Task 2.9 — author-side review handling: list feedback, reply templates, flag, AI/heuristic sentiment, and
+ * aggregated analytics. Reader submission of ratings/reviews is not wired in the app yet; this screen still
+ * compiles and runs with an empty table until rows exist (e.g. future student/staff UI or test data).
  */
 public final class AuthorReviewsScreen {
 
@@ -43,7 +45,9 @@ public final class AuthorReviewsScreen {
     public static Scene create(Navigator navigator, User authorUser) {
         Label title = new Label("Review Handling");
         title.getStyleClass().add("screen-title");
-        Label subtitle = new Label("Review and respond to feedback on your books.");
+        Label subtitle = new Label(
+                "Review and respond to feedback on your books. "
+                        + "(Reader rating/review submission from the library app is not implemented yet.)");
 
         // Navigation handled by global menu; removed per-screen Back button
 
@@ -145,6 +149,9 @@ public final class AuthorReviewsScreen {
         TableColumn<BookReviewDao.AuthorVisibleReview, String> replyCol = new TableColumn<>("Reply Status");
         replyCol.setCellValueFactory(cell -> {
             BookReviewDao.AuthorVisibleReview row = cell.getValue();
+            if (row == null) {
+                return new javafx.beans.property.SimpleStringProperty("");
+            }
             String status = row.hasReply() ? "Replied" : "Pending reply";
             return new javafx.beans.property.SimpleStringProperty(status);
         });
@@ -271,6 +278,7 @@ public final class AuthorReviewsScreen {
      * {@code sentiment_label}, then refreshes the UI on the FX thread.
      */
     private static void runSentimentAnalysis(Button analyzeBtn, long authorUserId, Runnable refresh) {
+        final long sentimentOwnerId = authorUserId;
         analyzeBtn.setDisable(true);
         String originalLabel = analyzeBtn.getText();
         analyzeBtn.setText("Analyzing…");
@@ -278,7 +286,7 @@ public final class AuthorReviewsScreen {
         Task<SentimentBatchResult> task = new Task<>() {
             @Override
             protected SentimentBatchResult call() throws SQLException {
-                List<BookReviewDao.AuthorVisibleReview> rows = BookReviewDao.findVisibleForAuthor(authorUserId);
+                List<BookReviewDao.AuthorVisibleReview> rows = BookReviewDao.findVisibleForAuthor(sentimentOwnerId);
                 ReviewSentimentService service = new ReviewSentimentService();
                 int processed = 0;
                 int skipped = 0;
@@ -291,7 +299,7 @@ public final class AuthorReviewsScreen {
                     ReviewSentimentService.SentimentResult result =
                             service.classify(row.reviewText() == null ? "" : row.reviewText(), row.rating());
                     boolean ok = BookReviewDao.updateSentimentForAuthor(
-                            row.id(), authorUserId, result.label(), result.source());
+                            row.id(), sentimentOwnerId, result.label(), result.source());
                     if (ok) {
                         processed++;
                     } else {
@@ -331,7 +339,8 @@ public final class AuthorReviewsScreen {
 
     private static String formatFeedbackAnalytics(BookReviewDao.FeedbackAnalytics a) {
         if (a.totalReviews() == 0) {
-            return "No reviews yet. Star and sentiment counts will appear here once readers leave feedback.";
+            return "No reviews in the database for your books yet. Aggregated star and sentiment counts will appear "
+                    + "here once reader submission exists or reviews are added another way.";
         }
         String avg = String.format(Locale.US, "%.2f", a.averageRating());
         return String.format(Locale.US,
