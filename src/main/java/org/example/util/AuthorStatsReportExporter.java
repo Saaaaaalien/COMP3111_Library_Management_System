@@ -20,6 +20,8 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -27,9 +29,16 @@ import java.util.List;
  */
 public final class AuthorStatsReportExporter {
 
-    private static final String SUBTITLE = "Generated from Library Management System — Author statistics";
+    private static final String SUBTITLE = "Generated from Library Management System - Author statistics";
+    private static final ZoneId HONG_KONG = ZoneId.of("Asia/Hong_Kong");
+    private static final DateTimeFormatter REPORT_TIME =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(HONG_KONG);
 
     private AuthorStatsReportExporter() {}
+
+    private static String generatedAtHongKong() {
+        return REPORT_TIME.format(Instant.now());
+    }
 
     public static void exportExcel(
             Path path,
@@ -51,10 +60,13 @@ public final class AuthorStatsReportExporter {
     }
 
     private static void writeKpiSheet(XSSFSheet sheet, AuthorStatsSnapshot s) {
-        Row h = sheet.createRow(0);
+        Row meta = sheet.createRow(0);
+        meta.createCell(0).setCellValue("Generated at (Hong Kong)");
+        meta.createCell(1).setCellValue(generatedAtHongKong());
+        Row h = sheet.createRow(1);
         h.createCell(0).setCellValue("Metric");
         h.createCell(1).setCellValue("Value");
-        int r = 1;
+        int r = 2;
         row(sheet, r++, "Published books", s.publishedBooks());
         row(sheet, r++, "Total reads", s.totalReads());
         row(sheet, r++, "Total borrows", s.totalBorrows());
@@ -142,7 +154,7 @@ public final class AuthorStatsReportExporter {
             PdfWriter writer = new PdfWriter(document, font, fontSize, margin, lineHeight);
             writer.title("Author book statistics");
             writer.line(SUBTITLE);
-            writer.line("Generated at: " + Instant.now());
+            writer.line("Generated at (Hong Kong): " + generatedAtHongKong());
             writer.blank();
             writer.section("Key metrics");
             writer.line("Published books: " + snapshot.publishedBooks());
