@@ -449,14 +449,14 @@ public final class PdfReaderScreen {
             readerStage.close();
         });
 
-        Button saveHighlightBtn = new Button("Save Highlight");
+        Button saveHighlightBtn = new Button("Highlight");
         saveHighlightBtn.getStyleClass().add("primary-button");
         saveHighlightBtn.setOnAction(e -> {
             try {
                 Object result = webEngine.executeScript("saveSelectionAsHighlight()");
                 if (!Boolean.TRUE.equals(result)) {
                     Alert a = new Alert(Alert.AlertType.WARNING);
-                    a.setTitle("Save Highlight");
+                    a.setTitle("Highlight");
                     a.setHeaderText(null);
                     a.setContentText("No text selection found (or reader not ready yet).");
                     a.showAndWait();
@@ -488,7 +488,7 @@ public final class PdfReaderScreen {
                 String trimmedText = text.trim();
                 if (trimmedText.isEmpty()) {
                     Alert a = new Alert(Alert.AlertType.WARNING);
-                    a.setTitle("Save Highlight");
+                    a.setTitle("Highlight");
                     a.setHeaderText(null);
                     a.setContentText("No text selection found (or reader not ready yet).");
                     a.showAndWait();
@@ -675,7 +675,7 @@ public final class PdfReaderScreen {
             }
         });
 
-        Label hint = new Label("Select text with the mouse. Click 'Save Highlight' to persist it. "
+        Label hint = new Label("Select text with the mouse. Click 'Highlight' to persist it. "
                 + "Use 'Bookmark' to save a resume point. Closing also saves your current page. "
                 + "External links stay in the reader.");
         hint.setWrapText(true);

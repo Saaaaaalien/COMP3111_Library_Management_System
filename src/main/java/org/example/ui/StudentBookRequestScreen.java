@@ -17,8 +17,9 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -29,7 +30,6 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 /**
@@ -52,8 +52,22 @@ public final class StudentBookRequestScreen {
         titleField.setPromptText("Book title");
         TextField authorField = new TextField();
         authorField.setPromptText("Author name");
-        ComboBox<String> genreBox = new ComboBox<>(FXCollections.observableArrayList(GENRES));
-        genreBox.getSelectionModel().selectFirst();
+        ListView<String> genreList = new ListView<>(FXCollections.observableArrayList(GENRES));
+        genreList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        genreList.setPrefHeight(110);
+        genreList.setMinHeight(90);
+        Label selectedGenresLabel = new Label("No genres selected");
+        selectedGenresLabel.getStyleClass().add("login-hint");
+        genreList.getSelectionModel().getSelectedItems().addListener((javafx.collections.ListChangeListener<String>) c -> {
+            var selected = genreList.getSelectionModel().getSelectedItems();
+            if (selected == null || selected.isEmpty()) {
+                selectedGenresLabel.setText("No genres selected");
+            } else {
+                selectedGenresLabel.setText(selected.size() == 1
+                        ? "1 genre selected: " + selected.get(0)
+                        : selected.size() + " genres selected: " + String.join(", ", selected));
+            }
+        });
         TextArea reasonArea = new TextArea();
         reasonArea.setPromptText("Why should the library acquire this book? (optional but helpful for librarians)");
         reasonArea.setPrefRowCount(5);
@@ -102,7 +116,12 @@ public final class StudentBookRequestScreen {
                 new Alert(Alert.AlertType.WARNING, "Title and author are required.").showAndWait();
                 return;
             }
-            String genre = genreBox.getSelectionModel().getSelectedItem();
+            var selectedGenres = genreList.getSelectionModel().getSelectedItems();
+            if (selectedGenres == null || selectedGenres.isEmpty()) {
+                new Alert(Alert.AlertType.WARNING, "Please select at least one genre.").showAndWait();
+                return;
+            }
+            String genre = String.join(", ", selectedGenres);
             String desc = reasonArea.getText() == null ? "" : reasonArea.getText().trim();
             try {
                 if (BookRequestDao.hasSimilarPendingRequest(user.getId(), t, a)) {
@@ -160,7 +179,7 @@ public final class StudentBookRequestScreen {
                 titleField.clear();
                 authorField.clear();
                 reasonArea.clear();
-                genreBox.getSelectionModel().selectFirst();
+                genreList.getSelectionModel().clearSelection();
                 loadHistory.run();
             } catch (SQLException ex) {
                 new Alert(Alert.AlertType.ERROR, "Submit failed: " + ex.getMessage()).showAndWait();
@@ -173,16 +192,18 @@ public final class StudentBookRequestScreen {
         form.setMaxWidth(Double.MAX_VALUE);
         Label titleLbl = new Label("Title *");
         Label authorLbl = new Label("Author *");
-        Label genreLbl = new Label("Genre");
+        Label genreLbl = new Label("Genres *");
+        Label genreHintLbl = new Label("To select multiple: Ctrl/ Command + Click");
+        genreHintLbl.getStyleClass().add("login-hint");
         Label reasonLbl = new Label("Reason");
         titleField.setMaxWidth(Double.MAX_VALUE);
         authorField.setMaxWidth(Double.MAX_VALUE);
-        genreBox.setMaxWidth(Double.MAX_VALUE);
+        genreList.setMaxWidth(Double.MAX_VALUE);
         reasonArea.setMaxWidth(Double.MAX_VALUE);
         form.getChildren().addAll(
                 titleLbl, titleField,
                 authorLbl, authorField,
-                genreLbl, genreBox,
+                genreLbl, genreHintLbl, genreList, selectedGenresLabel,
                 reasonLbl, reasonArea
         );
 
