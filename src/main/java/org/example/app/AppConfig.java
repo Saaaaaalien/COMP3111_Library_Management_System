@@ -9,14 +9,14 @@ public final class AppConfig {
             Boolean.parseBoolean(System.getProperty("app.devMode", "true"));
 
     public static final String HF_API_TOKEN = env("HF_API_TOKEN", "");
-    public static final String HF_MODEL_ID = env("HF_MODEL_ID", "pszemraj/led-large-book-summary");
+    public static final String HF_MODEL_ID = env("HF_MODEL_ID", "facebook/bart-large-cnn");
     /**
      * Hugging Face Inference API model id for text classification (review sentiment).
      * Override with env {@code HF_SENTIMENT_MODEL_ID}; default is a common 3-label RoBERTa classifier.
      */
     public static final String HF_SENTIMENT_MODEL_ID =
             env("HF_SENTIMENT_MODEL_ID", "cardiffnlp/twitter-roberta-base-sentiment-latest");
-    public static final String HF_API_BASE = env("HF_API_BASE", "https://api-inference.huggingface.co");
+    public static final String HF_API_BASE = env("HF_API_BASE", "https://router.huggingface.co/hf-inference");
     public static final int HF_API_TIMEOUT_SECONDS = envInt("HF_API_TIMEOUT_SECONDS", 120);
 
     public static boolean isHfConfigured() {
