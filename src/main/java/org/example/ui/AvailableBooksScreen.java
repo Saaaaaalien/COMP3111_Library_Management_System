@@ -1,6 +1,7 @@
 package org.example.ui;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -976,7 +977,14 @@ public final class AvailableBooksScreen {
         }
         pane.setPrefSize(quickDialogWidth, quickDialogHeight);
         dialog.setResizable(true);
-        dialog.setOnShown(ev -> restoreDialogBounds(dialog, quickDialogX, quickDialogY, quickDialogWidth, quickDialogHeight));
+        dialog.setOnShown(ev -> {
+            restoreDialogBounds(dialog, quickDialogX, quickDialogY, quickDialogWidth, quickDialogHeight);
+            Platform.runLater(() -> {
+                rootScroll.setVvalue(0.0);
+                readerScroll.setVvalue(0.0);
+                titleLabel.requestFocus();
+            });
+        });
         dialog.setOnHiding(ev -> {
             Stage stage = extractDialogStage(dialog);
             if (stage != null) {
