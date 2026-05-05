@@ -367,13 +367,13 @@ public final class LibrarianBorrowRecordsScreen {
 
     /** Returns only the date part (YYYY-MM-DD) of an ISO-8601 instant string, or "—". */
     private static String dateOnly(String iso) {
-        if (iso == null || iso.isBlank()) return "—";
+        if (iso == null || iso.isBlank()) return "-";
         return iso.length() >= 10 ? iso.substring(0, 10) : iso;
     }
 
     /** Formats an ISO-8601 instant string to a readable short date, or "—" if absent. */
     private static Label dateCell(String iso, double width) {
-        String text = "—";
+        String text = "-";
         if (iso != null && !iso.isBlank()) {
             // Keep only the date portion (first 10 chars of ISO string)
             text = iso.length() >= 10 ? iso.substring(0, 10) : iso;

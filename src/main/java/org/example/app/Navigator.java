@@ -18,6 +18,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -194,82 +195,47 @@ public class Navigator {
             headerNotifBtn.setDisable(false);
             headerNotifBtn.setText(formatNotificationsLabel(unread));
             if (r == Role.LIBRARIAN) {
-                Hyperlink b1 = new Hyperlink("Dashboard");
-                b1.getStyleClass().add("drawer-link");
-                b1.setOnAction(ev -> showLibrarianApproval(u));
-                Hyperlink b2 = new Hyperlink("Manage Published Books");
-                b2.getStyleClass().add("drawer-link");
-                b2.setOnAction(ev -> showLibrarianCatalog(u));
-                Hyperlink b3 = new Hyperlink("Borrow Records");
-                b3.getStyleClass().add("drawer-link");
-                b3.setOnAction(ev -> showLibrarianBorrowRecords(u));
-                Hyperlink b4 = new Hyperlink("My Profile");
-                b4.getStyleClass().add("drawer-link");
-                b4.setOnAction(ev -> showLibrarianProfile(u));
-                Hyperlink b5 = new Hyperlink("Notifications");
-                b5.getStyleClass().add("drawer-link");
-                b5.setOnAction(ev -> showLibrarianNotifications(u));
+                Hyperlink b1 = createDrawerLink("Dashboard", () -> showLibrarianApproval(u));
+                Hyperlink b2 = createDrawerLink("Manage Published Books", () -> showLibrarianCatalog(u));
+                Hyperlink b3 = createDrawerLink("Borrow Records", () -> showLibrarianBorrowRecords(u));
+                Hyperlink b4 = createDrawerLink("My Profile", () -> showLibrarianProfile(u));
+                Hyperlink b5 = createDrawerLink("Notifications", () -> showLibrarianNotifications(u));
                 b5.setText(formatNotificationsLabel(unread));
-                Hyperlink b6 = new Hyperlink("Manage Users");
-                b6.getStyleClass().add("drawer-link");
-                b6.setOnAction(ev -> showLibrarianManageUsers(u));
-                Hyperlink b7 = new Hyperlink("Manage Book Requests");
-                b7.getStyleClass().add("drawer-link");
-                b7.setOnAction(ev -> showLibrarianManageBookRequests(u));
+                Tooltip.install(b5, new Tooltip(b5.getText()));
+                Hyperlink b6 = createDrawerLink("Manage Users", () -> showLibrarianManageUsers(u));
+                Hyperlink b7 = createDrawerLink("Manage Book Requests", () -> showLibrarianManageBookRequests(u));
                 drawerPane.getChildren().addAll(b1, b6, b2, b3, b7, b4, b5);
             } else if (r == Role.AUTHOR) {
-                Hyperlink b1 = new Hyperlink("Dashboard");
-                b1.getStyleClass().add("drawer-link");
-                b1.setOnAction(ev -> showAuthorDashboard(u));
-                Hyperlink b2 = new Hyperlink("My Books");
-                b2.getStyleClass().add("drawer-link");
-                b2.setOnAction(ev -> showAuthorPublishedBooks(u));
-                Hyperlink b3 = new Hyperlink("Publish");
-                b3.getStyleClass().add("drawer-link");
-                b3.setOnAction(ev -> showPublishBook(u));
-                Hyperlink b4 = new Hyperlink("View Stats");
-                b4.getStyleClass().add("drawer-link");
-                b4.setOnAction(ev -> showAuthorStats(u));
-                Hyperlink b5 = new Hyperlink("Review Handling");
-                b5.getStyleClass().add("drawer-link");
-                b5.setOnAction(ev -> showAuthorReviews(u));
-                Hyperlink b6 = new Hyperlink("Profile");
-                b6.getStyleClass().add("drawer-link");
-                b6.setOnAction(ev -> showAuthorProfile(u));
-                Hyperlink b7 = new Hyperlink("Notifications");
-                b7.getStyleClass().add("drawer-link");
-                b7.setOnAction(ev -> showAuthorNotifications(u));
+                Hyperlink b1 = createDrawerLink("Dashboard", () -> showAuthorDashboard(u));
+                Hyperlink b2 = createDrawerLink("My Books", () -> showAuthorPublishedBooks(u));
+                Hyperlink b3 = createDrawerLink("Publish", () -> showPublishBook(u));
+                Hyperlink b4 = createDrawerLink("View Stats", () -> showAuthorStats(u));
+                Hyperlink b5 = createDrawerLink("Review Handling", () -> showAuthorReviews(u));
+                Hyperlink b6 = createDrawerLink("Profile", () -> showAuthorProfile(u));
+                Hyperlink b7 = createDrawerLink("Notifications", () -> showAuthorNotifications(u));
                 b7.setText(formatNotificationsLabel(unread));
+                Tooltip.install(b7, new Tooltip(b7.getText()));
                 drawerPane.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7);
             } else if (r == Role.STUDENT || r == Role.STAFF) {
-                Hyperlink b1 = new Hyperlink("Available Books");
-                b1.getStyleClass().add("drawer-link");
-                b1.setOnAction(ev -> showAvailableBooks(u));
-                Hyperlink b2 = new Hyperlink("My Borrowed Books");
-                b2.getStyleClass().add("drawer-link");
-                b2.setOnAction(ev -> showMyBorrowedBooks(u));
-                Hyperlink b3 = new Hyperlink("Reading History");
-                b3.getStyleClass().add("drawer-link");
-                b3.setOnAction(ev -> showStudentReadingHistory(u));
-                Hyperlink b4 = new Hyperlink("Request a Book");
-                b4.getStyleClass().add("drawer-link");
-                b4.setOnAction(ev -> showStudentBookRequest(u));
-                Hyperlink b5 = new Hyperlink("Profile");
-                b5.getStyleClass().add("drawer-link");
-                b5.setOnAction(ev -> showStudentStaffProfile(u));
-                Hyperlink b6 = new Hyperlink("Notifications");
-                b6.getStyleClass().add("drawer-link");
-                b6.setOnAction(ev -> showStudentStaffNotifications(u));
+                Hyperlink b1 = createDrawerLink("Available Books", () -> showAvailableBooks(u));
+                Hyperlink b2 = createDrawerLink("My Borrowed Books", () -> showMyBorrowedBooks(u));
+                Hyperlink b3 = createDrawerLink("Reading History", () -> showStudentReadingHistory(u));
+                Hyperlink b4 = createDrawerLink("Request a Book", () -> showStudentBookRequest(u));
+                Hyperlink b5 = createDrawerLink("Profile", () -> showStudentStaffProfile(u));
+                Hyperlink b6 = createDrawerLink("Notifications", () -> showStudentStaffNotifications(u));
                 b6.setText(formatNotificationsLabel(unread));
+                Tooltip.install(b6, new Tooltip(b6.getText()));
                 drawerPane.getChildren().addAll(b1, b2, b3, b4, b5, b6);
             }
             headerNotifBtn.setOnAction(ev -> {
-                switch (u.getRole()) {
-                    case LIBRARIAN -> showLibrarianNotifications(u);
-                    case AUTHOR -> showAuthorNotifications(u);
-                    case STUDENT, STAFF -> showStudentStaffNotifications(u);
-                    default -> {}
-                }
+                navigateFromDrawer(() -> {
+                    switch (u.getRole()) {
+                        case LIBRARIAN -> showLibrarianNotifications(u);
+                        case AUTHOR -> showAuthorNotifications(u);
+                        case STUDENT, STAFF -> showStudentStaffNotifications(u);
+                        default -> {}
+                    }
+                });
             });
         } else {
             headerNotifBtn.setDisable(true);
@@ -293,9 +259,12 @@ public class Navigator {
         if (ud instanceof User) {
             Hyperlink logoutLink = new Hyperlink("Logout");
             logoutLink.getStyleClass().add("drawer-link-logout");
+            logoutLink.setTooltip(new Tooltip(logoutLink.getText()));
             logoutLink.setOnAction(ev -> {
-                SessionService.clear();
-                showWelcome();
+                navigateFromDrawer(() -> {
+                    SessionService.clear();
+                    showWelcome();
+                });
             });
             return logoutLink;
         }
@@ -307,14 +276,45 @@ public class Navigator {
 
         Hyperlink publicAction = new Hyperlink(atWelcome ? "Exit" : "Back");
         publicAction.getStyleClass().add("drawer-link-logout");
+        publicAction.setTooltip(new Tooltip(publicAction.getText()));
         publicAction.setOnAction(ev -> {
-            if (atWelcome) {
-                Platform.exit();
-                return;
-            }
-            showWelcome();
+            navigateFromDrawer(() -> {
+                if (atWelcome) {
+                    Platform.exit();
+                    return;
+                }
+                showWelcome();
+            });
         });
         return publicAction;
+    }
+
+    private Hyperlink createDrawerLink(String text, Runnable destinationAction) {
+        Hyperlink link = new Hyperlink(text);
+        link.getStyleClass().add("drawer-link");
+        link.setTooltip(new Tooltip(text));
+        link.setOnAction(ev -> navigateFromDrawer(destinationAction));
+        return link;
+    }
+
+    private void navigateFromDrawer(Runnable destinationAction) {
+        if (drawerScroll == null || destinationAction == null) {
+            return;
+        }
+        boolean drawerOpen = drawerScroll.isVisible() && drawerScroll.getTranslateX() >= 0;
+        if (!drawerOpen) {
+            destinationAction.run();
+            return;
+        }
+        TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawerScroll);
+        tt.setFromX(0);
+        double w = drawerScroll.getWidth() > 0 ? drawerScroll.getWidth() : Math.max(200, stage.getWidth() * 0.20);
+        tt.setToX(-w);
+        tt.setOnFinished(ev -> {
+            drawerScroll.setVisible(false);
+            destinationAction.run();
+        });
+        tt.play();
     }
 
     private void setAppIcon() {
@@ -502,6 +502,20 @@ public class Navigator {
         SessionService.save("AUTHOR_PUBLISH", user.getId());
         Scene scene = org.example.ui.PublishBookScreen.create(this, user);
         scene.setUserData(user);
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showLibrarianPublishBook(User librarian) {
+        SessionService.save("LIBRARIAN_PUBLISH", librarian.getId());
+        Scene scene = org.example.ui.PublishBookScreen.create(this, librarian, true);
+        scene.setUserData(librarian);
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showLibrarianEditPublishedBook(User librarian, long bookId) {
+        SessionService.save("LIBRARIAN_EDIT_PUBLISH", librarian.getId());
+        Scene scene = org.example.ui.PublishBookScreen.create(this, librarian, true, bookId);
+        scene.setUserData(librarian);
         showScenePreservingWindowState(scene);
     }
 

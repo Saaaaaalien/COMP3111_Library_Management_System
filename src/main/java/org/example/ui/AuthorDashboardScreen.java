@@ -9,11 +9,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.control.ContentDisplay;
 import org.example.app.Navigator;
-import org.example.db.NotificationDao;
 import org.example.db.PublishDraftDao;
 import org.example.domain.User;
 
@@ -136,9 +132,6 @@ public final class AuthorDashboardScreen {
         VBox content = new VBox(40);
         content.setAlignment(Pos.TOP_CENTER);
 
-        // Welcome message card
-        VBox welcomeCard = createInfoCard();
-
         HBox phase2Links = new HBox(12);
         phase2Links.setAlignment(Pos.CENTER);
         Button myBooksBtn = new Button("My Books");
@@ -155,138 +148,95 @@ public final class AuthorDashboardScreen {
         profileBtn.getStyleClass().add("secondary-button");
         profileBtn.setPrefWidth(140);
         profileBtn.setOnAction(e -> navigator.showAuthorProfile(currentUser));
+        phase2Links.getChildren().addAll(myBooksBtn, profileBtn);
 
-        Button notifBtn = new Button("Notifications");
-        notifBtn.getStyleClass().add("secondary-button");
-        notifBtn.setPrefWidth(220);
-        notifBtn.setMinWidth(220);
-        try {
-            int n = NotificationDao.countUnread(currentUser.getId());
-            notifBtn.setText(n > 0 ? "Notifications (" + n + ")" : "Notifications");
-            if (n > 0) {
-                Circle dot = new Circle(6, Color.web("#e74c3c"));
-                notifBtn.setGraphic(dot);
-                notifBtn.setContentDisplay(ContentDisplay.RIGHT);
-                notifBtn.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-background-color: white; -fx-text-fill: rgb(189,208,218);");
-            }
-        } catch (SQLException ignored) {
-        }
-        notifBtn.setOnAction(e -> navigator.showAuthorNotifications(currentUser));
-        phase2Links.getChildren().addAll(myBooksBtn, profileBtn, notifBtn);
-
-        // Publish Book Card
-        VBox publishCard = createPublishBookCard();
-        HBox insightsCards = new HBox(20,
+        // Author feature cards in one horizontal row
+        HBox featureCards = new HBox(14,
+                createPublishBookCard(),
                 createActionCard("View Stats", "See your publishing performance and trends.", "Open Stats →",
-                        "#A8BDCFEC", "#BDD0DAFF", () -> navigator.showAuthorStats(currentUser)),
+                        "#535D65ED", "#687378FF", () -> navigator.showAuthorStats(currentUser)),
                 createActionCard("Review Handling", "Read and manage reader reviews.", "Open Reviews →",
-                        "#A8BDCFEC", "#BDD0DAFF", () -> navigator.showAuthorReviews(currentUser))
+                        "#535D65ED", "#687378FF", () -> navigator.showAuthorReviews(currentUser))
         );
-        insightsCards.setAlignment(Pos.CENTER);
+        featureCards.setAlignment(Pos.CENTER);
 
         // Add some extra space at the bottom to ensure scrolling works well
         Label bottomSpacer = new Label("");
         bottomSpacer.setPrefHeight(50);
 
-        content.getChildren().addAll(welcomeCard, phase2Links, publishCard, insightsCards, bottomSpacer);
+        content.getChildren().addAll(phase2Links, featureCards, bottomSpacer);
 
         return content;
     }
 
-    private static VBox createInfoCard() {
-        VBox card = new VBox(15);
-        card.setPadding(new Insets(25));
-        card.setStyle(
-                "-fx-background-color: white;" +
-                        "-fx-background-radius: 15;" +
-                        "-fx-border-radius: 15;" +
-                        "-fx-border-color: rgba(168,189,207,0.93);" +
-                        "-fx-border-width: 2;" +
-                        "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);"
-        );
-
-        Label title = new Label("📚 Author Dashboard");
-        title.setFont(Font.font("System", FontWeight.BOLD, 22));
-        title.setStyle("-fx-text-fill: #2c3e50;");
-
-        Label message = new Label(
-                "From here you can publish new books that will be reviewed by librarians before being added to the library."
-        );
-        message.setWrapText(true);
-        message.setStyle("-fx-text-fill: #34495e; -fx-font-size: 14px;");
-
-        card.getChildren().addAll(title, message);
-
-        return card;
-    }
-
     private static VBox createPublishBookCard() {
-        VBox card = new VBox(25);
-        card.setPadding(new Insets(40));
-        card.setMaxWidth(500);
+        VBox card = new VBox(18);
+        card.setPadding(new Insets(28));
+        card.setPrefWidth(260);
+        card.setMinWidth(260);
+        card.setMaxWidth(260);
         card.setAlignment(Pos.CENTER);
         card.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);" +
+                "-fx-background-color: linear-gradient(to bottom right, rgba(83,93,101,0.93), #687378);" +
                         "-fx-background-radius: 5;"
         );
 
         // Hover effect
         card.setOnMouseEntered(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);" +
+                        "-fx-background-color: linear-gradient(to bottom right, rgba(83,93,101,0.93), #687378);" +
                                 "-fx-cursor: hand;"+
                                 "-fx-background-radius: 5;"
                 )
         );
         card.setOnMouseExited(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);"+
+                        "-fx-background-color: linear-gradient(to bottom right, rgba(83,93,101,0.93), #687378);"+
                                 "-fx-background-radius: 5;"
                 )
         );
 
-        // publish button
-        Label titleLabel = new Label("Publish New Book");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
+        Label titleLabel = new Label("Publish Book");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         titleLabel.setStyle("-fx-text-fill: white;");
 
         Label descriptionLabel = new Label("Submit a new book for librarian review."
         );
         descriptionLabel.setWrapText(true);
-        descriptionLabel.setPrefWidth(Double.MAX_VALUE);
+        descriptionLabel.setPrefWidth(220);
         descriptionLabel.setAlignment(Pos.CENTER);
-        descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
+        descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 15px;");
 
         Button publishBtn = new Button("Start Publishing →");
         publishBtn.setStyle(
                 "-fx-background-color: white;" +
-                        "-fx-text-fill: rgba(168,189,207,0.93);" +
+                        "-fx-text-fill: rgba(83,93,101,0.93);" +
                         "-fx-font-weight: bold;" +
-                        "-fx-font-size: 18px;" +
-                        "-fx-padding: 15 30 15 30;" +
+                        "-fx-font-size: 16px;" +
+                        "-fx-padding: 12 24 12 24;" +
                         "-fx-background-radius: 5;" +
                         "-fx-cursor: hand;"
         );
-        publishBtn.setPrefWidth(250);
+        publishBtn.setPrefWidth(180);
 
         // Hover effect for button
         publishBtn.setOnMouseEntered(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: #f8f8f8;" +
-                                "-fx-text-fill: rgba(168,189,207,0.93);" +
+                                "-fx-text-fill: rgba(83,93,101,0.93);" +
                                 "-fx-font-weight: bold;" +
-                                "-fx-font-size: 18px;" +
-                                "-fx-padding: 15 30 15 30;" +
+                                "-fx-font-size: 16px;" +
+                                "-fx-padding: 12 24 12 24;" +
                                 "-fx-cursor: hand;"
                 )
         );
         publishBtn.setOnMouseExited(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: white;" +
-                                "-fx-text-fill: rgba(168,189,207,0.93);" +
+                                "-fx-text-fill: rgba(83,93,101,0.93);" +
                                 "-fx-font-weight: bold;" +
-                                "-fx-font-size: 18px;" +
-                                "-fx-padding: 15 30 15 30;"
+                                "-fx-font-size: 16px;" +
+                                "-fx-padding: 12 24 12 24;"
                 )
         );
 
@@ -303,7 +253,6 @@ public final class AuthorDashboardScreen {
             } catch (SQLException ex) {
                 // ignore and continue
             }
-            System.out.println("Publish card clicked - navigating to PublishBookScreen");
             navigator.showPublishBook(currentUser);
         });
 
@@ -319,7 +268,6 @@ public final class AuthorDashboardScreen {
             } catch (SQLException ex) {
                 // ignore and continue
             }
-            System.out.println("Publish button clicked - navigating to PublishBookScreen");
             navigator.showPublishBook(currentUser);
         });
 
@@ -332,7 +280,9 @@ public final class AuthorDashboardScreen {
                                          String colorStart, String colorEnd, Runnable action) {
         VBox card = new VBox(18);
         card.setPadding(new Insets(28));
-        card.setPrefWidth(380);
+        card.setPrefWidth(260);
+        card.setMinWidth(260);
+        card.setMaxWidth(260);
         card.setAlignment(Pos.CENTER);
         card.setStyle(
                 "-fx-background-color: linear-gradient(to bottom right, " + colorStart + ", " + colorEnd + ");" +
@@ -354,7 +304,7 @@ public final class AuthorDashboardScreen {
 
         Label descriptionLabel = new Label(description);
         descriptionLabel.setWrapText(true);
-        descriptionLabel.setPrefWidth(Double.MAX_VALUE);
+        descriptionLabel.setPrefWidth(220);
         descriptionLabel.setAlignment(Pos.CENTER);
         descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 15px;");
 
@@ -368,7 +318,7 @@ public final class AuthorDashboardScreen {
                         "-fx-background-radius: 5;" +
                         "-fx-cursor: hand;"
         );
-        actionBtn.setPrefWidth(220);
+        actionBtn.setPrefWidth(180);
         actionBtn.setOnMouseEntered(e -> actionBtn.setStyle(
                 "-fx-background-color: #f8f8f8;" +
                         "-fx-text-fill: " + colorStart + ";" +

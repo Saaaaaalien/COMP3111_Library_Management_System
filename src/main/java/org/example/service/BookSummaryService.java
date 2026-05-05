@@ -161,7 +161,7 @@ public final class BookSummaryService {
             case MEDIUM -> "four to six sentences";
             case DETAILED -> "eight to ten sentences";
         };
-        return "Summarize the following book excerpt in " + targetRange + ". " +
+        return "Summarize the following book content in " + targetRange + ". " +
                 "Return only the summary text without bullets or headers.\n\n" + clean;
     }
 

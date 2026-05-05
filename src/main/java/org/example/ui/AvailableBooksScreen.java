@@ -48,9 +48,11 @@ import javafx.beans.property.SimpleBooleanProperty;
 import org.example.db.BookDao;
 import org.example.db.BookReviewDao;
 import org.example.db.BorrowDao;
+import org.example.db.NotificationDao;
 import org.example.domain.Book;
 import org.example.domain.User;
 import org.example.service.BorrowService;
+import org.example.service.NotificationService;
 import org.example.util.BookPreviewUtil;
 
 import java.sql.SQLException;
@@ -1297,8 +1299,25 @@ public final class AvailableBooksScreen {
                 }
                 int r = ratingSpin.getValue() == null ? 5 : ratingSpin.getValue();
                 String txt = yourReview.getText() == null ? "" : yourReview.getText().trim();
+                boolean wasExistingReview = BookReviewDao.findReviewIdByBookAndReviewer(
+                        book.getId(), currentUser.getId()).isPresent();
                 BookReviewDao.upsertStudentReview(book.getId(), currentUser.getId(), r,
                         txt.isEmpty() ? null : txt, anon.isSelected(), Instant.now().toString());
+                if (!wasExistingReview && book.getAuthorUserId() > 0 && book.getAuthorUserId() != currentUser.getId()) {
+                    String now = Instant.now().toString();
+                    String reviewerDisplay = anon.isSelected()
+                            ? "An anonymous reader"
+                            : currentUser.getFullName();
+                    NotificationDao.insert(
+                            book.getAuthorUserId(),
+                            NotificationService.CAT_AUTHOR_NEW_REVIEW,
+                            "New review on your book",
+                            reviewerDisplay + " left a " + r + "/5 review on \"" + book.getTitle() + "\".",
+                            now,
+                            2,
+                            null
+                    );
+                }
                 reloadList.run();
                 refreshList.run();
                 Alert saved = new Alert(Alert.AlertType.INFORMATION);

@@ -1,14 +1,22 @@
 package org.example.ui;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 
 import org.example.app.Navigator;
+import org.example.db.BookDao;
 import org.example.db.PublishDraftDao;
+import org.example.domain.Book;
 import org.example.domain.User;
 import org.example.service.BookSummaryService;
+import org.example.service.NotificationService;
 import org.example.service.PublishService;
 import org.example.util.BookPreviewUtil;
 
@@ -48,10 +56,14 @@ public final class PublishBookScreen {
     private static File selectedCoverFile;
     private static Label fileNameLabel;
     private static TextField titleField;
+    private static TextField authorNameField;
     private static ListView<String> genreListView;
     private static TextArea descriptionArea;
     private static User currentUser;
     private static Navigator navigator;
+    private static boolean librarianPublishMode;
+    private static Long editingBookId;
+    private static Book editingBookSnapshot;
 
     // Display components for selections
     private static Label selectedGenresLabel;
@@ -61,6 +73,10 @@ public final class PublishBookScreen {
     private static Label summaryStatusLabel;
     private static Button generateSummaryButton;
     private static ComboBox<BookSummaryService.SummaryStyle> summaryStyleComboBox;
+    private static final String LIBRARIAN_PUBLISHED_UPLOAD_DIR = System.getProperty("user.home")
+            + File.separator + "library_uploads"
+            + File.separator + "published";
+    private static final String LIBRARIAN_PUBLISHED_COVER_DIR = "data" + File.separator + "covers";
 
     private static final List<String> AVAILABLE_GENRES = List.of(
             "Fiction", "Non-Fiction", "Science Fiction", "Fantasy",
@@ -74,11 +90,22 @@ public final class PublishBookScreen {
     private PublishBookScreen() {}
 
     public static Scene create(Navigator nav, User user) {
+        return create(nav, user, false);
+    }
+
+    public static Scene create(Navigator nav, User user, boolean librarianMode) {
+        return create(nav, user, librarianMode, null);
+    }
+
+    public static Scene create(Navigator nav, User user, boolean librarianMode, Long editBookId) {
         navigator = nav;
         currentUser = user;
+        librarianPublishMode = librarianMode;
+        editingBookId = editBookId;
+        editingBookSnapshot = null;
 
         // Title
-        Label title = new Label("Publish New Book");
+        Label title = new Label(isEditingLibrarianBook() ? "Edit Published Book" : "Publish New Book");
         title.getStyleClass().add("screen-title");
         title.setFont(Font.font("System", FontWeight.BOLD, 24));
 
@@ -91,7 +118,9 @@ public final class PublishBookScreen {
         buttonBox.setPadding(new Insets(20, 0, 30, 0));
         buttonBox.getStyleClass().add("button-bar");
 
-        Button submitBtn = new Button("Submit for Approval");
+        Button submitBtn = new Button(isEditingLibrarianBook()
+                ? "Save Changes"
+                : (librarianPublishMode ? "Publish Book" : "Submit for Approval"));
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setPrefWidth(200);
 
@@ -113,7 +142,28 @@ public final class PublishBookScreen {
             // Convert selected genres to comma-separated string
             String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
 
-            PublishService.PublishResult result = PublishService.submitBook(
+            PublishService.PublishResult result = isEditingLibrarianBook()
+                    ? updateBookAsLibrarian(
+                    currentUser,
+                    editingBookId,
+                    titleField.getText().trim(),
+                    authorNameField == null ? "" : authorNameField.getText().trim(),
+                    genres,
+                    descriptionArea.getText().trim(),
+                    selectedBookFile,
+                    selectedCoverFile
+            )
+                    : librarianPublishMode
+                    ? submitBookAsLibrarian(
+                    currentUser,
+                    titleField.getText().trim(),
+                    authorNameField == null ? "" : authorNameField.getText().trim(),
+                    genres,
+                    descriptionArea.getText().trim(),
+                    selectedBookFile,
+                    selectedCoverFile
+            )
+                    : PublishService.submitBook(
                     currentUser,
                     titleField.getText().trim(),
                     genres,
@@ -124,7 +174,11 @@ public final class PublishBookScreen {
 
             if (result.success()) {
                 showSuccess(result.message());
-                clearForm();
+                if (isEditingLibrarianBook()) {
+                    navigator.showLibrarianCatalog(currentUser);
+                } else {
+                    clearForm();
+                }
             } else {
                 showError("Error", result.message());
             }
@@ -177,8 +231,9 @@ public final class PublishBookScreen {
             scene.getStylesheets().add(cssResource.toExternalForm());
         }
 
-        try {
-            PublishDraftDao.findByAuthor(currentUser.getId()).ifPresent(d -> {
+        if (!librarianPublishMode) {
+            try {
+                PublishDraftDao.findByAuthor(currentUser.getId()).ifPresent(d -> {
                 if (d.title() != null) {
                     titleField.setText(d.title());
                 }
@@ -221,8 +276,12 @@ public final class PublishBookScreen {
                         }
                     }
                 }
-            });
-        } catch (SQLException ignored) {
+                });
+            } catch (SQLException ignored) {
+            }
+        }
+        if (isEditingLibrarianBook()) {
+            preloadForLibrarianEdit();
         }
 
         PauseTransition draftDebounce = new PauseTransition(Duration.seconds(1.2));
@@ -259,13 +318,18 @@ public final class PublishBookScreen {
         titleField.setPrefWidth(550);
         titleField.getStyleClass().add("text-field");
 
-        // Author field (read-only)
-        Label authorLabel = new Label("Author");
+        // Author field
+        Label authorLabel = new Label(librarianPublishMode ? "Author Name *" : "Author");
         authorLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
-        TextField authorField = new TextField(currentUser.getFullName());
-        authorField.setEditable(false);
-        authorField.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #d0d7e2; -fx-border-radius: 5;");
-        authorField.setPrefWidth(550);
+        authorNameField = new TextField(librarianPublishMode ? "" : currentUser.getFullName());
+        authorNameField.setEditable(librarianPublishMode);
+        if (librarianPublishMode) {
+            authorNameField.setPromptText("Enter author full name");
+            authorNameField.setStyle("-fx-border-color: #d0d7e2; -fx-border-radius: 5;");
+        } else {
+            authorNameField.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #d0d7e2; -fx-border-radius: 5;");
+        }
+        authorNameField.setPrefWidth(550);
 
         // Multi-genre selection - FIXED LIST VISIBILITY
         Label genreLabel = new Label("Genres * (to select multiple: Ctrl/ Command + Click)");
@@ -570,7 +634,7 @@ public final class PublishBookScreen {
         formBox.getChildren().addAll(
                 formTitle,
                 titleLabel, titleField,
-                authorLabel, authorField,
+                authorLabel, authorNameField,
                 genreLabel, genreBox,
                 fileLabel, fileSelectionBox,
                 descriptionLabel, descriptionArea,
@@ -605,6 +669,12 @@ public final class PublishBookScreen {
         String title = titleField.getText();
         if (title == null || title.trim().isEmpty()) {
             errors.add("Book title is required");
+        }
+        if (librarianPublishMode) {
+            String authorName = authorNameField == null ? "" : authorNameField.getText();
+            if (authorName == null || authorName.trim().isEmpty()) {
+                errors.add("Author name is required");
+            }
         }
 
         var selectedGenres = genreListView.getSelectionModel().getSelectedItems();
@@ -662,7 +732,10 @@ public final class PublishBookScreen {
         authorRow.setAlignment(Pos.CENTER_LEFT);
         Label authorLbl = new Label("Author:");
         authorLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-min-width: 70;");
-        Label authorVal = new Label(currentUser.getFullName());
+        String previewAuthor = librarianPublishMode
+                ? (authorNameField == null ? "" : authorNameField.getText().trim())
+                : currentUser.getFullName();
+        Label authorVal = new Label(previewAuthor);
         authorVal.setStyle("-fx-text-fill: #2c3e50;");
         authorVal.setWrapText(true);
         authorRow.getChildren().addAll(authorLbl, authorVal);
@@ -717,7 +790,11 @@ public final class PublishBookScreen {
         HBox previewWithCover = new HBox(20, coverView, details);
         previewBox.getChildren().add(previewWithCover);
 
-        Label confirmMsg = new Label("Are you sure you want to submit this book for approval?");
+        Label confirmMsg = new Label(isEditingLibrarianBook()
+                ? "Are you sure you want to save these published book changes?"
+                : librarianPublishMode
+                ? "Are you sure you want to publish this book to the catalog?"
+                : "Are you sure you want to submit this book for approval?");
         confirmMsg.setStyle("-fx-text-fill: #e67e22; -fx-font-weight: bold; -fx-font-size: 14px;");
         confirmMsg.setAlignment(Pos.CENTER);
         confirmMsg.setWrapText(true);
@@ -725,7 +802,9 @@ public final class PublishBookScreen {
         HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER);
 
-        Button submitBtn = new Button("✅ Yes, Submit");
+        Button submitBtn = new Button(isEditingLibrarianBook()
+                ? "Yes, Save Changes"
+                : (librarianPublishMode ? "Yes, Publish" : "✅ Yes, Submit"));
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setOnAction(e -> {
             dialog.setUserData(true);
@@ -759,6 +838,9 @@ public final class PublishBookScreen {
 
     private static void clearForm() {
         titleField.clear();
+        if (authorNameField != null) {
+            authorNameField.setText(librarianPublishMode ? "" : currentUser.getFullName());
+        }
         genreListView.getSelectionModel().clearSelection();
         descriptionArea.clear();
         selectedBookFile = null;
@@ -784,6 +866,9 @@ public final class PublishBookScreen {
     }
 
     private static void persistDraftQuietly() {
+        if (librarianPublishMode) {
+            return;
+        }
         try {
             String title = titleField != null ? titleField.getText() : null;
             String genres = genreListView != null
@@ -927,6 +1012,187 @@ public final class PublishBookScreen {
                 extension.equals("txt") ||
                 extension.equals("doc") ||
                 extension.equals("docx");
+    }
+
+    private static PublishService.PublishResult submitBookAsLibrarian(User librarian,
+                                                                      String title,
+                                                                      String authorName,
+                                                                      String genre,
+                                                                      String description,
+                                                                      File bookFile,
+                                                                      File coverFile) {
+        try {
+            if (librarian == null || librarian.getId() <= 0) {
+                return new PublishService.PublishResult(false, "Librarian account is invalid.");
+            }
+            Files.createDirectories(Paths.get(LIBRARIAN_PUBLISHED_UPLOAD_DIR));
+            String safeBookName = sanitizeFilename(bookFile.getName());
+            String uniqueBookName = System.currentTimeMillis() + "_" + safeBookName;
+            Path bookDest = Paths.get(LIBRARIAN_PUBLISHED_UPLOAD_DIR, uniqueBookName);
+            Files.copy(bookFile.toPath(), bookDest, StandardCopyOption.REPLACE_EXISTING);
+
+            String coverPath = null;
+            if (coverFile != null) {
+                Files.createDirectories(Paths.get(LIBRARIAN_PUBLISHED_COVER_DIR));
+                String uniqueCoverName = System.currentTimeMillis() + "_" + sanitizeFilename(coverFile.getName());
+                Path coverDest = Paths.get(LIBRARIAN_PUBLISHED_COVER_DIR, uniqueCoverName);
+                Files.copy(coverFile.toPath(), coverDest, StandardCopyOption.REPLACE_EXISTING);
+                coverPath = coverDest.toAbsolutePath().toString();
+            }
+
+            BookDao.insert(
+                    title,
+                    librarian.getId(),
+                    authorName,
+                    genre,
+                    description,
+                    bookDest.toAbsolutePath().toString(),
+                    Instant.now().toString(),
+                    coverPath
+            );
+            return new PublishService.PublishResult(true, "Book published successfully.");
+        } catch (IOException | SQLException ex) {
+            return new PublishService.PublishResult(false, "Could not publish book: " + ex.getMessage());
+        }
+    }
+
+    private static PublishService.PublishResult updateBookAsLibrarian(User librarian,
+                                                                      Long bookId,
+                                                                      String title,
+                                                                      String authorName,
+                                                                      String genre,
+                                                                      String description,
+                                                                      File bookFile,
+                                                                      File coverFile) {
+        if (bookId == null || bookId <= 0) {
+            return new PublishService.PublishResult(false, "Invalid book selected for editing.");
+        }
+        if (librarian == null || librarian.getId() <= 0) {
+            return new PublishService.PublishResult(false, "Librarian account is invalid.");
+        }
+        try {
+            String storedBookPath = persistBookFileForLibrarian(bookFile, editingBookSnapshot == null ? null : editingBookSnapshot.getFilePath());
+            String storedCoverPath = persistCoverFileForLibrarian(coverFile, editingBookSnapshot == null ? null : editingBookSnapshot.getCoverImagePath());
+            BookDao.updatePublishedByLibrarian(
+                    bookId,
+                    title,
+                    librarian.getId(),
+                    authorName,
+                    genre,
+                    description,
+                    storedBookPath,
+                    storedCoverPath
+            );
+            if (editingBookSnapshot != null
+                    && editingBookSnapshot.getAuthorUserId() > 0
+                    && editingBookSnapshot.getAuthorUserId() != librarian.getId()) {
+                try {
+                    NotificationService.notifyAuthorBookUpdatedByLibrarian(
+                            editingBookSnapshot.getAuthorUserId(),
+                            title
+                    );
+                } catch (SQLException ignored) {
+                    // Non-fatal: keep edit successful even if notification fails.
+                }
+            }
+            return new PublishService.PublishResult(true, "Published book updated successfully.");
+        } catch (IOException | SQLException ex) {
+            return new PublishService.PublishResult(false, "Could not update book: " + ex.getMessage());
+        }
+    }
+
+    private static String persistBookFileForLibrarian(File bookFile, String originalPath) throws IOException {
+        if (bookFile != null && originalPath != null && bookFile.getAbsolutePath().equals(originalPath)) {
+            return originalPath;
+        }
+        Files.createDirectories(Paths.get(LIBRARIAN_PUBLISHED_UPLOAD_DIR));
+        String safeBookName = sanitizeFilename(bookFile.getName());
+        String uniqueBookName = System.currentTimeMillis() + "_" + safeBookName;
+        Path bookDest = Paths.get(LIBRARIAN_PUBLISHED_UPLOAD_DIR, uniqueBookName);
+        Files.copy(bookFile.toPath(), bookDest, StandardCopyOption.REPLACE_EXISTING);
+        return bookDest.toAbsolutePath().toString();
+    }
+
+    private static String persistCoverFileForLibrarian(File coverFile, String originalPath) throws IOException {
+        if (coverFile == null) {
+            return null;
+        }
+        if (originalPath != null && coverFile.getAbsolutePath().equals(originalPath)) {
+            return originalPath;
+        }
+        Files.createDirectories(Paths.get(LIBRARIAN_PUBLISHED_COVER_DIR));
+        String uniqueCoverName = System.currentTimeMillis() + "_" + sanitizeFilename(coverFile.getName());
+        Path coverDest = Paths.get(LIBRARIAN_PUBLISHED_COVER_DIR, uniqueCoverName);
+        Files.copy(coverFile.toPath(), coverDest, StandardCopyOption.REPLACE_EXISTING);
+        return coverDest.toAbsolutePath().toString();
+    }
+
+    private static void preloadForLibrarianEdit() {
+        if (!isEditingLibrarianBook()) {
+            return;
+        }
+        try {
+            var opt = BookDao.findById(editingBookId);
+            if (opt.isEmpty()) {
+                showError("Not Found", "The selected book no longer exists.");
+                navigator.showLibrarianCatalog(currentUser);
+                return;
+            }
+            Book b = opt.get();
+            editingBookSnapshot = b;
+            titleField.setText(b.getTitle() == null ? "" : b.getTitle());
+            if (authorNameField != null) {
+                authorNameField.setText(b.getAuthorFullNameSnapshot() == null ? "" : b.getAuthorFullNameSnapshot());
+            }
+            descriptionArea.setText(b.getSummary() == null ? "" : b.getSummary());
+            genreListView.getSelectionModel().clearSelection();
+            if (b.getGenre() != null && !b.getGenre().isBlank()) {
+                for (String part : b.getGenre().split(",")) {
+                    String g = part.trim();
+                    int idx = AVAILABLE_GENRES.indexOf(g);
+                    if (idx >= 0) {
+                        genreListView.getSelectionModel().select(idx);
+                    }
+                }
+            }
+            updateSelectedGenresDisplay();
+            if (b.getFilePath() != null && !b.getFilePath().isBlank()) {
+                File existing = new File(b.getFilePath());
+                if (existing.exists() && existing.canRead()) {
+                    selectedBookFile = existing;
+                    fileNameLabel.setText(existing.getName());
+                    fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    fileDisplayLabel.setText(existing.getName() + " (" + formatFileSize(existing.length()) + ")");
+                    fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                }
+            }
+            if (b.getCoverImagePath() != null && !b.getCoverImagePath().isBlank()) {
+                File existingCover = new File(b.getCoverImagePath());
+                if (existingCover.exists() && existingCover.canRead()) {
+                    selectedCoverFile = existingCover;
+                    if (coverNameLabel != null) {
+                        coverNameLabel.setText(existingCover.getName());
+                        coverNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    }
+                    if (coverPathDisplay != null) {
+                        coverPathDisplay.setText(existingCover.getName() + " (" + formatFileSize(existingCover.length()) + ")");
+                        coverPathDisplay.setStyle("-fx-text-fill: #27ae60;");
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            showError("Load Failed", ex.getMessage());
+            navigator.showLibrarianCatalog(currentUser);
+        }
+    }
+
+    private static boolean isEditingLibrarianBook() {
+        return librarianPublishMode && editingBookId != null && editingBookId > 0;
+    }
+
+    private static String sanitizeFilename(String filename) {
+        String safeName = new File(filename).getName();
+        return safeName.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     /**

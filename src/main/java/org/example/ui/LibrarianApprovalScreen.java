@@ -236,7 +236,7 @@ public final class LibrarianApprovalScreen {
                     bulkApproveBtn.getStyleClass().add("primary-button");
                     bulkApproveBtn.setOnAction(e -> handleBulkApprove(mainContent, pendingBooks));
 
-                    Button bulkRejectBtn = new Button("✖ Bulk Reject");
+                    Button bulkRejectBtn = new Button("Bulk Reject");
                     bulkRejectBtn.getStyleClass().add("secondary-button");
                     bulkRejectBtn.setOnAction(e -> handleBulkReject(mainContent, pendingBooks));
 
@@ -545,6 +545,11 @@ public final class LibrarianApprovalScreen {
         // actually prevents the Dialog from closing, unlike setOnAction.
         javafx.scene.control.Button okButton =
                 (javafx.scene.control.Button) rejectionDialog.getDialogPane().lookupButton(ButtonType.OK);
+        javafx.scene.control.Button cancelButton =
+                (javafx.scene.control.Button) rejectionDialog.getDialogPane().lookupButton(ButtonType.CANCEL);
+        okButton.setText("Reject");
+        okButton.getStyleClass().add("secondary-button");
+        cancelButton.getStyleClass().add("secondary-button");
         okButton.addEventFilter(javafx.event.ActionEvent.ACTION, e -> {
             String reason = rejectionReasonArea.getText().trim();
             if (reason.isEmpty()) {
@@ -737,7 +742,11 @@ public final class LibrarianApprovalScreen {
         // Validate reason is non-empty before closing
         javafx.scene.control.Button okBtn =
                 (javafx.scene.control.Button) reasonDialog.getDialogPane().lookupButton(ButtonType.OK);
+        javafx.scene.control.Button cancelBtn =
+                (javafx.scene.control.Button) reasonDialog.getDialogPane().lookupButton(ButtonType.CANCEL);
         okBtn.setText("Next →");
+        okBtn.getStyleClass().add("primary-button");
+        cancelBtn.getStyleClass().add("secondary-button");
         okBtn.setOnAction(e -> {
             if (reasonArea.getText().trim().isEmpty()) {
                 showErrorAlert("Missing Rejection Reason",
