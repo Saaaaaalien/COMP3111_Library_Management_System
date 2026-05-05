@@ -207,7 +207,7 @@ public final class AuthorDashboardScreen {
         descriptionLabel.setAlignment(Pos.CENTER);
         descriptionLabel.setStyle("-fx-text-fill: white; -fx-font-size: 15px;");
 
-        Button publishBtn = new Button("Start Publishing →");
+        Button publishBtn = new Button("Publish →");
         publishBtn.setStyle(
                 "-fx-background-color: white;" +
                         "-fx-text-fill: rgba(83,93,101,0.93);" +
