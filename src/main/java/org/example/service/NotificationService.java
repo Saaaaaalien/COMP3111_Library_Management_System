@@ -33,10 +33,14 @@ public final class NotificationService {
     public static final String CAT_AUTHOR_REJECTED = "AUTHOR_REJECTED";
     /** Librarian removed the author's book from the catalog. */
     public static final String CAT_AUTHOR_BOOK_REMOVED = "AUTHOR_BOOK_REMOVED";
+    /** Librarian updated details of the author's published book. */
+    public static final String CAT_AUTHOR_BOOK_UPDATED = "AUTHOR_BOOK_UPDATED";
     /** Author replied to a user review. */
     public static final String CAT_AUTHOR_REVIEW_REPLY = "AUTHOR_REVIEW_REPLY";
     /** Author flagged review and receives confirmation. */
     public static final String CAT_AUTHOR_REVIEW_FLAGGED = "AUTHOR_REVIEW_FLAGGED";
+    /** A reader posted a new review for the author's book. */
+    public static final String CAT_AUTHOR_NEW_REVIEW = "AUTHOR_NEW_REVIEW";
     /** Librarian feed: user borrowed a book. */
     public static final String CAT_LIB_BORROW_ACTIVITY = "LIB_BORROW_ACTIVITY";
     /** Librarian feed: user returned (or auto-returned) a book. */
@@ -117,6 +121,18 @@ public final class NotificationService {
             "The library removed your book \"" + bookTitle + "\" from the catalog.",
             Instant.now().toString(),
             9,
+            null
+        );
+    }
+
+    public static void notifyAuthorBookUpdatedByLibrarian(long authorUserId, String bookTitle) throws SQLException {
+        NotificationDao.insert(
+            authorUserId,
+            CAT_AUTHOR_BOOK_UPDATED,
+            "Book details updated by librarian",
+            "A librarian updated details for your book \"" + bookTitle + "\".",
+            Instant.now().toString(),
+            3,
             null
         );
     }

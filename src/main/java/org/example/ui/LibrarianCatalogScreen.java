@@ -133,9 +133,7 @@ public final class LibrarianCatalogScreen {
         Button addBtn = new Button("Add New Book");
         addBtn.getStyleClass().add("primary-button");
         addBtn.setOnAction(e -> {
-            // Reuse the author's publish UI so the librarian sees the exact same form
-            // and the passed `librarian` user will be used as the author name.
-            navigator.showPublishBook(librarian);
+            navigator.showLibrarianPublishBook(librarian);
         });
 
         Button editBtn = new Button("Edit Selected Book");
@@ -146,63 +144,7 @@ public final class LibrarianCatalogScreen {
                 showAlert(Alert.AlertType.WARNING, "No Selection", "Select a published book to edit.");
                 return;
             }
-            try {
-                Optional<Book> loaded = BookDao.findById(sel.getId());
-                if (loaded.isEmpty()) {
-                    showAlert(Alert.AlertType.WARNING, "Not Found", "The selected book no longer exists.");
-                    refresh.run();
-                    return;
-                }
-                Book original = loaded.get();
-                Optional<BookFormData> input = showBookFormDialog(original);
-                if (input.isEmpty()) {
-                    return;
-                }
-                BookFormData form = input.get();
-
-                boolean unchanged = form.title().equals(trimToEmpty(original.getTitle()))
-                        && form.primaryAuthorUserId() == original.getAuthorUserId()
-                        && form.authorNames().equals(trimToEmpty(original.getAuthorFullNameSnapshot()))
-                        && form.genre().equals(trimToEmpty(original.getGenre()))
-                        && form.description().equals(trimToEmpty(original.getSummary()))
-                        && form.bookFile().getAbsolutePath().equals(trimToEmpty(original.getFilePath()))
-                    && filePathOrEmpty(form.coverFile()).equals(trimToEmpty(original.getCoverImagePath()));
-                if (unchanged) {
-                    showAlert(Alert.AlertType.INFORMATION, "No Changes", "No changes detected.");
-                    return;
-                }
-
-                if (!confirm("Confirm Edit", "Save changes to this published book?")) {
-                    return;
-                }
-
-                String storedBookPath = form.bookFile().getAbsolutePath().equals(trimToEmpty(original.getFilePath()))
-                        ? original.getFilePath()
-                        : persistUploadedBookFile(form.bookFile());
-                String storedCoverPath;
-                if (form.coverFile() == null) {
-                    storedCoverPath = null;
-                } else if (form.coverFile().getAbsolutePath().equals(trimToEmpty(original.getCoverImagePath()))) {
-                    storedCoverPath = original.getCoverImagePath();
-                } else {
-                    storedCoverPath = persistCoverFile(form.coverFile());
-                }
-
-                BookDao.updatePublishedByLibrarian(
-                        original.getId(),
-                        form.title(),
-                        form.primaryAuthorUserId(),
-                        form.authorNames(),
-                        form.genre(),
-                        form.description(),
-                        storedBookPath,
-                        storedCoverPath
-                );
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Book details updated successfully.");
-                refresh.run();
-            } catch (SQLException | IOException ex) {
-                showAlert(Alert.AlertType.ERROR, "Edit Failed", ex.getMessage());
-            }
+            navigator.showLibrarianEditPublishedBook(librarian, sel.getId());
         });
 
         Button removeBtn = new Button("Remove Selected from Catalog");

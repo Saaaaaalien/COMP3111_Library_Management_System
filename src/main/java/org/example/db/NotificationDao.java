@@ -94,16 +94,16 @@ public final class NotificationDao {
             ? """
                 SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority
                 FROM notifications WHERE user_id = ?
-                ORDER BY CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
-                         CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+                ORDER BY CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+                         CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
                          created_at DESC,
                          priority DESC
                 """
             : """
                 SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority
                 FROM notifications WHERE user_id = ? AND (archived_at IS NULL OR archived_at = '')
-                ORDER BY CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
-                         CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+                ORDER BY CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+                         CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
                          created_at DESC,
                          priority DESC
                 """;
@@ -136,8 +136,8 @@ public final class NotificationDao {
             sql.append(" AND (title LIKE ? OR body LIKE ?) ");
         }
         sql.append("""
-             ORDER BY CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
-                      CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+             ORDER BY CASE WHEN read_at IS NULL OR read_at = '' THEN 1 ELSE 0 END DESC,
+                      CASE WHEN priority >= 8 THEN 1 ELSE 0 END DESC,
                       created_at DESC,
                       priority DESC
             """);

@@ -14,12 +14,13 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
 import org.example.app.Navigator;
 import org.example.db.BookReviewDao;
 import org.example.db.NotificationDao;
@@ -46,8 +47,7 @@ public final class AuthorReviewsScreen {
         Label title = new Label("Review Handling");
         title.getStyleClass().add("screen-title");
         Label subtitle = new Label(
-                "Review and respond to feedback on your books. "
-                        + "(Reader rating/review submission from the library app is not implemented yet.)");
+                "Review and respond to feedback on your books, then track reply and sentiment status.");
 
         // Navigation handled by global menu; removed per-screen Back button
 
@@ -84,15 +84,24 @@ public final class AuthorReviewsScreen {
         });
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> bookCol = new TableColumn<>("Book");
-        bookCol.setCellValueFactory(new PropertyValueFactory<>("bookTitle"));
+        bookCol.setCellValueFactory(c -> {
+            BookReviewDao.AuthorVisibleReview r = c.getValue();
+            return new SimpleStringProperty(r == null ? "" : safe(r.bookTitle()));
+        });
         bookCol.setPrefWidth(150);
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> reviewerCol = new TableColumn<>("Reviewer");
-        reviewerCol.setCellValueFactory(new PropertyValueFactory<>("reviewerName"));
+        reviewerCol.setCellValueFactory(c -> {
+            BookReviewDao.AuthorVisibleReview r = c.getValue();
+            return new SimpleStringProperty(r == null ? "" : safe(r.reviewerName()));
+        });
         reviewerCol.setPrefWidth(130);
 
         TableColumn<BookReviewDao.AuthorVisibleReview, Integer> ratingCol = new TableColumn<>("Rating");
-        ratingCol.setCellValueFactory(new PropertyValueFactory<>("rating"));
+        ratingCol.setCellValueFactory(c -> {
+            BookReviewDao.AuthorVisibleReview r = c.getValue();
+            return new SimpleIntegerProperty(r == null ? 0 : r.rating()).asObject();
+        });
         ratingCol.setPrefWidth(70);
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> sentimentCol = new TableColumn<>("Sentiment");
@@ -139,11 +148,17 @@ public final class AuthorReviewsScreen {
         });
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> reviewCol = new TableColumn<>("Review");
-        reviewCol.setCellValueFactory(new PropertyValueFactory<>("reviewText"));
+        reviewCol.setCellValueFactory(c -> {
+            BookReviewDao.AuthorVisibleReview r = c.getValue();
+            return new SimpleStringProperty(r == null ? "" : safe(r.reviewText()));
+        });
         reviewCol.setPrefWidth(220);
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> createdCol = new TableColumn<>("Created");
-        createdCol.setCellValueFactory(new PropertyValueFactory<>("createdAt"));
+        createdCol.setCellValueFactory(c -> {
+            BookReviewDao.AuthorVisibleReview r = c.getValue();
+            return new SimpleStringProperty(r == null ? "" : safe(r.createdAt()));
+        });
         createdCol.setPrefWidth(160);
 
         TableColumn<BookReviewDao.AuthorVisibleReview, String> replyCol = new TableColumn<>("Reply Status");
@@ -157,11 +172,25 @@ public final class AuthorReviewsScreen {
         });
         replyCol.setPrefWidth(120);
 
-        table.getColumns().addAll(bookCol, reviewerCol, ratingCol, sentimentCol, reviewCol, createdCol, replyCol);
+        TableColumn<BookReviewDao.AuthorVisibleReview, String> authorReplyCol = new TableColumn<>("Author Reply");
+        authorReplyCol.setCellValueFactory(cell -> {
+            BookReviewDao.AuthorVisibleReview row = cell.getValue();
+            if (row == null || row.authorReplyText() == null || row.authorReplyText().isBlank()) {
+                return new javafx.beans.property.SimpleStringProperty("-");
+            }
+            String raw = row.authorReplyText().trim();
+            String compact = raw.replaceAll("\\s+", " ");
+            String text = compact.length() > 80 ? compact.substring(0, 80) + "..." : compact;
+            return new javafx.beans.property.SimpleStringProperty(text);
+        });
+        authorReplyCol.setPrefWidth(220);
+
+        table.getColumns().addAll(bookCol, reviewerCol, ratingCol, sentimentCol, reviewCol, authorReplyCol, createdCol, replyCol);
 
         Runnable refresh = () -> {
             try {
                 table.setItems(FXCollections.observableArrayList(BookReviewDao.findVisibleForAuthor(authorUser.getId())));
+                table.sort();
                 BookReviewDao.FeedbackAnalytics a = BookReviewDao.loadFeedbackAnalytics(authorUser.getId());
                 analyticsStrip.setText(formatFeedbackAnalytics(a));
             } catch (SQLException ex) {
@@ -253,7 +282,11 @@ public final class AuthorReviewsScreen {
         analyzeBtn.getStyleClass().add("secondary-button");
         analyzeBtn.setOnAction(e -> runSentimentAnalysis(analyzeBtn, authorUser.getId(), refresh));
 
-        HBox actions = new HBox(10, replyBtn, flagBtn, analyzeBtn);
+        Button refreshBtn = new Button("Refresh");
+        refreshBtn.getStyleClass().add("secondary-button");
+        refreshBtn.setOnAction(e -> refresh.run());
+
+        HBox actions = new HBox(10, replyBtn, flagBtn, analyzeBtn, refreshBtn);
         VBox analyticsBox = new VBox(6, new Label("Feedback summary"), analyticsStrip);
         analyticsBox.getStyleClass().add("review-analytics-box");
         VBox tableBox = new VBox(12, analyticsBox, table, actions);
@@ -339,8 +372,7 @@ public final class AuthorReviewsScreen {
 
     private static String formatFeedbackAnalytics(BookReviewDao.FeedbackAnalytics a) {
         if (a.totalReviews() == 0) {
-            return "No reviews in the database for your books yet. Aggregated star and sentiment counts will appear "
-                    + "here once reader submission exists or reviews are added another way.";
+            return "No visible reviews yet. Once reviews are available, star and sentiment analytics will appear here.";
         }
         String avg = String.format(Locale.US, "%.2f", a.averageRating());
         return String.format(Locale.US,
@@ -363,6 +395,10 @@ public final class AuthorReviewsScreen {
             return s;
         }
         return s.substring(0, 1).toUpperCase(Locale.ROOT) + s.substring(1).toLowerCase(Locale.ROOT);
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 
     private static Optional<String> promptReply(String initialValue) {

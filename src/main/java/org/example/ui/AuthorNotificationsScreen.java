@@ -36,6 +36,7 @@ public final class AuthorNotificationsScreen {
             new Pair<>("Book accepted", NotificationService.CAT_AUTHOR_APPROVED),
             new Pair<>("Book rejected", NotificationService.CAT_AUTHOR_REJECTED),
             new Pair<>("Book removed (librarian)", NotificationService.CAT_AUTHOR_BOOK_REMOVED),
+            new Pair<>("Book updated (librarian)", NotificationService.CAT_AUTHOR_BOOK_UPDATED),
             new Pair<>("Review flagged confirmations", NotificationService.CAT_AUTHOR_REVIEW_FLAGGED),
             new Pair<>("Account updates", NotificationService.CAT_ACCOUNT_UPDATED),
             new Pair<>("Account status", NotificationService.CAT_ACCOUNT_STATUS),
