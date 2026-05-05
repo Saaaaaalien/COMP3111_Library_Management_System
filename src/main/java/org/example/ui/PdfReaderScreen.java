@@ -25,7 +25,6 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-import org.example.app.AppConfig;
 import org.example.app.Navigator;
 import org.example.app.SessionService;
 import org.example.db.BorrowDao;
@@ -48,6 +47,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.concurrent.Executors;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
@@ -164,6 +164,15 @@ public final class PdfReaderScreen {
             return;
         }
 
+        URL hostResource = PdfReaderScreen.class.getResource("/pdf-reader/host.html");
+        if (hostResource == null) {
+            Alert a = new Alert(Alert.AlertType.ERROR);
+            a.setContentText("Reader shell missing from resources (pdf-reader/host.html).");
+            a.showAndWait();
+            return;
+        }
+        final String hostLocation = hostResource.toExternalForm();
+
         // Some WebView/PDF plug-ins are unreliable with `file:` URLs; serve the PDF locally over HTTP.
         // This avoids breaking on "dark background / blank embed" issues while keeping everything local.
         HttpServer pdfServer = null;
@@ -255,8 +264,25 @@ public final class PdfReaderScreen {
         initialZoom = Math.min(400, Math.max(25, initialZoom));
         final int[] zoomPercent = {initialZoom};
 
+        final long[] lastReadAccumWallMs = {System.currentTimeMillis()};
+
+        Runnable flushReadSeconds = () -> {
+            long now = System.currentTimeMillis();
+            int secs = (int) Math.min(600, Math.max(0, (now - lastReadAccumWallMs[0]) / 1000));
+            lastReadAccumWallMs[0] = now;
+            if (secs <= 0) {
+                return;
+            }
+            try {
+                ReadingProgressDao.addReadSeconds(borrowId, user.getId(), bookId, bookmarkedPage[0], secs,
+                        Instant.now().toString());
+            } catch (SQLException ignored) {
+            }
+        };
+
         Runnable saveProgress = () -> {
             try {
+                flushReadSeconds.run();
                 // Persist the user's explicit resume point (the last page they clicked "Bookmark" on),
                 // without overwriting it with whatever page the user might be on when closing.
                 ReadingProgressDao.upsert(borrowId, user.getId(), bookId, bookmarkedPage[0], null, Instant.now().toString());
@@ -271,15 +297,6 @@ public final class PdfReaderScreen {
             }
         };
         checkpoint.run();
-
-        URL hostResource = PdfReaderScreen.class.getResource("/pdf-reader/host.html");
-        if (hostResource == null) {
-            Alert a = new Alert(Alert.AlertType.ERROR);
-            a.setContentText("Reader shell missing from resources (pdf-reader/host.html).");
-            a.showAndWait();
-            return;
-        }
-        final String hostLocation = hostResource.toExternalForm();
 
         WebView webView = new WebView();
         WebEngine webEngine = webView.getEngine();
@@ -522,44 +539,88 @@ public final class PdfReaderScreen {
             updatePageLabel.run();
         });
 
+        final Timeline[] dueWatchRef = new Timeline[1];
+        Runnable stopDueWatch = () -> {
+            if (dueWatchRef[0] != null) {
+                dueWatchRef[0].stop();
+                dueWatchRef[0] = null;
+            }
+        };
+        Consumer<String> closeReaderWithMessage = message -> {
+            if (closingGuard[0]) {
+                return;
+            }
+            closingGuard[0] = true;
+            stopDueWatch.run();
+            flushReadSeconds.run();
+            checkpoint.run();
+            saveProgress.run();
+            readerStage.close();
+            if (message != null && !message.isBlank()) {
+                Alert.AlertType severity = message.contains("auto-returned") || message.contains("past its due")
+                        ? Alert.AlertType.WARNING
+                        : Alert.AlertType.INFORMATION;
+                Alert a = new Alert(severity);
+                a.setTitle("Reader closed");
+                a.setHeaderText(null);
+                a.setContentText(message);
+                a.showAndWait();
+            }
+        };
         Runnable checkBorrowStillValid = () -> {
             if (closingGuard[0]) return;
             try {
                 var opt = BorrowDao.findById(borrowId);
                 if (opt.isEmpty()) {
-                    Platform.runLater(() -> {
-                        closingGuard[0] = true;
-                        readerStage.close();
-                    });
+                    Platform.runLater(() -> closeReaderWithMessage.accept(
+                            "This borrow record is no longer in the system; the reader was closed."));
                     return;
                 }
                 Borrow b = opt.get();
                 if (b.getBorrowerUserId() != user.getId() || b.getBookId() != bookId) {
-                    Platform.runLater(() -> {
-                        closingGuard[0] = true;
-                        readerStage.close();
-                    });
+                    Platform.runLater(() -> closeReaderWithMessage.accept(
+                            "This loan no longer matches your account; the reader was closed."));
                     return;
                 }
                 if (b.getReturnedAt() != null && !b.getReturnedAt().isEmpty()) {
-                    Platform.runLater(() -> {
-                        closingGuard[0] = true;
-                        readerStage.close();
-                    });
+                    Platform.runLater(() -> closeReaderWithMessage.accept(
+                            "This book was returned (or auto-returned). The reader was closed."));
                     return;
                 }
                 if (b.getDueAt() != null && !b.getDueAt().isEmpty()) {
                     try {
                         Instant due = Instant.parse(b.getDueAt());
-                        if (!Instant.now().isBefore(due)) {
+                        Instant now = Instant.now();
+                        if (!now.isBefore(due)) {
                             Platform.runLater(() -> {
-                                closingGuard[0] = true;
+                                flushReadSeconds.run();
                                 try {
                                     BorrowService.processDueReturns();
                                 } catch (SQLException ignored) {
                                 }
-                                readerStage.close();
-                                new Alert(Alert.AlertType.WARNING, "The loan period ended; the book was auto-returned.").showAndWait();
+                                String msg;
+                                try {
+                                    var after = BorrowDao.findById(borrowId);
+                                    if (after.isPresent() && (after.get().getReturnedAt() == null
+                                            || after.get().getReturnedAt().isEmpty())) {
+                                        msg = "This loan is past its due time, but it could not be auto-closed yet. "
+                                                + "Please return the book from My Borrowed Books or try again shortly.";
+                                    } else {
+                                        msg = "The loan period ended; the book was auto-returned and is no longer available to read.";
+                                    }
+                                } catch (SQLException ignored) {
+                                    msg = "The loan period ended; the reader was closed.";
+                                }
+                                closeReaderWithMessage.accept(msg);
+                            });
+                            return;
+                        }
+                        long secToDue = java.time.Duration.between(now, due).getSeconds();
+                        if (secToDue > 0 && secToDue <= 120 && dueWatchRef[0] != null) {
+                            Platform.runLater(() -> {
+                                if (dueWatchRef[0] != null) {
+                                    dueWatchRef[0].setRate(secToDue <= 45 ? 5.0 : 3.0);
+                                }
                             });
                         }
                     } catch (Exception ignored) {
@@ -569,16 +630,29 @@ public final class PdfReaderScreen {
             }
         };
 
-        Timeline dueWatch = new Timeline(new KeyFrame(Duration.seconds(20), ev -> checkBorrowStillValid.run()));
-        dueWatch.setCycleCount(Timeline.INDEFINITE);
-        dueWatch.play();
+        dueWatchRef[0] = new Timeline(new KeyFrame(Duration.seconds(20), ev -> checkBorrowStillValid.run()));
+        dueWatchRef[0].setCycleCount(Timeline.INDEFINITE);
+        dueWatchRef[0].play();
+
+        Timeline readAccumTimer = new Timeline(new KeyFrame(Duration.seconds(15), ev -> flushReadSeconds.run()));
+        readAccumTimer.setCycleCount(Timeline.INDEFINITE);
+        readAccumTimer.play();
 
         Timeline checkpointTimer = new Timeline(new KeyFrame(Duration.seconds(10), ev -> checkpoint.run()));
         checkpointTimer.setCycleCount(Timeline.INDEFINITE);
         checkpointTimer.play();
 
+        readerStage.focusedProperty().addListener((o, was, focused) -> {
+            if (Boolean.TRUE.equals(focused)) {
+                checkBorrowStillValid.run();
+            }
+        });
+
         readerStage.setOnCloseRequest(ev -> {
-            dueWatch.stop();
+            if (dueWatchRef[0] != null) {
+                dueWatchRef[0].stop();
+            }
+            readAccumTimer.stop();
             checkpointTimer.stop();
             checkpoint.run();
             saveProgress.run();

@@ -130,7 +130,7 @@ public final class BorrowService {
                 BookDao.findById(borrow.getBookId())
                         .ifPresent(book -> {
                             try {
-                                NotificationService.notifyReturnSuccess(borrowerUserId, book.getTitle(), false);
+                                NotificationService.notifyReturnSuccess(borrowerUserId, book.getTitle(), false, borrowId, null);
                                 NotificationService.notifyLibrariansReturnActivity(borrow.getId(), borrowerUserId, book.getTitle(), false);
                             } catch (SQLException ignored) {
                             }
@@ -184,7 +184,8 @@ public final class BorrowService {
                 BookDao.findById(borrow.getBookId())
                         .ifPresent(book -> {
                             try {
-                                NotificationService.notifyReturnSuccess(borrow.getBorrowerUserId(), book.getTitle(), true);
+                                NotificationService.notifyReturnSuccess(borrow.getBorrowerUserId(), book.getTitle(), true,
+                                        borrow.getId(), borrow.getDueAt());
                                 NotificationService.notifyLibrariansReturnActivity(borrow.getId(), borrow.getBorrowerUserId(), book.getTitle(), true);
                             } catch (SQLException ignored) {
                             }
@@ -203,10 +204,17 @@ public final class BorrowService {
     }
 
     /**
-     * Auto-returns all active borrows past {@code due_at}.
-     *
-     * @return number of borrows closed
+     * Returns several active borrows that belong to the user (partial return).
      */
+    public static void returnBooksMany(java.util.List<Long> borrowIds, long borrowerUserId) throws SQLException, BorrowException {
+        if (borrowIds == null || borrowIds.isEmpty()) {
+            throw new BorrowException("No borrows selected.");
+        }
+        for (Long id : borrowIds.stream().distinct().toList()) {
+            returnBook(id, borrowerUserId);
+        }
+    }
+
     public static int processDueReturns() throws SQLException {
         String now = Instant.now().toString();
         List<Long> ids = new ArrayList<>(BorrowDao.findOverdueActiveBorrowIds(now));

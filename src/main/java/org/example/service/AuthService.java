@@ -228,6 +228,9 @@ public final class AuthService {
             throw new AuthException("Invalid username or password. Please check your username and password.");
         }
         User user = userOpt.get();
+        if (!user.isActive()) {
+            throw new AuthException("This account has been deactivated. Please contact a librarian.");
+        }
         String lockedUntil = user.getLockedUntil();
         if (lockedUntil != null && !lockedUntil.isEmpty()) {
             try {

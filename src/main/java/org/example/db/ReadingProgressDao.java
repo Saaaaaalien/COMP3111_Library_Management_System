@@ -47,14 +47,26 @@ public final class ReadingProgressDao {
 
     public static void upsert(long borrowId, long userId, long bookId, int lastPage,
                            String viewerPayload, String updatedAt) throws SQLException {
+        upsert(borrowId, userId, bookId, lastPage, viewerPayload, updatedAt, 0);
+    }
+
+    /**
+     * Persists last page / payload and adds {@code deltaReadSeconds} to accumulated reading time for this borrow.
+     */
+    public static void upsert(long borrowId, long userId, long bookId, int lastPage,
+                           String viewerPayload, String updatedAt, int deltaReadSeconds) throws SQLException {
+        int delta = Math.max(0, deltaReadSeconds);
         //noinspection SqlNoDataSourceInspection
         String sql = """
-            INSERT INTO reading_progress (borrow_id, user_id, book_id, last_page, viewer_payload, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO reading_progress (borrow_id, user_id, book_id, last_page, viewer_payload, updated_at, accumulated_read_seconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(borrow_id) DO UPDATE SET
+                user_id = excluded.user_id,
+                book_id = excluded.book_id,
                 last_page = excluded.last_page,
                 viewer_payload = excluded.viewer_payload,
-                updated_at = excluded.updated_at
+                updated_at = excluded.updated_at,
+                accumulated_read_seconds = COALESCE(reading_progress.accumulated_read_seconds, 0) + excluded.accumulated_read_seconds
             """;
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -68,8 +80,51 @@ public final class ReadingProgressDao {
                 ps.setNull(5, Types.VARCHAR);
             }
             ps.setString(6, updatedAt);
+            ps.setInt(7, delta);
             ps.executeUpdate();
         }
+    }
+
+    public static int getAccumulatedReadSeconds(long borrowId) throws SQLException {
+        String sql = "SELECT accumulated_read_seconds FROM reading_progress WHERE borrow_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, borrowId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Adds open-reader time without changing {@code last_page}. Creates a row if none exists yet.
+     */
+    public static void addReadSeconds(long borrowId, long userId, long bookId, int lastPage,
+                                      int deltaSeconds, String updatedAt) throws SQLException {
+        int d = Math.max(0, deltaSeconds);
+        if (d == 0) {
+            return;
+        }
+        String upd = """
+            UPDATE reading_progress
+            SET accumulated_read_seconds = COALESCE(accumulated_read_seconds, 0) + ?,
+                updated_at = ?
+            WHERE borrow_id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(upd)) {
+            ps.setInt(1, d);
+            ps.setString(2, updatedAt);
+            ps.setLong(3, borrowId);
+            int n = ps.executeUpdate();
+            if (n > 0) {
+                return;
+            }
+        }
+        upsert(borrowId, userId, bookId, lastPage, null, updatedAt, d);
     }
 
     public static void deleteForBorrow(long borrowId) throws SQLException {

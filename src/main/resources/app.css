@@ -1,13 +1,59 @@
 /* E-Book Library System – shared styles */
 
+/* Hamburger drawer (Navigator host chrome) */
+.drawer-pane {
+    -fx-background-color: white;
+    -fx-border-color: #d0d7e2;
+    -fx-border-width: 0 1 0 0;
+}
+
 /* Global look & feel */
 .root {
     -fx-font-family: "Segoe UI", "SF Pro Text", system-ui, sans-serif;
     -fx-background-color: linear-gradient(to bottom right, #f4f7fb, #e6edf7);
+    -fx-text-fill: #2b333f;
 }
 
 .app-root {
     -fx-padding: 30;
+    -fx-text-fill: #2b333f;
+}
+
+/* Typed input defaults (avoids low-contrast prompt / text on some themes) */
+.text-field,
+.text-area {
+    -fx-text-fill: #2b333f;
+    -fx-prompt-text-fill: #8a93a3;
+}
+
+/* Tables — keep cell and header text dark on white / striped rows */
+.table-view .table-cell {
+    -fx-text-fill: #2b333f;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #2b333f;
+}
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #2b333f;
+}
+.table-row-cell:selected {
+    -fx-background-color: #d6e6fa;
+}
+
+/* ComboBox display and popup rows */
+.combo-box > .list-cell {
+    -fx-text-fill: #2b333f;
+}
+.combo-box-popup .list-view .list-cell {
+    -fx-text-fill: #2b333f;
+}
+
+.list-view .list-cell {
+    -fx-text-fill: #2b333f;
+}
+
+.check-box {
+    -fx-text-fill: #2b333f;
 }
 
 /* Titles */
@@ -19,6 +65,19 @@
 .screen-title {
     -fx-font-size: 20px;
     -fx-font-weight: bold;
+    -fx-text-fill: #2b333f;
+}
+
+.section-heading {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2b333f;
+}
+
+.field-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2b333f;
 }
 
 /* High‑level layouts */
@@ -108,13 +167,47 @@
     -fx-font-size: 14px;
     -fx-text-fill: #2d7dd2;
     -fx-padding: 6 4;
+    -fx-border-width: 0;
+    -fx-underline: false;
 }
 .drawer-link:hover {
     -fx-underline: true;
+    -fx-text-fill: #2566aa;
+}
+/* Visited hyperlinks default to a very light fill in Modena; keep readable on white drawer. */
+.drawer-link:visited {
+    -fx-text-fill: #1f5a9a;
+}
+.drawer-link:focused {
+    -fx-text-fill: #2d7dd2;
+}
+.drawer-pane > .label {
+    -fx-text-fill: #2b333f;
 }
 .drawer-link-logout {
     -fx-font-size: 14px;
     -fx-text-fill: #e74c3c;
     -fx-padding: 6 4;
+}
+
+/* Reading history chart row labels (FlowPane / VBox context) */
+.reading-history-chart-label {
+    -fx-text-fill: #2b333f;
+}
+
+.reading-history-text {
+    -fx-text-fill: #2b333f;
+}
+
+/* Reading history — compact badge chips (Task 1.8) */
+.badge-chip {
+    -fx-background-color: #e8f0ff;
+    -fx-background-radius: 18;
+    -fx-padding: 7 14;
+    -fx-border-color: #b7c9ea;
+    -fx-border-radius: 18;
+    -fx-border-width: 1;
+    -fx-text-fill: #1f3e73;
+    -fx-font-weight: bold;
 }
 

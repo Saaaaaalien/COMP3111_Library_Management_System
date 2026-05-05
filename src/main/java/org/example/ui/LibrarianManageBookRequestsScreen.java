@@ -493,9 +493,7 @@ public final class LibrarianManageBookRequestsScreen {
 
     private static void createNotificationForRequester(BookRequest req, String title, String message) {
         try {
-            // This would require accessing NotificationService
-            // For now, we'll just log it
-            System.out.println("Notification for user " + req.getRequestedByUserId() + ": " + title);
+            org.example.service.NotificationService.notifyBookRequestUpdate(req.getRequestedByUserId(), title, message);
         } catch (Exception ignored) {
         }
     }

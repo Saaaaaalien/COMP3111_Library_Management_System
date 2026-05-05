@@ -21,7 +21,6 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -30,11 +29,15 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.Separator;
 import javafx.stage.Window;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -43,8 +46,8 @@ import org.example.app.Navigator;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import org.example.db.BookDao;
+import org.example.db.BookReviewDao;
 import org.example.db.BorrowDao;
-import org.example.db.NotificationDao;
 import org.example.domain.Book;
 import org.example.domain.User;
 import org.example.service.BorrowService;
@@ -119,15 +122,52 @@ public final class AvailableBooksScreen {
                     row.setStyle("");
                     return;
                 }
-                if ("AVAILABLE".equals(item.getAvailability())) row.setStyle("-fx-text-fill: #000000;");
-                else row.setStyle("-fx-text-fill: #b71c1c;");
+                // Spec styling: black for available copies, dark red when borrowed / unavailable.
+                if ("AVAILABLE".equals(item.getAvailability())) {
+                    row.setStyle("-fx-text-fill: #000000;");
+                } else {
+                    row.setStyle("-fx-text-fill: #8b0000;");
+                }
             });
             return row;
         });
 
         TableColumn<BookRow, Boolean> colPick = new TableColumn<>("Borrow");
         colPick.setCellValueFactory(data -> data.getValue().borrowSelectedProperty());
-        colPick.setCellFactory(CheckBoxTableCell.forTableColumn(colPick));
+        colPick.setCellFactory(column -> new TableCell<>() {
+            private final CheckBox checkBox = new CheckBox();
+            private BooleanProperty bound;
+
+            {
+                checkBox.setOnAction(ev -> {
+                    BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
+                    if (row != null && "AVAILABLE".equals(row.getAvailability())) {
+                        row.borrowSelectedProperty().set(checkBox.isSelected());
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (bound != null) {
+                    try {
+                        checkBox.selectedProperty().unbindBidirectional(bound);
+                    } catch (Exception ignored) {
+                    }
+                    bound = null;
+                }
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                    setGraphic(null);
+                    return;
+                }
+                BookRow row = getTableRow().getItem();
+                bound = row.borrowSelectedProperty();
+                checkBox.selectedProperty().bindBidirectional(bound);
+                checkBox.setDisable(!"AVAILABLE".equals(row.getAvailability()));
+                setGraphic(checkBox);
+            }
+        });
         colPick.setEditable(true);
         colPick.setPrefWidth(70);
 
@@ -145,35 +185,113 @@ public final class AvailableBooksScreen {
                 }
                 setText(item);
                 BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
-                if (row != null && !"AVAILABLE".equals(row.getAvailability())) {
-                    setStyle("-fx-text-fill: #b71c1c;");
-                } else {
-                    setStyle("-fx-text-fill: #000000;");
-                }
+                applyAvailabilityTextColor(this, row);
             }
         });
 
         TableColumn<BookRow, String> colAuthor = new TableColumn<>("Author");
         colAuthor.setCellValueFactory(new PropertyValueFactory<>("author"));
         colAuthor.setPrefWidth(120);
+        colAuthor.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+                setText(item);
+                BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
+                applyAvailabilityTextColor(this, row);
+            }
+        });
 
         TableColumn<BookRow, String> colPublishDate = new TableColumn<>("Publish Date");
         colPublishDate.setCellValueFactory(new PropertyValueFactory<>("publishDateDisplay"));
         colPublishDate.setPrefWidth(100);
+        colPublishDate.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+                setText(item);
+                BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
+                applyAvailabilityTextColor(this, row);
+            }
+        });
 
         TableColumn<BookRow, String> colAvailability = new TableColumn<>("Availability Status");
         colAvailability.setCellValueFactory(new PropertyValueFactory<>("availability"));
         colAvailability.setPrefWidth(90);
+        colAvailability.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+                setText(item);
+                BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
+                applyAvailabilityTextColor(this, row);
+            }
+        });
 
         TableColumn<BookRow, String> colGenre = new TableColumn<>("Genre");
         colGenre.setCellValueFactory(new PropertyValueFactory<>("genre"));
         colGenre.setPrefWidth(100);
+        colGenre.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    return;
+                }
+                setText(item);
+                BookRow row = getTableRow() != null ? getTableRow().getItem() : null;
+                applyAvailabilityTextColor(this, row);
+            }
+        });
+
+        TableColumn<BookRow, String> colAvg = new TableColumn<>("Avg rating");
+        colAvg.setCellValueFactory(new PropertyValueFactory<>("avgRatingDisplay"));
+        colAvg.setPrefWidth(80);
+        colAvg.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                styleCatalogStringCell(this, item, empty);
+            }
+        });
+
+        TableColumn<BookRow, String> colRevCount = new TableColumn<>("Reviews");
+        colRevCount.setCellValueFactory(new PropertyValueFactory<>("reviewCountDisplay"));
+        colRevCount.setPrefWidth(70);
+        colRevCount.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                styleCatalogStringCell(this, item, empty);
+            }
+        });
 
         TableColumn<BookRow, String> colSummary = new TableColumn<>("Abstract / Summary");
         colSummary.setCellValueFactory(new PropertyValueFactory<>("summary"));
         colSummary.setPrefWidth(SUMMARY_PREF_WIDTH);
+        colSummary.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                styleCatalogStringCell(this, item, empty);
+            }
+        });
 
-        table.getColumns().addAll(List.of(colPick, colTitle, colAuthor, colGenre, colPublishDate, colAvailability, colSummary));
+        table.getColumns().addAll(List.of(colPick, colTitle, colAuthor, colGenre, colAvg, colRevCount, colPublishDate, colAvailability, colSummary));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
 
         // Inactivity timer: return to portal after 15 minutes with no input
@@ -244,9 +362,13 @@ public final class AvailableBooksScreen {
             allItems.clear();
             try {
                 List<Book> books = BookDao.findAll();
+                java.util.Map<Long, BookReviewDao.BookRatingAggregate> aggMap =
+                        BookReviewDao.aggregateForBookIds(books.stream().map(Book::getId).toList());
                 Set<String> discoveredGenres = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
                 for (Book b : books) {
-                    allItems.add(new BookRow(b));
+                    BookReviewDao.BookRatingAggregate agg = aggMap.getOrDefault(b.getId(),
+                            new BookReviewDao.BookRatingAggregate(0, 0));
+                    allItems.add(new BookRow(b, agg));
                     discoveredGenres.addAll(tokenizeGenres(b.getGenre()));
                 }
                 List<String> mergedGenres = new java.util.ArrayList<>(FIXED_GENRES);
@@ -454,17 +576,50 @@ public final class AvailableBooksScreen {
         readSummaryBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         quickReviewBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
 
+        Button reviewsBtn = new Button("Reviews");
+        reviewsBtn.getStyleClass().add("secondary-button");
+        reviewsBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
+        reviewsBtn.setOnAction(e -> {
+            BookRow selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                runWithTimerPaused(inactivityTimer,
+                        () -> showAlert(Alert.AlertType.WARNING, "No selection", "Select a book first."));
+                return;
+            }
+            runWithTimerPaused(inactivityTimer, () -> {
+                try {
+                    var bookOpt = BookDao.findById(selected.getBookId());
+                    if (bookOpt.isEmpty()) {
+                        showAlert(Alert.AlertType.ERROR, "Error", "Book not found.");
+                        return;
+                    }
+                    showReviewsAndRateDialog(table.getScene().getWindow(), bookOpt.get(), currentUser, refresh);
+                } catch (SQLException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Error", "Could not load reviews.");
+                }
+            });
+        });
+
+        Label searchLbl = new Label("Search");
+        searchLbl.getStyleClass().add("field-label");
+        Label genreLbl = new Label("Genre");
+        genreLbl.getStyleClass().add("field-label");
+        Label availabilityLbl = new Label("Availability");
+        availabilityLbl.getStyleClass().add("field-label");
         HBox searchRow = new HBox(8,
-                new Label("Search:"), searchField,
-                new Label("Genre:"), genreFilter,
-                new Label("Availability:"), availabilityFilter,
+                searchLbl, searchField,
+                genreLbl, genreFilter,
+                availabilityLbl, availabilityFilter,
                 publishFrom, publishTo);
         searchRow.setAlignment(Pos.CENTER_LEFT);
         searchRow.setSpacing(10);
 
         HBox recBox = new HBox(8);
         recBox.setAlignment(Pos.CENTER_LEFT);
-        recBox.getChildren().add(new Label("Recommended:"));
+        Label recLbl = new Label("Recommended for You");
+        recLbl.getStyleClass().add("field-label");
+        recLbl.setTooltip(new Tooltip("Based on genres you have borrowed before; otherwise popular available titles."));
+        recBox.getChildren().add(recLbl);
         try {
             int recLimit = 3;
             for (Book rb : BookDao.findRecommendedForUserAvailable(currentUser.getId(), recLimit)) {
@@ -491,6 +646,13 @@ public final class AvailableBooksScreen {
             } catch (SQLException ignored2) {
                 // Keep empty recommendations area if even fallback fails.
             }
+        }
+
+        Label recEmptyHint = new Label();
+        recEmptyHint.setWrapText(true);
+        recEmptyHint.getStyleClass().add("login-hint");
+        if (recBox.getChildren().size() <= 1) {
+            recEmptyHint.setText("No quick picks right now. Borrow a few books so recommendations can follow the genres you use.");
         }
 
         Label loggedInLabel = new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
@@ -525,13 +687,14 @@ public final class AvailableBooksScreen {
         buttons.getChildren().addAll(
                 borrowBtn,
                 readSummaryBtn,
-                quickReviewBtn
+                quickReviewBtn,
+                reviewsBtn
         );
         buttons.setAlignment(Pos.CENTER_LEFT);
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 
-        VBox top = new VBox(10, headerBox, recBox, searchRow);
+        VBox top = new VBox(10, headerBox, recBox, recEmptyHint, searchRow);
         top.setPadding(new Insets(10));
 
         VBox center = new VBox(10, tableContainer, buttons);
@@ -951,9 +1114,11 @@ public final class AvailableBooksScreen {
         private final String publishDateIso;
         private final String availability;
         private final String summary;
+        private final String avgRatingDisplay;
+        private final String reviewCountDisplay;
         private final BooleanProperty borrowSelected = new SimpleBooleanProperty(false);
 
-        public BookRow(Book b) {
+        public BookRow(Book b, BookReviewDao.BookRatingAggregate agg) {
             this.bookId = b.getId();
             this.title = b.getTitle();
             this.author = b.getAuthorFullNameSnapshot();
@@ -963,6 +1128,13 @@ public final class AvailableBooksScreen {
             this.publishDateDisplay = formatPublishDate(p);
             this.availability = b.getAvailability().name();
             this.summary = b.getSummary() != null ? b.getSummary() : "";
+            if (agg != null && agg.reviewCount() > 0) {
+                this.avgRatingDisplay = agg.averageDisplay();
+                this.reviewCountDisplay = String.valueOf(agg.reviewCount());
+            } else {
+                this.avgRatingDisplay = "—";
+                this.reviewCountDisplay = "0";
+            }
         }
 
         public BooleanProperty borrowSelectedProperty() { return borrowSelected; }
@@ -992,6 +1164,171 @@ public final class AvailableBooksScreen {
         public String getPublishDateDisplay() { return publishDateDisplay; }
         public String getAvailability() { return availability; }
         public String getSummary() { return summary; }
+        public String getAvgRatingDisplay() { return avgRatingDisplay; }
+        public String getReviewCountDisplay() { return reviewCountDisplay; }
+    }
+
+    private static void applyAvailabilityTextColor(TableCell<BookRow, String> cell, BookRow row) {
+        if (row != null && !"AVAILABLE".equals(row.getAvailability())) {
+            cell.setStyle("-fx-text-fill: #8b0000;");
+        } else {
+            cell.setStyle("-fx-text-fill: #000000;");
+        }
+    }
+
+    /** Consistent black (available) vs deep red (on loan) tint for catalog table text cells. */
+    private static void styleCatalogStringCell(TableCell<BookRow, String> cell, String item, boolean empty) {
+        if (empty || item == null) {
+            cell.setText(null);
+            cell.setStyle("");
+            return;
+        }
+        cell.setText(item);
+        BookRow row = cell.getTableRow() != null ? cell.getTableRow().getItem() : null;
+        applyAvailabilityTextColor(cell, row);
+    }
+
+    /**
+     * Opens the catalog review/rating dialog for a book. Shared from Available Books, My Borrowed Books, and Reading History.
+     */
+    public static void showReviewsAndRateDialog(Window owner, Book book, User currentUser, Runnable refreshList) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+        dialog.setTitle("Reviews — " + book.getTitle());
+
+        BookReviewDao.BookRatingAggregate agg;
+        try {
+            agg = BookReviewDao.aggregateForBook(book.getId());
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Error", "Could not load ratings.");
+            return;
+        }
+
+        Label header = new Label("Average " + agg.averageDisplay() + " · " + agg.reviewCount() + " review(s)");
+        ComboBox<String> sortBox = new ComboBox<>(FXCollections.observableArrayList("Recent", "Helpful"));
+        sortBox.getSelectionModel().selectFirst();
+
+        ListView<BookReviewDao.CatalogReviewRow> list = new ListView<>();
+        list.setPrefHeight(220);
+        Runnable reloadList = () -> {
+            try {
+                String sort = "Helpful".equals(sortBox.getSelectionModel().getSelectedItem()) ? "HELPFUL" : "RECENT";
+                list.setItems(FXCollections.observableArrayList(BookReviewDao.findPublicReviewsForBook(book.getId(), sort)));
+            } catch (SQLException ex) {
+                list.setItems(FXCollections.observableArrayList());
+            }
+        };
+        list.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(BookReviewDao.CatalogReviewRow item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                    setText(null);
+                    return;
+                }
+                VBox box = new VBox(4);
+                Label line1 = new Label(item.displayName() + " · " + item.rating() + "/5 · helpful " + item.helpfulVotes());
+                line1.setStyle("-fx-font-weight: bold;");
+                TextArea ta = new TextArea(item.reviewText() != null ? item.reviewText() : "");
+                ta.setEditable(false);
+                ta.setWrapText(true);
+                ta.setPrefRowCount(2);
+                Button helpful = new Button("Mark helpful");
+                helpful.getStyleClass().add("secondary-button");
+                try {
+                    boolean marked = BookReviewDao.userMarkedHelpful(item.id(), currentUser.getId());
+                    helpful.setDisable(marked || item.reviewerUserId() == currentUser.getId());
+                    helpful.setText(marked ? "You marked helpful" : "Mark helpful");
+                } catch (SQLException ex) {
+                    helpful.setDisable(true);
+                }
+                helpful.setOnAction(ev -> {
+                    try {
+                        if (BookReviewDao.incrementHelpful(item.id(), currentUser.getId())) {
+                            reloadList.run();
+                        }
+                    } catch (SQLException ex) {
+                        // ignore
+                    }
+                });
+                box.getChildren().addAll(line1, ta, helpful);
+                setGraphic(box);
+                setText(null);
+            }
+        });
+        reloadList.run();
+        sortBox.setOnAction(e -> reloadList.run());
+
+        Separator sep = new Separator();
+
+        Label submitHead = new Label("Your review (requires borrow history for this title)");
+        Spinner<Integer> ratingSpin = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 5, 5, 1));
+        TextArea yourReview = new TextArea();
+        yourReview.setPromptText("Optional review text");
+        yourReview.setWrapText(true);
+        yourReview.setPrefRowCount(3);
+        CheckBox anon = new CheckBox("Post anonymously");
+
+        try {
+            BookReviewDao.findOwnReview(book.getId(), currentUser.getId()).ifPresent(draft -> {
+                ratingSpin.getValueFactory().setValue(draft.rating());
+                yourReview.setText(draft.reviewText() != null ? draft.reviewText() : "");
+                anon.setSelected(draft.anonymous());
+            });
+        } catch (SQLException ignored) {
+            // Leave defaults if load fails
+        }
+
+        Button submit = new Button("Submit / update my review");
+        submit.getStyleClass().add("primary-button");
+        submit.setOnAction(ev -> {
+            try {
+                if (!BookReviewDao.hasUserEverBorrowedBook(currentUser.getId(), book.getId())) {
+                    Alert needBorrow = new Alert(Alert.AlertType.INFORMATION);
+                    needBorrow.setHeaderText(null);
+                    needBorrow.setContentText(
+                            "You can rate or review only after you have borrowed this book at least once.");
+                    needBorrow.showAndWait();
+                    return;
+                }
+                int r = ratingSpin.getValue() == null ? 5 : ratingSpin.getValue();
+                String txt = yourReview.getText() == null ? "" : yourReview.getText().trim();
+                BookReviewDao.upsertStudentReview(book.getId(), currentUser.getId(), r,
+                        txt.isEmpty() ? null : txt, anon.isSelected(), Instant.now().toString());
+                reloadList.run();
+                refreshList.run();
+                Alert saved = new Alert(Alert.AlertType.INFORMATION);
+                saved.setTitle("Saved");
+                saved.setHeaderText(null);
+                saved.setContentText("Your review was saved.");
+                saved.showAndWait();
+            } catch (SQLException ex) {
+                Alert err = new Alert(Alert.AlertType.ERROR);
+                err.setTitle("Save failed");
+                err.setHeaderText(null);
+                err.setContentText(ex.getMessage() != null ? ex.getMessage() : "Could not save review.");
+                err.showAndWait();
+            }
+        });
+
+        VBox root = new VBox(10, header, new HBox(8, new Label("Sort:"), sortBox), list, sep, submitHead,
+                new Label("Rating (1–5):"), ratingSpin, yourReview, anon, submit);
+        root.setPadding(new Insets(16));
+        ScrollPane sp = new ScrollPane(root);
+        sp.setFitToWidth(true);
+        DialogPane pane = dialog.getDialogPane();
+        pane.setContent(sp);
+        pane.getButtonTypes().add(ButtonType.CLOSE);
+        java.net.URL cssResource = AvailableBooksScreen.class.getResource("/app.css");
+        if (cssResource != null) {
+            pane.getStylesheets().add(cssResource.toExternalForm());
+        }
+        pane.setPrefSize(520, 560);
+        dialog.showAndWait();
     }
 }
 

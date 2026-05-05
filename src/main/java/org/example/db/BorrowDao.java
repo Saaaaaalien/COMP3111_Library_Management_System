@@ -1,10 +1,5 @@
 package org.example.db;
 
-import org.example.domain.Borrow;
-import org.example.domain.BorrowWithBook;
-import org.example.security.CryptoUtil;
-
-import java.sql.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,6 +11,7 @@ import java.util.Optional;
 
 import org.example.domain.Borrow;
 import org.example.domain.BorrowWithBook;
+import org.example.security.CryptoUtil;
 
 /**
  * Data access for borrows table.
@@ -112,7 +108,8 @@ public final class BorrowDao {
             SELECT b.id AS borrow_id, b.book_id, b.borrowed_at, b.returned_at, b.due_at,
                    COALESCE(k.title, '[Removed book]') AS title,
                    COALESCE(k.author_full_name_snapshot, 'Unknown author') AS author,
-                   k.file_path AS book_file_path
+                   k.file_path AS book_file_path,
+                   k.genre AS book_genre
             FROM borrows b
             LEFT JOIN books k ON k.id = b.book_id
             WHERE b.borrower_user_id = ?
@@ -132,7 +129,8 @@ public final class BorrowDao {
                         rs.getString("borrowed_at"),
                         rs.getString("returned_at"),
                         rs.getString("due_at"),
-                        CryptoUtil.decryptToString(rs.getString("book_file_path"))
+                        CryptoUtil.decryptToString(rs.getString("book_file_path")),
+                        rs.getString("book_genre")
                     ));
                 }
             }
