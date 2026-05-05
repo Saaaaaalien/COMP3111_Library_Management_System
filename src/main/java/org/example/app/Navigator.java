@@ -16,6 +16,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -47,6 +48,7 @@ public class Navigator {
     private Scene hostScene;
     private StackPane contentDrawerStack;
     private VBox drawerPane;
+    private ScrollPane drawerScroll;
     private Button headerNotifBtn;
 
     public Navigator(Stage stage) {
@@ -110,32 +112,37 @@ public class Navigator {
 
         drawerPane = new VBox(8);
         drawerPane.setPadding(new Insets(12));
-        drawerPane.getStyleClass().add("drawer-pane");
-        drawerPane.setVisible(false);
-        drawerPane.prefWidthProperty().bind(stage.widthProperty().multiply(0.20));
-        drawerPane.minWidthProperty().bind(stage.widthProperty().multiply(0.12));
-        drawerPane.maxWidthProperty().bind(stage.widthProperty().multiply(0.15));
-        drawerPane.setMaxHeight(Double.MAX_VALUE);
-        StackPane.setAlignment(drawerPane, Pos.TOP_LEFT);
-        drawerPane.setTranslateX(-Math.max(200, stage.getWidth() * 0.20));
-        drawerPane.widthProperty().addListener((obs, oldW, newW) -> {
-            if (drawerPane.getTranslateX() < 0) {
-                drawerPane.setTranslateX(-newW.doubleValue());
+
+        drawerScroll = new ScrollPane(drawerPane);
+        drawerScroll.getStyleClass().add("drawer-pane");
+        drawerScroll.setFitToWidth(true);
+        drawerScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        drawerScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        drawerScroll.setVisible(false);
+        drawerScroll.prefWidthProperty().bind(stage.widthProperty().multiply(0.20));
+        drawerScroll.minWidthProperty().bind(stage.widthProperty().multiply(0.12));
+        drawerScroll.maxWidthProperty().bind(stage.widthProperty().multiply(0.15));
+        drawerScroll.setMaxHeight(Double.MAX_VALUE);
+        StackPane.setAlignment(drawerScroll, Pos.TOP_LEFT);
+        drawerScroll.setTranslateX(-Math.max(200, stage.getWidth() * 0.20));
+        drawerScroll.widthProperty().addListener((obs, oldW, newW) -> {
+            if (drawerScroll.getTranslateX() < 0) {
+                drawerScroll.setTranslateX(-newW.doubleValue());
             }
         });
 
         menuBtn.setOnAction(e -> {
-            boolean opening = drawerPane.getTranslateX() < 0;
-            TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawerPane);
-            double w = drawerPane.getWidth() > 0 ? drawerPane.getWidth() : Math.max(200, stage.getWidth() * 0.20);
+            boolean opening = drawerScroll.getTranslateX() < 0;
+            TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawerScroll);
+            double w = drawerScroll.getWidth() > 0 ? drawerScroll.getWidth() : Math.max(200, stage.getWidth() * 0.20);
             if (opening) {
-                drawerPane.setVisible(true);
+                drawerScroll.setVisible(true);
                 tt.setFromX(-w);
                 tt.setToX(0);
             } else {
                 tt.setFromX(0);
                 tt.setToX(-w);
-                tt.setOnFinished(ev -> drawerPane.setVisible(false));
+                tt.setOnFinished(ev -> drawerScroll.setVisible(false));
             }
             tt.play();
         });
@@ -143,12 +150,20 @@ public class Navigator {
         headerNotifBtn = new Button("Notifications");
         headerNotifBtn.getStyleClass().add("secondary-button");
         headerNotifBtn.setFocusTraversable(false);
-        HBox rightBox = new HBox(headerNotifBtn);
+        HBox rightBox = new HBox(8);
         rightBox.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(rightBox, Priority.ALWAYS);
+        if (AppConfig.DEV_MODE) {
+            Button crashBtn = new Button("Crash Test");
+            crashBtn.getStyleClass().add("secondary-button");
+            crashBtn.setOnAction(e -> SessionService.simulateCrash());
+            crashBtn.setFocusTraversable(false);
+            rightBox.getChildren().add(crashBtn);
+        }
+        rightBox.getChildren().add(headerNotifBtn);
         topBar.getChildren().addAll(menuBtn, rightBox);
 
-        contentDrawerStack = new StackPane(firstScreenRoot, drawerPane);
+        contentDrawerStack = new StackPane(firstScreenRoot, drawerScroll);
         StackPane.setAlignment(firstScreenRoot, Pos.CENTER);
 
         BorderPane overlayContainer = new BorderPane();
@@ -290,19 +305,7 @@ public class Navigator {
         }
         var crashCombo = new KeyCodeCombination(KeyCode.X, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
         scene.getAccelerators().put(crashCombo, () -> SessionService.simulateCrash());
-        Object wrapped = scene.getProperties().get("devCrashOverlayInstalled");
-        if (Boolean.TRUE.equals(wrapped)) {
-            return;
-        }
-        Button crashBtn = new Button("Crash Test");
-        crashBtn.getStyleClass().add("secondary-button");
-        crashBtn.setOnAction(e -> SessionService.simulateCrash());
-        crashBtn.setFocusTraversable(false);
-        StackPane wrapper = new StackPane(scene.getRoot(), crashBtn);
-        StackPane.setAlignment(crashBtn, Pos.TOP_RIGHT);
-        StackPane.setMargin(crashBtn, new Insets(10));
-        scene.setRoot(wrapper);
-        scene.getProperties().put("devCrashOverlayInstalled", true);
+        // Button lives in {@link #buildHostChrome} next to Notifications — avoid a top-right overlay that overlaps it.
     }
 
     public void showWelcome() {

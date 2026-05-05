@@ -21,7 +21,6 @@ import org.example.db.ReadingHistoryDao;
 import org.example.db.ReadingHistoryDao.ReadingHistoryRow;
 import org.example.domain.User;
 
-import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -76,13 +75,16 @@ public final class ReadingHistoryScreen {
         colAuthor.setCellValueFactory(new PropertyValueFactory<>("author"));
         TableColumn<HistoryRow, String> colGenre = new TableColumn<>("Genre");
         colGenre.setCellValueFactory(new PropertyValueFactory<>("genre"));
-        colGenre.setPrefWidth(90);
+        colGenre.setMinWidth(100);
+        colGenre.setPrefWidth(130);
         TableColumn<HistoryRow, String> colBorrowed = new TableColumn<>("Borrowed");
         colBorrowed.setCellValueFactory(new PropertyValueFactory<>("borrowedDisplay"));
         TableColumn<HistoryRow, String> colReturned = new TableColumn<>("Returned");
         colReturned.setCellValueFactory(new PropertyValueFactory<>("returnedDisplay"));
-        TableColumn<HistoryRow, String> colRead = new TableColumn<>("Reading time");
+        TableColumn<HistoryRow, String> colRead = new TableColumn<>("Reading Time");
         colRead.setCellValueFactory(new PropertyValueFactory<>("readTimeDisplay"));
+        colRead.setMinWidth(95);
+        colRead.setPrefWidth(110);
         TableColumn<HistoryRow, String> colProg = new TableColumn<>("Bookmark page");
         colProg.setCellValueFactory(new PropertyValueFactory<>("progressDisplay"));
         TableColumn<HistoryRow, Void> colOpen = new TableColumn<>("Continue");
@@ -137,9 +139,11 @@ public final class ReadingHistoryScreen {
         ComboBox<String> genreFilter = new ComboBox<>(FXCollections.observableArrayList("All genres"));
         genreFilter.getSelectionModel().selectFirst();
 
-        Label lifetimeHeading = new Label("Lifetime achievements");
+        Label lifetimeHeading = new Label("Lifetime Achievements");
         lifetimeHeading.getStyleClass().add("section-heading");
         FlowPane badgeFlow = new FlowPane(8, 8);
+        badgeFlow.setAlignment(Pos.CENTER_LEFT);
+        badgeFlow.setPadding(new Insets(4, 0, 0, 0));
         badgeFlow.setPrefWrapLength(520);
         VBox badgesBlock = new VBox(6, lifetimeHeading, badgeFlow);
 
@@ -149,7 +153,7 @@ public final class ReadingHistoryScreen {
         genreChart.getChildren().add(genreTitle);
 
         VBox durationChart = new VBox(6);
-        Label durTitle = new Label("Reading time by loan");
+        Label durTitle = new Label("Reading Time by Loan");
         durTitle.getStyleClass().add("section-heading");
         durationChart.getChildren().add(durTitle);
 
@@ -190,6 +194,7 @@ public final class ReadingHistoryScreen {
                 HBox row = new HBox(8);
                 row.setAlignment(Pos.CENTER_LEFT);
                 Label l = new Label(e.getKey() + ": " + e.getValue());
+                l.getStyleClass().add("reading-history-chart-label");
                 l.setPrefWidth(140);
                 ProgressBar pb = new ProgressBar(e.getValue() / (double) gMax);
                 pb.setPrefWidth(160);
@@ -202,6 +207,7 @@ public final class ReadingHistoryScreen {
                 HBox row = new HBox(8);
                 row.setAlignment(Pos.CENTER_LEFT);
                 Label l = new Label(k + ": " + v);
+                l.getStyleClass().add("reading-history-chart-label");
                 l.setPrefWidth(100);
                 ProgressBar pb = new ProgressBar(v / (double) dMax);
                 pb.setPrefWidth(160);
@@ -210,11 +216,12 @@ public final class ReadingHistoryScreen {
             }
         };
 
-        Label continueHeading = new Label("Continue reading");
+        Label continueHeading = new Label("Continue Reading");
         continueHeading.getStyleClass().add("section-heading");
         HBox continueCards = new HBox(12);
         continueCards.setAlignment(Pos.CENTER_LEFT);
         VBox continueBlock = new VBox(8, continueHeading, continueCards);
+        continueBlock.getStyleClass().add("content-card");
         Runnable rebuildContinue = () -> {
             continueCards.getChildren().clear();
             List<HistoryRow> resumable = all.stream().filter(HistoryRow::canOpenReader).limit(3).toList();
@@ -226,8 +233,8 @@ public final class ReadingHistoryScreen {
             }
             for (HistoryRow h : resumable) {
                 VBox card = new VBox(6);
-                card.getStyleClass().add("content-card");
                 card.setPadding(new Insets(12));
+                card.getStyleClass().add("table-container");
                 Label t = new Label(h.getTitle());
                 t.setWrapText(true);
                 t.getStyleClass().add("section-heading");
@@ -236,7 +243,7 @@ public final class ReadingHistoryScreen {
                         : "No bookmark yet — opens at start";
                 Label sub = new Label(pageInfo);
                 sub.setWrapText(true);
-                sub.getStyleClass().add("login-hint");
+                sub.getStyleClass().add("reading-history-text");
                 Button go = new Button("Continue");
                 go.getStyleClass().add("primary-button");
                 go.setOnAction(e -> navigator.showPdfReader(user, h.getBorrowId(), h.getBookId(), h.getLastPage0(), null));
@@ -370,10 +377,16 @@ public final class ReadingHistoryScreen {
         exportCsvItem.setOnAction(e -> doExportCsv.run());
         exportMenu.getItems().addAll(exportPdfItem, exportCsvItem);
 
+        Label searchLbl = new Label("Search");
+        searchLbl.getStyleClass().add("field-label");
+        Label loanLbl = new Label("Loan");
+        loanLbl.getStyleClass().add("field-label");
+        Label genreLbl = new Label("Genre");
+        genreLbl.getStyleClass().add("field-label");
         HBox filterRow1 = new HBox(10,
-                new Label("Search:"), search,
-                new Label("Loan:"), statusFilter,
-                new Label("Genre:"), genreFilter);
+                searchLbl, search,
+                loanLbl, statusFilter,
+                genreLbl, genreFilter);
         filterRow1.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(search, Priority.ALWAYS);
         search.setMaxWidth(Double.MAX_VALUE);
@@ -396,54 +409,46 @@ public final class ReadingHistoryScreen {
 
         Label lifetimeHint = new Label("Based on your full borrowing history, regardless of filters.");
         lifetimeHint.setWrapText(true);
-        lifetimeHint.getStyleClass().add("login-hint");
+        lifetimeHint.getStyleClass().add("reading-history-text");
         VBox achievementsCard = new VBox(8, badgesBlock, lifetimeHint);
         achievementsCard.setPadding(new Insets(16));
         achievementsCard.getStyleClass().add("content-card");
 
-        Label historyHeading = new Label("Loan history");
+        Label historyHeading = new Label("Loan History");
         historyHeading.getStyleClass().add("section-heading");
         Label tableHint = new Label(
                 "Adjust search or filters to narrow the table; charts and exports follow the same view.");
         tableHint.setWrapText(true);
-        tableHint.getStyleClass().add("login-hint");
+        tableHint.getStyleClass().add("reading-history-text");
         VBox tableCard = new VBox(10, table);
         tableCard.getStyleClass().add("table-container");
         VBox.setVgrow(table, Priority.ALWAYS);
-
-        VBox center = new VBox(12, historyHeading, tableHint, filterBlock, tableCard);
+        VBox historyCard = new VBox(10, historyHeading, tableHint, filterBlock, tableCard);
+        historyCard.getStyleClass().add("content-card");
+        VBox center = new VBox(12, historyCard);
         center.setPadding(new Insets(10, 0, 0, 0));
         VBox.setVgrow(tableCard, Priority.ALWAYS);
 
         VBox headerBlock = new VBox(4, title, subtitle);
-        VBox dashboard = new VBox(16,
-                headerBlock,
+        VBox contentBody = new VBox(16,
                 continueBlock,
                 insightsInner,
-                achievementsCard);
-        dashboard.setFillWidth(true);
-        ScrollPane dashboardScroll = new ScrollPane(dashboard);
-        dashboardScroll.setFitToWidth(true);
-        dashboardScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        dashboardScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+                achievementsCard,
+                center);
+        contentBody.setFillWidth(true);
+
+        ScrollPane contentScroll = new ScrollPane(contentBody);
+        contentScroll.setFitToWidth(true);
+        contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        contentScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         BorderPane root = new BorderPane();
-        root.setTop(dashboardScroll);
-        root.setCenter(center);
+        root.setTop(headerBlock);
+        root.setCenter(contentScroll);
         root.setPadding(new Insets(20));
         root.getStyleClass().add("app-root");
 
         Scene scene = new Scene(root, Navigator.getPreferredWidth(), Navigator.getPreferredHeight());
-        dashboardScroll.maxHeightProperty().bind(
-                Bindings.createDoubleBinding(
-                        () -> {
-                            double h = scene.getHeight();
-                            if (h <= 0) {
-                                return 400.0;
-                            }
-                            return Math.min(560.0, Math.max(180.0, h * 0.52));
-                        },
-                        scene.heightProperty()));
         var css = ReadingHistoryScreen.class.getResource("/app.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
@@ -526,17 +531,19 @@ public final class ReadingHistoryScreen {
         int totalSec = rows.stream().mapToInt(ReadingHistoryRow::accumulatedReadSeconds).sum();
         long returned = rows.stream().filter(r -> !r.active()).count();
         List<String> b = new ArrayList<>();
+        // Baseline badge so every user has at least one achievement chip.
+        b.add("📘 Library Member");
         if (distinctBooks >= 3) {
-            b.add("Regular borrower");
+            b.add("📚 Regular borrower");
         }
         if (returned >= 5) {
-            b.add("Community member");
+            b.add("🤝 Community member");
         }
         if (totalSec >= 3600) {
-            b.add("1-hour reader club");
+            b.add("⏱ 1-hour reader club");
         }
         if (totalSec >= 36000) {
-            b.add("Dedicated reader");
+            b.add("🏆 Dedicated reader");
         }
         return b;
     }

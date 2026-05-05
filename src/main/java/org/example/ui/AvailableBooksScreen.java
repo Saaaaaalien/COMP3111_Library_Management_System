@@ -576,7 +576,7 @@ public final class AvailableBooksScreen {
         readSummaryBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         quickReviewBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
 
-        Button reviewsBtn = new Button("Reviews & rate");
+        Button reviewsBtn = new Button("Reviews");
         reviewsBtn.getStyleClass().add("secondary-button");
         reviewsBtn.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         reviewsBtn.setOnAction(e -> {
@@ -600,17 +600,24 @@ public final class AvailableBooksScreen {
             });
         });
 
+        Label searchLbl = new Label("Search");
+        searchLbl.getStyleClass().add("field-label");
+        Label genreLbl = new Label("Genre");
+        genreLbl.getStyleClass().add("field-label");
+        Label availabilityLbl = new Label("Availability");
+        availabilityLbl.getStyleClass().add("field-label");
         HBox searchRow = new HBox(8,
-                new Label("Search:"), searchField,
-                new Label("Genre:"), genreFilter,
-                new Label("Availability:"), availabilityFilter,
+                searchLbl, searchField,
+                genreLbl, genreFilter,
+                availabilityLbl, availabilityFilter,
                 publishFrom, publishTo);
         searchRow.setAlignment(Pos.CENTER_LEFT);
         searchRow.setSpacing(10);
 
         HBox recBox = new HBox(8);
         recBox.setAlignment(Pos.CENTER_LEFT);
-        Label recLbl = new Label("Recommended for you:");
+        Label recLbl = new Label("Recommended for You");
+        recLbl.getStyleClass().add("field-label");
         recLbl.setTooltip(new Tooltip("Based on genres you have borrowed before; otherwise popular available titles."));
         recBox.getChildren().add(recLbl);
         try {

@@ -178,7 +178,11 @@ public final class StudentStaffNotificationBoardScreen {
 
         // Back navigation now provided by global menu; per-screen Back removed.
 
-        HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
+        Label categoryLbl = new Label("Category");
+        categoryLbl.getStyleClass().add("field-label");
+        Label searchLbl = new Label("Search");
+        searchLbl.getStyleClass().add("field-label");
+        HBox filters = new HBox(10, categoryLbl, category, searchLbl, search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
         HBox actions = new HBox(10, readBtn, readAllBtn, archiveToggleBtn, deleteBtn, unreadCountLabel);
         actions.setAlignment(Pos.CENTER_LEFT);

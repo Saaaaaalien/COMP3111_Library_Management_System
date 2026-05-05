@@ -13,7 +13,6 @@ import org.example.domain.User;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.geometry.VPos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -25,10 +24,9 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Separator;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -169,46 +167,38 @@ public final class StudentBookRequestScreen {
             }
         });
 
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
+        // Use a single-column form in this screen so inputs are visually centered.
+        VBox form = new VBox(4);
         form.getStyleClass().add("form-grid");
-        ColumnConstraints labelCol = new ColumnConstraints();
-        labelCol.setMinWidth(Region.USE_PREF_SIZE);
-        labelCol.setHgrow(Priority.NEVER);
-        ColumnConstraints fieldCol = new ColumnConstraints();
-        fieldCol.setHgrow(Priority.ALWAYS);
-        form.getColumnConstraints().addAll(labelCol, fieldCol);
-
-        int r = 0;
-        form.add(new Label("Title *"), 0, r);
-        form.add(titleField, 1, r++);
-        form.add(new Label("Author *"), 0, r);
-        form.add(authorField, 1, r++);
-        form.add(new Label("Genre"), 0, r);
-        form.add(genreBox, 1, r++);
-        form.add(new Label("Reason"), 0, r);
-        form.add(reasonArea, 1, r);
-        GridPane.setHgrow(titleField, Priority.ALWAYS);
-        GridPane.setHgrow(authorField, Priority.ALWAYS);
-        GridPane.setHgrow(genreBox, Priority.ALWAYS);
-        GridPane.setHgrow(reasonArea, Priority.ALWAYS);
-        GridPane.setValignment(reasonArea, VPos.TOP);
+        form.setMaxWidth(Double.MAX_VALUE);
+        Label titleLbl = new Label("Title *");
+        Label authorLbl = new Label("Author *");
+        Label genreLbl = new Label("Genre");
+        Label reasonLbl = new Label("Reason");
+        titleField.setMaxWidth(Double.MAX_VALUE);
+        authorField.setMaxWidth(Double.MAX_VALUE);
         genreBox.setMaxWidth(Double.MAX_VALUE);
+        reasonArea.setMaxWidth(Double.MAX_VALUE);
+        form.getChildren().addAll(
+                titleLbl, titleField,
+                authorLbl, authorField,
+                genreLbl, genreBox,
+                reasonLbl, reasonArea
+        );
 
         Label hint = new Label(
                 "Submit a title you would like the library to consider. Your past submissions and statuses appear below.");
         hint.getStyleClass().add("login-hint");
         hint.setWrapText(true);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox actions = new HBox(12, spacer, submitBtn);
-        actions.setAlignment(Pos.CENTER_RIGHT);
-        actions.getStyleClass().add("button-bar");
+        HBox actions = new HBox(submitBtn);
+        actions.setSpacing(10);
+        actions.setAlignment(Pos.CENTER);
+        actions.setMaxWidth(Double.MAX_VALUE);
 
         VBox formCard = new VBox(12, form, actions);
         formCard.getStyleClass().add("content-card");
+        formCard.setAlignment(Pos.TOP_CENTER);
         formCard.setMaxWidth(Double.MAX_VALUE);
 
         Label histLbl = new Label("Your request history");
@@ -223,9 +213,13 @@ public final class StudentBookRequestScreen {
         VBox page = new VBox(16, title, hint, formCard, new Separator(), histLbl, tableShell);
         page.setPadding(new Insets(8, 4, 8, 4));
         VBox.setVgrow(tableShell, Priority.ALWAYS);
+        ScrollPane pageScroll = new ScrollPane(page);
+        pageScroll.setFitToWidth(true);
+        pageScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        pageScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         BorderPane root = new BorderPane();
-        root.setCenter(page);
+        root.setCenter(pageScroll);
         root.setPadding(new Insets(12, 16, 16, 16));
         root.getStyleClass().add("app-root");
 

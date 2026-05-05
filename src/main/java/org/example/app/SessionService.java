@@ -172,6 +172,14 @@ public final class SessionService {
                         "Session could not be restored (account no longer exists). The welcome screen was opened.");
             }
             User user = u.get();
+            if (!user.isActive()) {
+                clear();
+                navigator.showWelcome();
+                return new RestoreResult(
+                        RestoreOutcome.FAILURE,
+                        "Session could not be restored because this account is deactivated. The welcome screen was opened."
+                );
+            }
             boolean restored = applyProtectedRoute(navigator, snapshot, user);
             if (restored) {
                 return new RestoreResult(

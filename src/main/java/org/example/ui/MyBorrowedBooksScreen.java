@@ -313,7 +313,7 @@ public final class MyBorrowedBooksScreen {
                     selected.getTitle(), selected.getFilePath());
         });
 
-        Button reviewsBtn = new Button("Create a review");
+        Button reviewsBtn = new Button("Reviews");
         reviewsBtn.getStyleClass().add("secondary-button");
         reviewsBtn.setTooltip(new Tooltip(
                 "Add or edit your rating and review for this borrowed title."));
@@ -348,20 +348,30 @@ public final class MyBorrowedBooksScreen {
         buttons.setPadding(new Insets(10, 0, 0, 0));
         buttons.getStyleClass().add("button-bar");
 
+        Label searchLbl = new Label("Search");
+        searchLbl.getStyleClass().add("section-heading");
+        Label loanLbl = new Label("Loan");
+        loanLbl.getStyleClass().add("section-heading");
+        Label genreLbl = new Label("Genre");
+        genreLbl.getStyleClass().add("section-heading");
+        Label dueLbl = new Label("Due");
+        dueLbl.getStyleClass().add("section-heading");
         HBox filterRow = new HBox(10,
-                new Label("Search:"), searchField,
-                new Label("Loan:"), statusQuick,
-                new Label("Genre:"), genreQuick,
-                new Label("Due:"), dueQuick,
+                searchLbl, searchField,
+                loanLbl, statusQuick,
+                genreLbl, genreQuick,
+                dueLbl, dueQuick,
                 pdfOnly);
         filterRow.setAlignment(Pos.CENTER_LEFT);
 
+        Label signedInLbl = new Label("Signed in as " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")");
+        signedInLbl.getStyleClass().add("login-hint");
         VBox top = new VBox(10,
                 title,
                 subtitle,
                 showReturned,
                 filterRow,
-                new Label("Logged in as: " + currentUser.getFullName() + " (" + currentUser.getUsername() + ")"));
+                signedInLbl);
         top.setFillWidth(true);
         ScrollPane topScroll = new ScrollPane(top);
         topScroll.setFitToWidth(true);

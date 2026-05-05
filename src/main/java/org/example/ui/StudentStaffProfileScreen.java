@@ -174,14 +174,18 @@ public final class StudentStaffProfileScreen {
         VBox avatarActions = new VBox(chooseAvatarBtn);
         avatarActions.setAlignment(Pos.CENTER);
 
+        Label fullNameLbl = new Label("Full Name");
+        fullNameLbl.getStyleClass().add("field-label");
+        Label changePasswordLbl = new Label("Change Password");
+        changePasswordLbl.getStyleClass().add("field-label");
         VBox form = new VBox(10,
-                new Label("Full name"),
+                fullNameLbl,
                 nameField,
                 avatarLbl,
                 avatarView,
                 avatarActions,
                 avatarHint,
-                new Label("Change password"),
+                changePasswordLbl,
                 currentPw,
                 pw1,
                 pw2,
