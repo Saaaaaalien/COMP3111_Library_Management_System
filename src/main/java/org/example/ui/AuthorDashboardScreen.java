@@ -167,7 +167,7 @@ public final class AuthorDashboardScreen {
                 Circle dot = new Circle(6, Color.web("#e74c3c"));
                 notifBtn.setGraphic(dot);
                 notifBtn.setContentDisplay(ContentDisplay.RIGHT);
-                notifBtn.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-background-color: white; -fx-text-fill: #2c3e50;");
+                notifBtn.setStyle("-fx-border-color: #e74c3c; -fx-border-width: 2; -fx-background-color: white; -fx-text-fill: rgb(189,208,218);");
             }
         } catch (SQLException ignored) {
         }
@@ -178,9 +178,9 @@ public final class AuthorDashboardScreen {
         VBox publishCard = createPublishBookCard();
         HBox insightsCards = new HBox(20,
                 createActionCard("View Stats", "See your publishing performance and trends.", "Open Stats →",
-                        "#8e7bf0", "#7a67df", () -> navigator.showAuthorStats(currentUser)),
+                        "#A8BDCFEC", "#BDD0DAFF", () -> navigator.showAuthorStats(currentUser)),
                 createActionCard("Review Handling", "Read and manage reader reviews.", "Open Reviews →",
-                        "#4cb1a5", "#3b9d91", () -> navigator.showAuthorReviews(currentUser))
+                        "#A8BDCFEC", "#BDD0DAFF", () -> navigator.showAuthorReviews(currentUser))
         );
         insightsCards.setAlignment(Pos.CENTER);
 
@@ -200,7 +200,7 @@ public final class AuthorDashboardScreen {
                 "-fx-background-color: white;" +
                         "-fx-background-radius: 15;" +
                         "-fx-border-radius: 15;" +
-                        "-fx-border-color: #3498db;" +
+                        "-fx-border-color: rgba(168,189,207,0.93);" +
                         "-fx-border-width: 2;" +
                         "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);"
         );
@@ -226,21 +226,21 @@ public final class AuthorDashboardScreen {
         card.setMaxWidth(500);
         card.setAlignment(Pos.CENTER);
         card.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #58a9d5);" +
+                "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);" +
                         "-fx-background-radius: 5;"
         );
 
         // Hover effect
         card.setOnMouseEntered(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #5bb2f5);" +
+                        "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);" +
                                 "-fx-cursor: hand;"+
                                 "-fx-background-radius: 5;"
                 )
         );
         card.setOnMouseExited(e ->
                 card.setStyle(
-                        "-fx-background-color: linear-gradient(to bottom right, #5bb2f5, #58a9d5);"+
+                        "-fx-background-color: linear-gradient(to bottom right, rgba(168,189,207,0.93), #bdd0da);"+
                                 "-fx-background-radius: 5;"
                 )
         );
@@ -260,7 +260,7 @@ public final class AuthorDashboardScreen {
         Button publishBtn = new Button("Start Publishing →");
         publishBtn.setStyle(
                 "-fx-background-color: white;" +
-                        "-fx-text-fill: #5bb2f5;" +
+                        "-fx-text-fill: rgba(168,189,207,0.93);" +
                         "-fx-font-weight: bold;" +
                         "-fx-font-size: 18px;" +
                         "-fx-padding: 15 30 15 30;" +
@@ -273,7 +273,7 @@ public final class AuthorDashboardScreen {
         publishBtn.setOnMouseEntered(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: #f8f8f8;" +
-                                "-fx-text-fill: #5bb2f5;" +
+                                "-fx-text-fill: rgba(168,189,207,0.93);" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 18px;" +
                                 "-fx-padding: 15 30 15 30;" +
@@ -283,7 +283,7 @@ public final class AuthorDashboardScreen {
         publishBtn.setOnMouseExited(e ->
                 publishBtn.setStyle(
                         "-fx-background-color: white;" +
-                                "-fx-text-fill: #5bb2f5;" +
+                                "-fx-text-fill: rgba(168,189,207,0.93);" +
                                 "-fx-font-weight: bold;" +
                                 "-fx-font-size: 18px;" +
                                 "-fx-padding: 15 30 15 30;"
