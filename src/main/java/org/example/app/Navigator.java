@@ -8,6 +8,7 @@ import org.example.domain.Borrow;
 import org.example.domain.Role;
 import org.example.domain.User;
 
+import javafx.application.Platform;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -280,13 +281,40 @@ public class Navigator {
         VBox.setVgrow(drawerSpacer, Priority.ALWAYS);
         drawerPane.getChildren().add(drawerSpacer);
 
-        Hyperlink logoutLink = new Hyperlink("Logout");
-        logoutLink.getStyleClass().add("drawer-link-logout");
-        logoutLink.setOnAction(ev -> {
-            SessionService.clear();
+        drawerPane.getChildren().add(createFooterActionLink(ud));
+    }
+
+    /**
+     * Footer action is context-aware:
+     * - Signed in: Logout
+     * - Public screens: Back to welcome (or Exit on welcome)
+     */
+    private Hyperlink createFooterActionLink(Object ud) {
+        if (ud instanceof User) {
+            Hyperlink logoutLink = new Hyperlink("Logout");
+            logoutLink.getStyleClass().add("drawer-link-logout");
+            logoutLink.setOnAction(ev -> {
+                SessionService.clear();
+                showWelcome();
+            });
+            return logoutLink;
+        }
+
+        String route = SessionService.load()
+                .map(SessionService.Snapshot::route)
+                .orElse("");
+        boolean atWelcome = "WELCOME".equals(route);
+
+        Hyperlink publicAction = new Hyperlink(atWelcome ? "Exit" : "Back");
+        publicAction.getStyleClass().add("drawer-link-logout");
+        publicAction.setOnAction(ev -> {
+            if (atWelcome) {
+                Platform.exit();
+                return;
+            }
             showWelcome();
         });
-        drawerPane.getChildren().add(logoutLink);
+        return publicAction;
     }
 
     private void setAppIcon() {
@@ -310,6 +338,7 @@ public class Navigator {
 
     public void showWelcome() {
         SessionService.clear();
+        SessionService.save("WELCOME", 0);
         Scene scene = org.example.ui.WelcomeScreen.create(this);
         showScenePreservingWindowState(scene);
     }
