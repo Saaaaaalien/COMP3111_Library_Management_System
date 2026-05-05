@@ -9,14 +9,9 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.example.db.BookDao;
-import org.example.db.BorrowDao;
 import org.example.db.UserDao;
-import org.example.domain.Book;
-import org.example.domain.Borrow;
 import org.example.domain.Role;
 import org.example.domain.User;
-import org.example.ui.PdfReaderScreen;
 
 /**
  * Persists last screen (and optional PDF-reader context) to {@code data/session.json}
@@ -259,6 +254,20 @@ public final class SessionService {
             case "NOTIFICATIONS_STUDENT" -> {
                 if (role == Role.STUDENT || role == Role.STAFF) {
                     navigator.showStudentStaffNotifications(user);
+                } else {
+                    return false;
+                }
+            }
+            case "READING_HISTORY" -> {
+                if (role == Role.STUDENT || role == Role.STAFF) {
+                    navigator.showStudentReadingHistory(user);
+                } else {
+                    return false;
+                }
+            }
+            case "BOOK_REQUEST_STUDENT" -> {
+                if (role == Role.STUDENT || role == Role.STAFF) {
+                    navigator.showStudentBookRequest(user);
                 } else {
                     return false;
                 }

@@ -5,6 +5,7 @@ import java.net.URL;
 import java.sql.SQLException;
 
 import org.example.app.Navigator;
+import org.example.app.SessionService;
 import org.example.db.UserDao;
 import org.example.domain.User;
 import org.example.security.PasswordHasher;
@@ -48,7 +49,7 @@ public final class StudentStaffProfileScreen {
 
         // ── Password fields ──────────────────────────────────────────────────
         PasswordField currentPw = new PasswordField();
-        currentPw.setPromptText("Current password (required to save any changes)");
+        currentPw.setPromptText("Current password (required for any profile change)");
         currentPw.setMaxWidth(320);
         PasswordField pw1 = new PasswordField();
         pw1.setPromptText("New password (leave blank to keep current)");
@@ -99,7 +100,7 @@ public final class StudentStaffProfileScreen {
             loadAvatarInto(avatarView, selectedAvatarPath[0]);
         });
 
-        Label hint = new Label("Password must meet strength rules if you change it. Your current password is required to change it.");
+        Label hint = new Label("Enter your current password to save name, picture, or password. Changing password signs you out.");
         hint.setWrapText(true);
         hint.setMaxWidth(360);
 
@@ -115,49 +116,43 @@ public final class StudentStaffProfileScreen {
                 String newPassword = pw1.getText();
                 String confirm = pw2.getText();
 
-                boolean anyPasswordFieldEntered =
-                        (current != null && !current.isBlank())
-                                || (newPassword != null && !newPassword.isBlank())
+                if (current == null || current.isBlank()) {
+                    throw new ValidationException("Enter your current password to save changes.");
+                }
+                if (!PasswordHasher.verify(current, user.getPasswordSalt(), user.getPasswordHash())) {
+                    throw new ValidationException("Current password is incorrect.");
+                }
+
+                boolean wantsPasswordChange =
+                        (newPassword != null && !newPassword.isBlank())
                                 || (confirm != null && !confirm.isBlank());
 
-                // Password change is optional, but if the user starts entering password fields,
-                // we validate that the change request is well-formed.
-                if (anyPasswordFieldEntered) {
+                if (wantsPasswordChange) {
                     if (newPassword == null || newPassword.isBlank()) {
                         throw new ValidationException("Enter a new password to update it.");
                     }
                     if (confirm == null || confirm.isBlank()) {
                         throw new ValidationException("Confirm new password is required.");
                     }
-
                     Validators.validatePasswordStrength(newPassword);
                     if (!newPassword.equals(confirm)) {
                         throw new ValidationException("New password and confirmation do not match.");
                     }
-
-                    if (current == null || current.isBlank()) {
-                        throw new ValidationException("Enter your current password to set a new one.");
-                    }
-                    if (!PasswordHasher.verify(current, user.getPasswordSalt(), user.getPasswordHash())) {
-                        throw new ValidationException("Current password is incorrect.");
-                    }
-
                     String salt = PasswordHasher.generateSalt();
                     String hash = PasswordHasher.hash(newPassword, salt);
                     UserDao.updatePassword(user.getId(), hash, salt);
-                    // Only update name/avatar after password change validation succeeds.
                     UserDao.updateFullName(user.getId(), trimmedFullName);
                     UserDao.updateAvatarPath(user.getId(), avatarPath);
                     try {
                         NotificationService.notifyLibrariansUserProfileUpdated(user.getId(), user.getUsername(), user.getRole().name());
                     } catch (SQLException ignored) {
                     }
+                    SessionService.clear();
                     new Alert(Alert.AlertType.INFORMATION, "Password updated. Please sign in again.").showAndWait();
-                    navigator.showStudentStaffPortal();
+                    navigator.showStudentStaffLogin();
                     return;
                 }
 
-                // No password change requested; safe to persist name/avatar now.
                 UserDao.updateFullName(user.getId(), trimmedFullName);
                 UserDao.updateAvatarPath(user.getId(), avatarPath);
                 try {

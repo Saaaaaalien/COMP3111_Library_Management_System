@@ -11,6 +11,7 @@ import org.example.domain.User;
 import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
@@ -25,10 +26,12 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.Group;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 
 /**
  * Central navigation for the app. Holds the main Stage and switches scenes
@@ -40,6 +43,12 @@ public class Navigator {
     private static final double WIDTH = 900;
     private static final double HEIGHT = 600;
 
+    /** One scene stays on the {@link Stage}; only the screen root is swapped to avoid focus / OS tab churn. */
+    private Scene hostScene;
+    private StackPane contentDrawerStack;
+    private VBox drawerPane;
+    private Button headerNotifBtn;
+
     public Navigator(Stage stage) {
         this.stage = stage;
         this.stage.setTitle("E-Book Library System");
@@ -50,203 +59,219 @@ public class Navigator {
     /**
      * Switches main scenes while preserving the current window state.
      * If the user is in fullscreen/maximized/manual resize mode, keep it across navigation.
+     * <p>
+     * Keeps a single {@link Scene} on the stage and swaps only the screen root so the OS / IDE does not
+     * treat every navigation as a new scene activation (which often pulls focus back to the Run tool window).
      */
-    private void showScenePreservingWindowState(Scene scene) {
+    private void showScenePreservingWindowState(Scene ephemeral) {
         WindowStateKeeper.Snapshot snapshot = WindowStateKeeper.capture(stage);
-        // Wrap scene root with a lightweight app header overlay (menu + notifications)
-        Object installed = scene.getProperties().get("appHeaderInstalled");
-        if (!Boolean.TRUE.equals(installed)) {
-            var originalRoot = scene.getRoot();
-            BorderPane wrapper = new BorderPane();
-            wrapper.setCenter(originalRoot);
+        Object userData = ephemeral.getUserData();
 
-            // Top bar with menu button (left) and notification button (right)
-            HBox topBar = new HBox();
-            topBar.setPadding(new Insets(8));
-            topBar.setAlignment(Pos.CENTER_LEFT);
-            Button menuBtn = new Button("☰");
-            menuBtn.getStyleClass().add("menu-button");
-            menuBtn.setFocusTraversable(false);
+        var styleUrls = new ArrayList<>(ephemeral.getStylesheets());
+        Parent screenRoot = ephemeral.getRoot();
+        ephemeral.setRoot(new Group());
 
-            // Drawer pane (left) - will contain navigation links
-            VBox drawer = new VBox(8);
-            drawer.setPadding(new Insets(12));
-            drawer.setStyle("-fx-background-color: white; -fx-border-color: #ddd;");
-            drawer.setVisible(false);
-
-            // Responsive width: 20% of window, with sensible min/max
-            drawer.prefWidthProperty().bind(stage.widthProperty().multiply(0.20));
-            drawer.minWidthProperty().bind(stage.widthProperty().multiply(0.12));
-            drawer.maxWidthProperty().bind(stage.widthProperty().multiply(0.15));
-            drawer.setMaxHeight(Double.MAX_VALUE);
-
-            // Ensure the drawer is aligned to the left of the StackPane and does not expand to full width
-            StackPane.setAlignment(drawer, Pos.TOP_LEFT);
-
-            // Initialize translateX off-screen (use stage width until drawer computes its layout)
-            drawer.setTranslateX(-Math.max(200, stage.getWidth() * 0.20));
-
-            // Keep translateX in sync when drawer width changes (stay hidden when closed)
-            drawer.widthProperty().addListener((obs, oldW, newW) -> {
-                if (drawer.getTranslateX() < 0) {
-                    drawer.setTranslateX(-newW.doubleValue());
+        if (hostScene == null) {
+            buildHostChrome(screenRoot, snapshot);
+            for (String url : styleUrls) {
+                if (!hostScene.getStylesheets().contains(url)) {
+                    hostScene.getStylesheets().add(url);
                 }
-            });
-
-            // Toggle drawer with slide animation (compute width dynamically)
-            menuBtn.setOnAction(e -> {
-                boolean opening = drawer.getTranslateX() < 0;
-                TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawer);
-                double w = drawer.getWidth() > 0 ? drawer.getWidth() : Math.max(200, stage.getWidth() * 0.20);
-                if (opening) {
-                    drawer.setVisible(true);
-                    tt.setFromX(-w);
-                    tt.setToX(0);
-                } else {
-                    tt.setFromX(0);
-                    tt.setToX(-w);
-                    tt.setOnFinished(ev -> drawer.setVisible(false));
+            }
+        } else {
+            for (String url : styleUrls) {
+                if (!hostScene.getStylesheets().contains(url)) {
+                    hostScene.getStylesheets().add(url);
                 }
-                tt.play();
-            });
-
-            // Notification button (constant)
-            Button notifBtn = new Button("Notifications");
-            notifBtn.getStyleClass().add("secondary-button");
-            notifBtn.setFocusTraversable(false);
-            HBox rightBox = new HBox(notifBtn);
-            rightBox.setAlignment(Pos.CENTER_RIGHT);
-            HBox.setHgrow(rightBox, javafx.scene.layout.Priority.ALWAYS);
-
-            topBar.getChildren().addAll(menuBtn, rightBox);
-
-            // Populate drawer links based on user stored in scene.userData, if present
-            drawer.getChildren().clear();
-            Object ud = scene.getUserData();
-            if (ud instanceof User u) {
-                Role r = u.getRole();
-                int unread = 0;
-                try {
-                    unread = NotificationDao.countUnread(u.getId());
-                } catch (SQLException ignored) {
-                }
-                notifBtn.setText(formatNotificationsLabel(unread));
-                // Common links for librarians
-                if (r == Role.LIBRARIAN) {
-                    Hyperlink b1 = new Hyperlink("Dashboard");
-                    b1.getStyleClass().add("drawer-link");
-                    b1.setOnAction(ev -> showLibrarianApproval(u));
-                    Hyperlink b2 = new Hyperlink("Manage Published Books");
-                    b2.getStyleClass().add("drawer-link");
-                    b2.setOnAction(ev -> showLibrarianCatalog(u));
-                    Hyperlink b3 = new Hyperlink("Borrow Records");
-                    b3.getStyleClass().add("drawer-link");
-                    b3.setOnAction(ev -> showLibrarianBorrowRecords(u));
-                    Hyperlink b4 = new Hyperlink("My Profile");
-                    b4.getStyleClass().add("drawer-link");
-                    b4.setOnAction(ev -> showLibrarianProfile(u));
-                    Hyperlink b5 = new Hyperlink("Notifications");
-                    b5.getStyleClass().add("drawer-link");
-                    b5.setOnAction(ev -> showLibrarianNotifications(u));
-                    b5.setText(formatNotificationsLabel(unread));
-                    Hyperlink b6 = new Hyperlink("Manage Users");
-                    b6.getStyleClass().add("drawer-link");
-                    b6.setOnAction(ev -> showLibrarianManageUsers(u));
-                    Hyperlink b7 = new Hyperlink("Manage Book Requests");
-                    b7.getStyleClass().add("drawer-link");
-                    b7.setOnAction(ev -> showLibrarianManageBookRequests(u));
-                    drawer.getChildren().addAll(b1, b6, b2, b3, b7, b4, b5);
-                } else if (r == Role.AUTHOR) {
-                    Hyperlink b1 = new Hyperlink("Dashboard");
-                    b1.getStyleClass().add("drawer-link");
-                    b1.setOnAction(ev -> showAuthorDashboard(u));
-                    Hyperlink b2 = new Hyperlink("My Books");
-                    b2.getStyleClass().add("drawer-link");
-                    b2.setOnAction(ev -> showAuthorPublishedBooks(u));
-                    Hyperlink b3 = new Hyperlink("Publish");
-                    b3.getStyleClass().add("drawer-link");
-                    b3.setOnAction(ev -> showPublishBook(u));
-                    Hyperlink b4 = new Hyperlink("View Stats");
-                    b4.getStyleClass().add("drawer-link");
-                    b4.setOnAction(ev -> showAuthorStats(u));
-                    Hyperlink b5 = new Hyperlink("Review Handling");
-                    b5.getStyleClass().add("drawer-link");
-                    b5.setOnAction(ev -> showAuthorReviews(u));
-                    Hyperlink b6 = new Hyperlink("Profile");
-                    b6.getStyleClass().add("drawer-link");
-                    b6.setOnAction(ev -> showAuthorProfile(u));
-                    Hyperlink b7 = new Hyperlink("Notifications");
-                    b7.getStyleClass().add("drawer-link");
-                    b7.setOnAction(ev -> showAuthorNotifications(u));
-                    b7.setText(formatNotificationsLabel(unread));
-                    drawer.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7);
-                } else if (r == Role.STUDENT || r == Role.STAFF) {
-                    Hyperlink b1 = new Hyperlink("Available Books");
-                    b1.getStyleClass().add("drawer-link");
-                    b1.setOnAction(ev -> showAvailableBooks(u));
-                    Hyperlink b2 = new Hyperlink("My Borrows");
-                    b2.getStyleClass().add("drawer-link");
-                    b2.setOnAction(ev -> showMyBorrowedBooks(u));
-                    Hyperlink b3 = new Hyperlink("Profile");
-                    b3.getStyleClass().add("drawer-link");
-                    b3.setOnAction(ev -> showStudentStaffProfile(u));
-                    Hyperlink b4 = new Hyperlink("Notifications");
-                    b4.getStyleClass().add("drawer-link");
-                    b4.setOnAction(ev -> showStudentStaffNotifications(u));
-                    b4.setText(formatNotificationsLabel(unread));
-                    drawer.getChildren().addAll(b1, b2, b3, b4);
-                }
-
-                // Notification button action
-                notifBtn.setOnAction(ev -> {
-                    switch (u.getRole()) {
-                        case LIBRARIAN -> showLibrarianNotifications(u);
-                        case AUTHOR -> showAuthorNotifications(u);
-                        case STUDENT, STAFF -> showStudentStaffNotifications(u);
-                        default -> {}
-                    }
-                });
+            }
+            if (contentDrawerStack.getChildren().isEmpty()) {
+                contentDrawerStack.getChildren().addAll(screenRoot, drawerPane);
             } else {
-                // If no user data, disable notification button and show generic links
-                notifBtn.setDisable(true);
-                Label info = new Label("No account context available");
-                drawer.getChildren().add(info);
+                contentDrawerStack.getChildren().set(0, screenRoot);
             }
-
-            // Put content and drawer into a StackPane so the drawer slides over the content
-            StackPane stack = new StackPane(originalRoot, drawer);
-            // Ensure the drawer sits above the content but only occupies its bound width
-            StackPane.setAlignment(originalRoot, Pos.CENTER);
-            BorderPane overlayContainer = new BorderPane();
-            overlayContainer.setTop(topBar);
-            overlayContainer.setCenter(stack);
-
-            // If we captured a window size snapshot and are not preserving fullscreen/maximized,
-            // prefer that size for the new root so stage doesn't visibly resize when swapping scenes.
-            if (snapshot != null && !snapshot.wasFullScreen() && !snapshot.wasMaximized()
-                    && snapshot.width() > 0 && snapshot.height() > 0) {
-                overlayContainer.setPrefSize(snapshot.width(), snapshot.height());
-            }
-
-            // Add a logout hyperlink immediately after the links
-            Hyperlink logoutLink = new Hyperlink("Logout");
-            logoutLink.getStyleClass().add("drawer-link-logout");
-            logoutLink.setOnAction(ev -> {
-                SessionService.clear();
-                showWelcome();
-            });
-            drawer.getChildren().add(logoutLink);
-            // Spacer to push any following content to the bottom (keeps logout just under links)
-            Region spacer = new Region();
-            VBox.setVgrow(spacer, Priority.ALWAYS);
-            drawer.getChildren().add(spacer);
-
-            scene.setRoot(overlayContainer);
-            scene.getProperties().put("appHeaderInstalled", true);
         }
 
-        stage.setScene(scene);
+        hostScene.setUserData(userData);
+        refreshDrawerForUserData(userData);
+
+        if (stage.getScene() != hostScene) {
+            stage.setScene(hostScene);
+        }
         WindowStateKeeper.applyAfterSceneSwap(stage, snapshot);
+    }
+
+    private void buildHostChrome(Parent firstScreenRoot, WindowStateKeeper.Snapshot snapshot) {
+        HBox topBar = new HBox();
+        topBar.setPadding(new Insets(8));
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        Button menuBtn = new Button("☰");
+        menuBtn.getStyleClass().add("menu-button");
+        menuBtn.setFocusTraversable(false);
+
+        drawerPane = new VBox(8);
+        drawerPane.setPadding(new Insets(12));
+        drawerPane.getStyleClass().add("drawer-pane");
+        drawerPane.setVisible(false);
+        drawerPane.prefWidthProperty().bind(stage.widthProperty().multiply(0.20));
+        drawerPane.minWidthProperty().bind(stage.widthProperty().multiply(0.12));
+        drawerPane.maxWidthProperty().bind(stage.widthProperty().multiply(0.15));
+        drawerPane.setMaxHeight(Double.MAX_VALUE);
+        StackPane.setAlignment(drawerPane, Pos.TOP_LEFT);
+        drawerPane.setTranslateX(-Math.max(200, stage.getWidth() * 0.20));
+        drawerPane.widthProperty().addListener((obs, oldW, newW) -> {
+            if (drawerPane.getTranslateX() < 0) {
+                drawerPane.setTranslateX(-newW.doubleValue());
+            }
+        });
+
+        menuBtn.setOnAction(e -> {
+            boolean opening = drawerPane.getTranslateX() < 0;
+            TranslateTransition tt = new TranslateTransition(Duration.millis(220), drawerPane);
+            double w = drawerPane.getWidth() > 0 ? drawerPane.getWidth() : Math.max(200, stage.getWidth() * 0.20);
+            if (opening) {
+                drawerPane.setVisible(true);
+                tt.setFromX(-w);
+                tt.setToX(0);
+            } else {
+                tt.setFromX(0);
+                tt.setToX(-w);
+                tt.setOnFinished(ev -> drawerPane.setVisible(false));
+            }
+            tt.play();
+        });
+
+        headerNotifBtn = new Button("Notifications");
+        headerNotifBtn.getStyleClass().add("secondary-button");
+        headerNotifBtn.setFocusTraversable(false);
+        HBox rightBox = new HBox(headerNotifBtn);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+        HBox.setHgrow(rightBox, Priority.ALWAYS);
+        topBar.getChildren().addAll(menuBtn, rightBox);
+
+        contentDrawerStack = new StackPane(firstScreenRoot, drawerPane);
+        StackPane.setAlignment(firstScreenRoot, Pos.CENTER);
+
+        BorderPane overlayContainer = new BorderPane();
+        overlayContainer.setTop(topBar);
+        overlayContainer.setCenter(contentDrawerStack);
+        if (snapshot != null && !snapshot.wasFullScreen() && !snapshot.wasMaximized()
+                && snapshot.width() > 0 && snapshot.height() > 0) {
+            overlayContainer.setPrefSize(snapshot.width(), snapshot.height());
+        }
+
+        hostScene = new Scene(overlayContainer, WIDTH, HEIGHT);
+        java.net.URL hostCss = Navigator.class.getResource("/app.css");
+        if (hostCss != null) {
+            hostScene.getStylesheets().add(hostCss.toExternalForm());
+        }
+    }
+
+    private void refreshDrawerForUserData(Object ud) {
+        drawerPane.getChildren().clear();
+        if (ud instanceof User u) {
+            Role r = u.getRole();
+            int unread = 0;
+            try {
+                unread = NotificationDao.countUnread(u.getId());
+            } catch (SQLException ignored) {
+            }
+            headerNotifBtn.setDisable(false);
+            headerNotifBtn.setText(formatNotificationsLabel(unread));
+            if (r == Role.LIBRARIAN) {
+                Hyperlink b1 = new Hyperlink("Dashboard");
+                b1.getStyleClass().add("drawer-link");
+                b1.setOnAction(ev -> showLibrarianApproval(u));
+                Hyperlink b2 = new Hyperlink("Manage Published Books");
+                b2.getStyleClass().add("drawer-link");
+                b2.setOnAction(ev -> showLibrarianCatalog(u));
+                Hyperlink b3 = new Hyperlink("Borrow Records");
+                b3.getStyleClass().add("drawer-link");
+                b3.setOnAction(ev -> showLibrarianBorrowRecords(u));
+                Hyperlink b4 = new Hyperlink("My Profile");
+                b4.getStyleClass().add("drawer-link");
+                b4.setOnAction(ev -> showLibrarianProfile(u));
+                Hyperlink b5 = new Hyperlink("Notifications");
+                b5.getStyleClass().add("drawer-link");
+                b5.setOnAction(ev -> showLibrarianNotifications(u));
+                b5.setText(formatNotificationsLabel(unread));
+                Hyperlink b6 = new Hyperlink("Manage Users");
+                b6.getStyleClass().add("drawer-link");
+                b6.setOnAction(ev -> showLibrarianManageUsers(u));
+                Hyperlink b7 = new Hyperlink("Manage Book Requests");
+                b7.getStyleClass().add("drawer-link");
+                b7.setOnAction(ev -> showLibrarianManageBookRequests(u));
+                drawerPane.getChildren().addAll(b1, b6, b2, b3, b7, b4, b5);
+            } else if (r == Role.AUTHOR) {
+                Hyperlink b1 = new Hyperlink("Dashboard");
+                b1.getStyleClass().add("drawer-link");
+                b1.setOnAction(ev -> showAuthorDashboard(u));
+                Hyperlink b2 = new Hyperlink("My Books");
+                b2.getStyleClass().add("drawer-link");
+                b2.setOnAction(ev -> showAuthorPublishedBooks(u));
+                Hyperlink b3 = new Hyperlink("Publish");
+                b3.getStyleClass().add("drawer-link");
+                b3.setOnAction(ev -> showPublishBook(u));
+                Hyperlink b4 = new Hyperlink("View Stats");
+                b4.getStyleClass().add("drawer-link");
+                b4.setOnAction(ev -> showAuthorStats(u));
+                Hyperlink b5 = new Hyperlink("Review Handling");
+                b5.getStyleClass().add("drawer-link");
+                b5.setOnAction(ev -> showAuthorReviews(u));
+                Hyperlink b6 = new Hyperlink("Profile");
+                b6.getStyleClass().add("drawer-link");
+                b6.setOnAction(ev -> showAuthorProfile(u));
+                Hyperlink b7 = new Hyperlink("Notifications");
+                b7.getStyleClass().add("drawer-link");
+                b7.setOnAction(ev -> showAuthorNotifications(u));
+                b7.setText(formatNotificationsLabel(unread));
+                drawerPane.getChildren().addAll(b1, b2, b3, b4, b5, b6, b7);
+            } else if (r == Role.STUDENT || r == Role.STAFF) {
+                Hyperlink b1 = new Hyperlink("Available Books");
+                b1.getStyleClass().add("drawer-link");
+                b1.setOnAction(ev -> showAvailableBooks(u));
+                Hyperlink b2 = new Hyperlink("My Borrowed Books");
+                b2.getStyleClass().add("drawer-link");
+                b2.setOnAction(ev -> showMyBorrowedBooks(u));
+                Hyperlink b3 = new Hyperlink("Reading History");
+                b3.getStyleClass().add("drawer-link");
+                b3.setOnAction(ev -> showStudentReadingHistory(u));
+                Hyperlink b4 = new Hyperlink("Request a Book");
+                b4.getStyleClass().add("drawer-link");
+                b4.setOnAction(ev -> showStudentBookRequest(u));
+                Hyperlink b5 = new Hyperlink("Profile");
+                b5.getStyleClass().add("drawer-link");
+                b5.setOnAction(ev -> showStudentStaffProfile(u));
+                Hyperlink b6 = new Hyperlink("Notifications");
+                b6.getStyleClass().add("drawer-link");
+                b6.setOnAction(ev -> showStudentStaffNotifications(u));
+                b6.setText(formatNotificationsLabel(unread));
+                drawerPane.getChildren().addAll(b1, b2, b3, b4, b5, b6);
+            }
+            headerNotifBtn.setOnAction(ev -> {
+                switch (u.getRole()) {
+                    case LIBRARIAN -> showLibrarianNotifications(u);
+                    case AUTHOR -> showAuthorNotifications(u);
+                    case STUDENT, STAFF -> showStudentStaffNotifications(u);
+                    default -> {}
+                }
+            });
+        } else {
+            headerNotifBtn.setDisable(true);
+            headerNotifBtn.setText("Notifications");
+            drawerPane.getChildren().add(new Label("No account context available"));
+        }
+
+        Region drawerSpacer = new Region();
+        VBox.setVgrow(drawerSpacer, Priority.ALWAYS);
+        drawerPane.getChildren().add(drawerSpacer);
+
+        Hyperlink logoutLink = new Hyperlink("Logout");
+        logoutLink.getStyleClass().add("drawer-link-logout");
+        logoutLink.setOnAction(ev -> {
+            SessionService.clear();
+            showWelcome();
+        });
+        drawerPane.getChildren().add(logoutLink);
     }
 
     private void setAppIcon() {
@@ -398,6 +423,20 @@ public class Navigator {
     public void showStudentStaffNotifications(User user, boolean returnToBorrowedBooks) {
         SessionService.save("NOTIFICATIONS_STUDENT", user.getId());
         Scene scene = org.example.ui.StudentStaffNotificationBoardScreen.create(this, user, returnToBorrowedBooks);
+        scene.setUserData(user);
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showStudentReadingHistory(User user) {
+        SessionService.save("READING_HISTORY", user.getId());
+        Scene scene = org.example.ui.ReadingHistoryScreen.create(this, user);
+        scene.setUserData(user);
+        showScenePreservingWindowState(scene);
+    }
+
+    public void showStudentBookRequest(User user) {
+        SessionService.save("BOOK_REQUEST_STUDENT", user.getId());
+        Scene scene = org.example.ui.StudentBookRequestScreen.create(this, user);
         scene.setUserData(user);
         showScenePreservingWindowState(scene);
     }

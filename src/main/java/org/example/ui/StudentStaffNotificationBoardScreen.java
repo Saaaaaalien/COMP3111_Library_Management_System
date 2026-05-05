@@ -2,6 +2,7 @@ package org.example.ui;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Optional;
 
 import org.example.app.Navigator;
 import org.example.db.NotificationDao;
@@ -15,6 +16,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -47,7 +49,8 @@ public final class StudentStaffNotificationBoardScreen {
                 NotificationService.CAT_RETURN_EVENT,
                 NotificationService.CAT_AUTHOR_REVIEW_REPLY,
                 NotificationService.CAT_ACCOUNT_UPDATED,
-                NotificationService.CAT_ACCOUNT_STATUS
+                NotificationService.CAT_ACCOUNT_STATUS,
+                NotificationService.CAT_BOOK_REQUEST
         ));
         category.getSelectionModel().selectFirst();
 
@@ -93,6 +96,7 @@ public final class StudentStaffNotificationBoardScreen {
         Button readBtn = new Button("Mark read");
         readBtn.getStyleClass().add("secondary-button");
         readBtn.setPrefWidth(140);
+        readBtn.disableProperty().bind(list.getSelectionModel().selectedItemProperty().isNull());
         readBtn.setOnAction(e -> {
             AppNotification n = list.getSelectionModel().getSelectedItem();
             if (n == null) {
@@ -124,6 +128,7 @@ public final class StudentStaffNotificationBoardScreen {
         Button archiveToggleBtn = new Button("Archive");
         archiveToggleBtn.getStyleClass().add("secondary-button");
         archiveToggleBtn.setPrefWidth(140);
+        archiveToggleBtn.disableProperty().bind(list.getSelectionModel().selectedItemProperty().isNull());
         syncArchiveBtnLabel[0] = () -> {
             AppNotification selected = list.getSelectionModel().getSelectedItem();
             archiveToggleBtn.setText(selected != null && selected.isArchived() ? "Unarchive" : "Archive");
@@ -146,11 +151,36 @@ public final class StudentStaffNotificationBoardScreen {
             }
         });
 
+        Button deleteBtn = new Button("Delete");
+        deleteBtn.getStyleClass().add("secondary-button");
+        deleteBtn.setPrefWidth(140);
+        deleteBtn.disableProperty().bind(list.getSelectionModel().selectedItemProperty().isNull());
+        deleteBtn.setOnAction(e -> {
+            AppNotification n = list.getSelectionModel().getSelectedItem();
+            if (n == null) {
+                return;
+            }
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Delete notification");
+            confirm.setHeaderText(null);
+            confirm.setContentText("Permanently delete this notification?");
+            Optional<ButtonType> ans = confirm.showAndWait();
+            if (ans.isEmpty() || ans.get() != ButtonType.OK) {
+                return;
+            }
+            try {
+                NotificationDao.deleteById(n.getId(), user.getId());
+                refresh.run();
+            } catch (SQLException ex) {
+                new Alert(Alert.AlertType.ERROR, "Could not delete.").showAndWait();
+            }
+        });
+
         // Back navigation now provided by global menu; per-screen Back removed.
 
         HBox filters = new HBox(10, new Label("Category:"), category, new Label("Search:"), search, showArchived);
         filters.setAlignment(Pos.CENTER_LEFT);
-        HBox actions = new HBox(10, readBtn, readAllBtn, archiveToggleBtn, unreadCountLabel);
+        HBox actions = new HBox(10, readBtn, readAllBtn, archiveToggleBtn, deleteBtn, unreadCountLabel);
         actions.setAlignment(Pos.CENTER_LEFT);
 
         VBox top = new VBox(8, title, filters, actions);

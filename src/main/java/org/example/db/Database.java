@@ -163,6 +163,8 @@ public final class Database {
                     flagged_by_author_at TEXT,
                     sentiment_label TEXT,
                     sentiment_source TEXT,
+                    is_anonymous INTEGER NOT NULL DEFAULT 0,
+                    helpful_votes INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY (book_id) REFERENCES books(id),
                     FOREIGN KEY (reviewer_user_id) REFERENCES users(id)
                 )
@@ -194,6 +196,7 @@ public final class Database {
                         last_page INTEGER NOT NULL,
                         viewer_payload TEXT,
                         updated_at TEXT NOT NULL,
+                        accumulated_read_seconds INTEGER NOT NULL DEFAULT 0,
                         FOREIGN KEY (user_id) REFERENCES users(id)
                     )
                     """);
@@ -213,6 +216,7 @@ public final class Database {
                     )
                     """);
                 migrateReadingHighlightsTable(conn);
+                migrateReadingProgressReadSeconds(conn);
             st.execute("""
                 CREATE TABLE IF NOT EXISTS publish_drafts (
                     author_user_id INTEGER PRIMARY KEY,
@@ -248,6 +252,59 @@ public final class Database {
             migratePendingBooksTable(conn);
             migrateBooksTable(conn);
             migrateBookReviewsTable(conn);
+            migrateBookReviewsStudentColumns(conn);
+            migrateBookReviewsUniqueReviewer(conn);
+            migrateReviewHelpfulMarksTable(conn);
+        }
+    }
+
+    /** One mark per user per review so "helpful" cannot be spammed from the catalog. */
+    private static void migrateReviewHelpfulMarksTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS review_helpful_marks (
+                    review_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (review_id, user_id),
+                    FOREIGN KEY (review_id) REFERENCES book_reviews(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """);
+        }
+    }
+
+    private static void migrateReadingProgressReadSeconds(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE reading_progress ADD COLUMN accumulated_read_seconds INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+    }
+
+    private static void migrateBookReviewsStudentColumns(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN is_anonymous INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_reviews ADD COLUMN helpful_votes INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+    }
+
+    private static void migrateBookReviewsUniqueReviewer(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_book_reviews_book_reviewer ON book_reviews(book_id, reviewer_user_id)");
+        } catch (SQLException e) {
+            // Older databases may contain duplicate (book_id, reviewer_user_id) rows; skip index in that case.
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase(Locale.ROOT).contains("unique")) {
+                return;
+            }
+            throw e;
         }
     }
 

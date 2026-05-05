@@ -234,6 +234,17 @@ public final class NotificationDao {
         }
     }
 
+    /** Permanently removes a notification row for the user (student delete). */
+    public static void deleteById(long id, long userId) throws SQLException {
+        String sql = "DELETE FROM notifications WHERE id = ? AND user_id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.setLong(2, userId);
+            ps.executeUpdate();
+        }
+    }
+
     public static Optional<AppNotification> findById(long id, long userId) throws SQLException {
         String sql = """
             SELECT id, user_id, category, title, body, created_at, read_at, archived_at, priority

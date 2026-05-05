@@ -5,7 +5,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -27,35 +26,6 @@ public final class BookRequestDao {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private BookRequestDao() {}
-
-    /**
-     * Creates the book_requests table if it doesn't exist
-     */
-    public static void createTable() throws SQLException {
-        String sql = """
-            CREATE TABLE IF NOT EXISTS book_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                requested_by_user_id INTEGER NOT NULL,
-                requested_by_name TEXT NOT NULL,
-                title TEXT NOT NULL,
-                author_name TEXT NOT NULL,
-                description TEXT,
-                genre TEXT,
-                status TEXT NOT NULL,
-                approval_notes TEXT,
-                downloaded_file_path TEXT,
-                generated_summary TEXT,
-                created_at TEXT NOT NULL,
-                processed_at TEXT,
-                FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
-            )
-            """;
-
-        Connection conn = Database.getConnection();
-        try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate(sql);
-        }
-    }
 
     /**
      * Inserts a new book request
@@ -88,29 +58,6 @@ public final class BookRequestDao {
             }
         }
         throw new SQLException("Insert book request failed, no ID returned");
-    }
-
-    /**
-     * Finds all pending book requests for librarian to review
-     */
-    public static List<BookRequest> findAllPending() throws SQLException {
-        String sql = "SELECT * FROM book_requests WHERE status = ? ORDER BY created_at DESC";
-        Connection conn = Database.getConnection();
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, RequestStatus.PENDING.name());
-            return mapResultsToRequests(ps.executeQuery());
-        }
-    }
-
-    /**
-     * Finds all book requests (regardless of status)
-     */
-    public static List<BookRequest> findAll() throws SQLException {
-        String sql = "SELECT * FROM book_requests ORDER BY created_at DESC";
-        Connection conn = Database.getConnection();
-        try (Statement stmt = conn.createStatement()) {
-            return mapResultsToRequests(stmt.executeQuery(sql));
-        }
     }
 
     /**
@@ -155,12 +102,63 @@ public final class BookRequestDao {
     }
 
     /**
+     * Counts prior requests from this user with the same title and author (any status), for duplicate awareness.
+     */
+    public static int countSameTitleAuthorForUser(long userId, String title, String authorName) throws SQLException {
+        String t = title == null ? "" : title.trim().toLowerCase();
+        String a = authorName == null ? "" : authorName.trim().toLowerCase();
+        if (t.isEmpty() && a.isEmpty()) {
+            return 0;
+        }
+        String sql = """
+            SELECT COUNT(*) FROM book_requests
+            WHERE requested_by_user_id = ?
+              AND LOWER(TRIM(title)) = ?
+              AND LOWER(TRIM(author_name)) = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, t);
+            ps.setString(3, a);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    public static boolean hasSimilarPendingRequest(long userId, String title, String authorName) throws SQLException {
+        String t = title == null ? "" : title.trim().toLowerCase();
+        String a = authorName == null ? "" : authorName.trim().toLowerCase();
+        if (t.isEmpty() && a.isEmpty()) {
+            return false;
+        }
+        String sql = """
+            SELECT COUNT(*) FROM book_requests
+            WHERE requested_by_user_id = ?
+              AND status = ?
+              AND LOWER(TRIM(title)) = ?
+              AND LOWER(TRIM(author_name)) = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, userId);
+            ps.setString(2, RequestStatus.PENDING.name());
+            ps.setString(3, t);
+            ps.setString(4, a);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
+    /**
      * Searches for book requests by title, author, or genre
      */
     public static List<BookRequest> search(String query) throws SQLException {
         String sql = """
-            SELECT * FROM book_requests 
-            WHERE title LIKE ? OR author_name LIKE ? OR genre LIKE ? 
+            SELECT * FROM book_requests
+            WHERE title LIKE ? OR author_name LIKE ? OR genre LIKE ?
             ORDER BY created_at DESC
             """;
         Connection conn = Database.getConnection();
@@ -178,8 +176,8 @@ public final class BookRequestDao {
      */
     public static void update(BookRequest request) throws SQLException {
         String sql = """
-            UPDATE book_requests 
-            SET status = ?, approval_notes = ?, downloaded_file_path = ?, 
+            UPDATE book_requests
+            SET status = ?, approval_notes = ?, downloaded_file_path = ?,
                 generated_summary = ?, processed_at = ?
             WHERE id = ?
             """;
@@ -190,13 +188,13 @@ public final class BookRequestDao {
             ps.setString(2, request.getApprovalNotes());
             ps.setString(3, request.getDownloadedFilePath());
             ps.setString(4, request.getGeneratedSummary());
-            
+
             if (request.getProcessedAt() != null) {
                 ps.setString(5, request.getProcessedAt());
             } else {
                 ps.setNull(5, java.sql.Types.VARCHAR);
             }
-            
+
             ps.setLong(6, request.getId());
             ps.executeUpdate();
         }
@@ -207,7 +205,7 @@ public final class BookRequestDao {
      */
     public static void approve(long requestId, String notes) throws SQLException {
         String sql = """
-            UPDATE book_requests 
+            UPDATE book_requests
             SET status = ?, approval_notes = ?, processed_at = ?
             WHERE id = ?
             """;
@@ -227,7 +225,7 @@ public final class BookRequestDao {
      */
     public static void reject(long requestId, String reason) throws SQLException {
         String sql = """
-            UPDATE book_requests 
+            UPDATE book_requests
             SET status = ?, approval_notes = ?, processed_at = ?
             WHERE id = ?
             """;
@@ -247,7 +245,7 @@ public final class BookRequestDao {
      */
     public static void markAsProcessed(long requestId, String downloadPath, String summary) throws SQLException {
         String sql = """
-            UPDATE book_requests 
+            UPDATE book_requests
             SET status = ?, downloaded_file_path = ?, generated_summary = ?, processed_at = ?
             WHERE id = ?
             """;

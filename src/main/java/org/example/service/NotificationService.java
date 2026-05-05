@@ -43,6 +43,8 @@ public final class NotificationService {
     public static final String CAT_LIB_RETURN_ACTIVITY = "LIB_RETURN_ACTIVITY";
     /** Librarian feed: user updated account/profile details. */
     public static final String CAT_LIB_USER_PROFILE_UPDATED = "LIB_USER_PROFILE_UPDATED";
+    /** Student/staff: book request lifecycle (approved, rejected, processed). */
+    public static final String CAT_BOOK_REQUEST = "BOOK_REQUEST";
 
     private NotificationService() {}
 
@@ -135,18 +137,52 @@ public final class NotificationService {
         );
     }
 
-    public static void notifyReturnSuccess(long borrowerUserId, String bookTitle, boolean autoReturn) throws SQLException {
-        String title = autoReturn ? "Book auto-returned" : "Return confirmed";
+    /**
+     * Notifies the borrower that a return completed (manual or automatic at due time).
+     *
+     * @param dueAtIso optional due instant (ISO-8601) for auto-return copy; ignored for manual returns
+     */
+    public static void notifyReturnSuccess(long borrowerUserId, String bookTitle, boolean autoReturn, long borrowId,
+                                          String dueAtIso) throws SQLException {
+        String title = autoReturn ? "Book auto-returned (due date reached)" : "Return confirmed";
+        String dueLine = "";
+        if (autoReturn && dueAtIso != null && !dueAtIso.isBlank()) {
+            try {
+                LocalDate dueDay = Instant.parse(dueAtIso).atZone(ZoneId.systemDefault()).toLocalDate();
+                dueLine = " Original due date: " + dueDay + ".";
+            } catch (Exception ignored) {
+                dueLine = " Original due: " + dueAtIso.substring(0, Math.min(10, dueAtIso.length())) + ".";
+            }
+        }
         String body = autoReturn
-                ? "Your borrow for \"" + bookTitle + "\" expired and was auto-returned."
+                ? "Your loan for \"" + bookTitle + "\" reached its due time and was closed automatically."
+                        + " The copy is available in the catalog again; you can borrow it if it is still listed as available."
+                        + dueLine
+                        + " (Duplicate auto-return notices for the same loan are suppressed.)"
                 : "You returned \"" + bookTitle + "\" successfully.";
-        NotificationDao.insert(
+        // One notification per loan per return path; prevents spam if sync runs repeatedly the same day.
+        String dedupe = "RETURN_USER:" + borrowerUserId + ":BORROW:" + borrowId + ":" + (autoReturn ? "AUTO" : "MANUAL");
+        String now = Instant.now().toString();
+        NotificationDao.insertOrIgnoreDeduped(
                 borrowerUserId,
                 CAT_RETURN_EVENT,
                 title,
                 body,
-                Instant.now().toString(),
+                now,
                 autoReturn ? URGENT_PRIORITY : 1,
+                dedupe
+        );
+    }
+
+    /** Notifies a student/staff user about a book request status update from a librarian. */
+    public static void notifyBookRequestUpdate(long userId, String title, String body) throws SQLException {
+        NotificationDao.insert(
+                userId,
+                CAT_BOOK_REQUEST,
+                title,
+                body,
+                Instant.now().toString(),
+                6,
                 null
         );
     }
