@@ -162,6 +162,7 @@ public final class BookSummaryService {
             case DETAILED -> "eight to ten sentences";
         };
         return "Summarize the following book content in " + targetRange + ". " +
+                "The summary may include time, characters, settings, venue, events happened and other useful information for future readers." +
                 "Return only the summary text without bullets or headers.\n\n" + clean;
     }
 
