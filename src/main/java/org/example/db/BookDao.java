@@ -401,10 +401,6 @@ public final class BookDao {
             UPDATE books
             SET title = ?, genre = ?, summary = ?, file_path = ?, cover_image_path = ?
             WHERE id = ?
-               OR (
-                   author_user_id = (SELECT author_user_id FROM books WHERE id = ?)
-                   AND file_path = (SELECT file_path FROM books WHERE id = ?)
-               )
             """;
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -418,8 +414,6 @@ public final class BookDao {
                 ps.setNull(5, Types.VARCHAR);
             }
             ps.setLong(6, id);
-            ps.setLong(7, id);
-            ps.setLong(8, id);
             int n = ps.executeUpdate();
             if (n == 0) {
                 throw new SQLException("Book not found.");
@@ -466,6 +460,24 @@ public final class BookDao {
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
+            if (ps.executeUpdate() == 0) {
+                throw new SQLException("Book not found.");
+            }
+        }
+    }
+
+    /**
+     * Updates basic book metadata (title, genre, summary) without file encryption.
+     * Used by bulk operations and librarian edits.
+     */
+    public static void update(long id, String title, String genre, String summary) throws SQLException {
+        String sql = "UPDATE books SET title = ?, genre = ?, summary = ? WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, title != null ? title : "");
+            ps.setString(2, genre != null ? genre : "");
+            ps.setString(3, summary != null ? summary : "");
+            ps.setLong(4, id);
             if (ps.executeUpdate() == 0) {
                 throw new SQLException("Book not found.");
             }

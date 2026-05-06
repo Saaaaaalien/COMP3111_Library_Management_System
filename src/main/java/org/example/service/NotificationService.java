@@ -49,6 +49,8 @@ public final class NotificationService {
     public static final String CAT_LIB_USER_PROFILE_UPDATED = "LIB_USER_PROFILE_UPDATED";
     /** Student/staff: book request lifecycle (approved, rejected, processed). */
     public static final String CAT_BOOK_REQUEST = "BOOK_REQUEST";
+    /** Librarian feed: a student/staff submitted a new book request. */
+    public static final String CAT_NEW_BOOK_REQUEST = "NEW_BOOK_REQUEST";
 
     private NotificationService() {}
 
@@ -390,6 +392,17 @@ public final class NotificationService {
         String body  = username + " (" + roleName + ") created a new account.";
         notifyAllLibrarians(CAT_USER_REGISTERED, title, body, 4,
                 "USER_REG:" + newUserId);
+    }
+
+    /**
+     * Called immediately after a book request is submitted by a student/staff user.
+     * Sends a "New book request" notification to all librarians (deduped by request id).
+     */
+    public static void notifyLibrariansNewBookRequest(long requestId, String bookTitle,
+                                                       String authorName, String requesterName) throws SQLException {
+        String title = "New book request";
+        String body  = requesterName + " requested \"" + bookTitle + "\" by " + authorName + ".";
+        notifyAllLibrarians(CAT_NEW_BOOK_REQUEST, title, body, 5, "NEW_BOOK_REQ:" + requestId);
     }
 
     /**

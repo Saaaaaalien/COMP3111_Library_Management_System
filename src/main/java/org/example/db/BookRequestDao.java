@@ -241,23 +241,92 @@ public final class BookRequestDao {
     }
 
     /**
-     * Marks a request as processed
+     * Marks a request as downloaded (book file retrieved; awaiting librarian approval to publish).
+     * The request remains visible in the active list so the librarian can then approve it.
      */
-    public static void markAsProcessed(long requestId, String downloadPath, String summary) throws SQLException {
+    public static void markAsDownloaded(long requestId, String downloadPath, String summary) throws SQLException {
         String sql = """
             UPDATE book_requests
             SET status = ?, downloaded_file_path = ?, generated_summary = ?, processed_at = ?
             WHERE id = ?
             """;
-
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, RequestStatus.PROCESSED.name());
+            ps.setString(1, RequestStatus.DOWNLOADED.name());
             ps.setString(2, downloadPath);
             ps.setString(3, summary);
             ps.setString(4, LocalDateTime.now().format(DATE_FORMATTER));
             ps.setLong(5, requestId);
             ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Records that an alternative book (different title/author from what was requested) was
+     * downloaded.  Updates title, author_name, file path, summary, and sets status to DOWNLOADED.
+     */
+    public static void markAsDownloadedAlternative(long requestId,
+                                                    String altTitle, String altAuthor,
+                                                    String downloadPath, String summary) throws SQLException {
+        String sql = """
+            UPDATE book_requests
+            SET status = ?, title = ?, author_name = ?,
+                downloaded_file_path = ?, generated_summary = ?,
+                approval_notes = ?, processed_at = ?
+            WHERE id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, RequestStatus.DOWNLOADED.name());
+            ps.setString(2, altTitle);
+            ps.setString(3, altAuthor);
+            ps.setString(4, downloadPath);
+            ps.setString(5, summary);
+            ps.setString(6, "Alternative downloaded: \"" + altTitle + "\" by " + altAuthor);
+            ps.setString(7, LocalDateTime.now().format(DATE_FORMATTER));
+            ps.setLong(8, requestId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Legacy alias kept for backward compatibility.
+     * @deprecated Use {@link #markAsDownloaded} instead.
+     */
+    @Deprecated
+    public static void markAsProcessed(long requestId, String downloadPath, String summary) throws SQLException {
+        markAsDownloaded(requestId, downloadPath, summary);
+    }
+
+    /**
+     * Returns all requests that are still active (PENDING or DOWNLOADED), plus any legacy
+     * PROCESSED rows, ordered newest-first.  APPROVED and REJECTED requests are excluded
+     * because they no longer require librarian action.
+     */
+    public static List<BookRequest> findActivePending() throws SQLException {
+        String sql = """
+            SELECT * FROM book_requests
+            WHERE status IN (?, ?, ?)
+            ORDER BY created_at DESC
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, RequestStatus.PENDING.name());
+            ps.setString(2, RequestStatus.DOWNLOADED.name());
+            ps.setString(3, RequestStatus.PROCESSED.name());
+            return mapResultsToRequests(ps.executeQuery());
+        }
+    }
+
+    /**
+     * Returns every book request, all statuses, ordered newest-first.
+     */
+    public static List<BookRequest> findAll() throws SQLException {
+        String sql = "SELECT * FROM book_requests ORDER BY created_at DESC";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return mapResultsToRequests(rs);
         }
     }
 

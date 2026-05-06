@@ -136,6 +136,18 @@
     -fx-background-color: #cfd5e1;
 }
 
+.danger-button {
+    -fx-background-color: #d9534f;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-min-width: 120px;
+    -fx-padding: 10 20;
+}
+
+.danger-button:hover {
+    -fx-background-color: #c9302c;
+}
+
 /* Small helper labels */
 .password-strength {
     -fx-font-size: 11px;

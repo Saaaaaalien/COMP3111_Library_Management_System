@@ -7,9 +7,10 @@ public class BookRequest {
 
     public enum RequestStatus {
         PENDING,
+        DOWNLOADED,  // book file retrieved; awaiting librarian approval to publish
         APPROVED,
         REJECTED,
-        PROCESSED
+        PROCESSED    // legacy alias for DOWNLOADED (pre-existing rows)
     }
 
     private final long id;

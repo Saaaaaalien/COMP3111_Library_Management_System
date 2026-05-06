@@ -261,15 +261,17 @@ public final class LibrarianBorrowRecordsScreen {
         // Status badge
         String statusText  = returned ? "RETURNED" : (overdue ? "OVERDUE" : "ACTIVE");
         String badgeColour = returned ? "#27ae60"  : (overdue ? "#e74c3c" : "#2980b9");
-        String rowBg       = overdue  ? "#fff5f5"  : (returned ? "#f9f9f9" : "#ffffff");
+        String rowBg       = overdue  ? "#ffeaea"  : (returned ? "#f9f9f9" : "#ffffff");
+        String rowBorder   = overdue  ? "#e74c3c"  : "#e8e8e8";
+        String rowBorderW  = overdue  ? "0 0 1 4"  : "0 0 1 0";
 
         HBox row = new HBox();
         row.setAlignment(Pos.CENTER_LEFT);
         row.setStyle(
             "-fx-background-color: " + rowBg + ";" +
             "-fx-padding: 10 12 10 12;" +
-            "-fx-border-color: #e8e8e8;" +
-            "-fx-border-width: 0 0 1 0;"
+            "-fx-border-color: " + rowBorder + ";" +
+            "-fx-border-width: " + rowBorderW + ";"
         );
 
         // Book title + author (stacked)
@@ -277,7 +279,8 @@ public final class LibrarianBorrowRecordsScreen {
         titleBox.setMinWidth(260);
         titleBox.setPrefWidth(260);
         Label titleLbl = new Label(r.bookTitle());
-        titleLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12; -fx-wrap-text: true;");
+        titleLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12; -fx-wrap-text: true;"
+                + (overdue ? " -fx-text-fill: #c0392b;" : ""));
         titleLbl.setWrapText(true);
         titleLbl.setMaxWidth(250);
         Label authorLbl = new Label("by " + r.bookAuthor());

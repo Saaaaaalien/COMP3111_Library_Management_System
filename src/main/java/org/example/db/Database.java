@@ -247,6 +247,22 @@ public final class Database {
                     FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS book_change_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER NOT NULL,
+                    librarian_user_id INTEGER NOT NULL,
+                    librarian_name TEXT NOT NULL,
+                    change_type TEXT NOT NULL,
+                    field_name TEXT,
+                    old_value TEXT,
+                    new_value TEXT,
+                    change_date TEXT NOT NULL,
+                    description TEXT,
+                    FOREIGN KEY (book_id) REFERENCES books(id),
+                    FOREIGN KEY (librarian_user_id) REFERENCES users(id)
+                )
+                """);
             migratePublishDraftsTable(conn);
             migrateBorrowsTable(conn);
             migratePendingBooksTable(conn);
@@ -453,6 +469,12 @@ public final class Database {
         // Backfill: pre-existing rows get NULL from ALTER TABLE; treat them as active.
         try (Statement st = conn.createStatement()) {
             st.execute("UPDATE users SET is_active = 1 WHERE is_active IS NULL");
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE users ADD COLUMN last_login TEXT");
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("duplicate column")) throw e;
         }
     }
 

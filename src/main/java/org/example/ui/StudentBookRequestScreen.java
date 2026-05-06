@@ -173,6 +173,12 @@ public final class StudentBookRequestScreen {
                         null
                 );
                 long id = BookRequestDao.insert(br);
+                try {
+                    org.example.service.NotificationService.notifyLibrariansNewBookRequest(
+                            id, t, a, user.getFullName());
+                } catch (SQLException ex) {
+                    System.err.println("[BookRequest] Failed to notify librarians: " + ex.getMessage());
+                }
                 new Alert(Alert.AlertType.INFORMATION,
                         "Request submitted (reference #" + id + "). You will be notified when it is processed.")
                         .showAndWait();

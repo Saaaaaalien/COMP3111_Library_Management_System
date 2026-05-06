@@ -18,23 +18,31 @@ public class User {
     private final int failedLoginAttempts;
     private final String lockedUntil;
     private final boolean active;
+    private final String lastLogin;
 
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
                 String bio, String employeeId, int failedLoginAttempts, String lockedUntil) {
-        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, null, failedLoginAttempts, lockedUntil);
+        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, null, failedLoginAttempts, lockedUntil, true, null);
     }
 
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
                 String bio, String employeeId, String avatarPath, int failedLoginAttempts, String lockedUntil) {
-        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, avatarPath, failedLoginAttempts, lockedUntil, true);
+        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, avatarPath, failedLoginAttempts, lockedUntil, true, null);
     }
 
     public User(long id, String username, String fullName, Role role,
                 String passwordHash, String passwordSalt, String createdAt,
                 String bio, String employeeId, String avatarPath, int failedLoginAttempts, String lockedUntil,
                 boolean active) {
+        this(id, username, fullName, role, passwordHash, passwordSalt, createdAt, bio, employeeId, avatarPath, failedLoginAttempts, lockedUntil, active, null);
+    }
+
+    public User(long id, String username, String fullName, Role role,
+                String passwordHash, String passwordSalt, String createdAt,
+                String bio, String employeeId, String avatarPath, int failedLoginAttempts, String lockedUntil,
+                boolean active, String lastLogin) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -48,6 +56,7 @@ public class User {
         this.failedLoginAttempts = failedLoginAttempts;
         this.lockedUntil = lockedUntil;
         this.active = active;
+        this.lastLogin = lastLogin;
     }
 
     public long getId() { return id; }
@@ -63,4 +72,5 @@ public class User {
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
     public String getLockedUntil() { return lockedUntil; }
     public boolean isActive() { return active; }
+    public String getLastLogin() { return lastLogin; }
 }

@@ -7,8 +7,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import org.example.app.Navigator;
+import org.example.app.SessionService;
 import org.example.db.UserDao;
 import org.example.domain.User;
 import org.example.security.PasswordHasher;
@@ -21,6 +23,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
@@ -344,10 +347,10 @@ public final class LibrarianProfileScreen {
     private static void handleSaveDetails(String fullName, String employeeId,
                                           Label errorLbl, User librarian, Navigator navigator) {
         errorLbl.setText("");
-        String trimmedName = fullName == null ? "" : fullName.trim();
+        String trimmedName  = fullName   == null ? "" : fullName.trim();
         String trimmedEmpId = employeeId == null ? "" : employeeId.trim();
 
-        // Validate
+        // Validate name
         try {
             Validators.validateFullName(trimmedName);
         } catch (ValidationException ex) {
@@ -355,36 +358,49 @@ public final class LibrarianProfileScreen {
             return;
         }
 
-        // Confirmation dialog
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-            "Save changes to your personal details?",
-            ButtonType.YES, ButtonType.CANCEL);
-        confirm.setTitle("Confirm Changes");
-        confirm.setHeaderText("Update Personal Details");
-        confirm.showAndWait().ifPresent(btn -> {
-            if (btn != ButtonType.YES) return;
-            try {
-                // Fetch current bio from DB so this screen never overwrites a field it doesn't own.
-                String currentBio = UserDao.findById(librarian.getId())
-                        .map(u -> u.getBio()).orElse(librarian.getBio());
-                UserDao.updateProfile(librarian.getId(), trimmedName, trimmedEmpId, currentBio);
-                User refreshed = UserDao.findById(librarian.getId()).orElse(librarian);
-                Alert success = new Alert(Alert.AlertType.INFORMATION,
-                    "Personal details updated successfully.");
-                success.setTitle("Success");
-                success.setHeaderText(null);
-                success.showAndWait();
-                // Navigate back with the updated user object
-                navigator.showLibrarianProfile(refreshed);
-            } catch (SQLException ex) {
-                System.err.println("[LibrarianProfileScreen] Failed to save details: " + ex.getMessage());
-                Alert err = new Alert(Alert.AlertType.ERROR,
-                    "Failed to save changes. Please try again.");
-                err.setTitle("Error");
-                err.setHeaderText(null);
-                err.showAndWait();
+        // Password re-authentication before saving any profile change
+        Dialog<ButtonType> authDialog = new Dialog<>();
+        authDialog.setTitle("Confirm Identity");
+        authDialog.setHeaderText("Enter your current password to save changes");
+        PasswordField pwField = new PasswordField();
+        pwField.setPromptText("Current password");
+        pwField.setMaxWidth(300);
+        Label authError = new Label("");
+        authError.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11;");
+        VBox authContent = new VBox(8, pwField, authError);
+        authContent.setPadding(new Insets(10));
+        authDialog.getDialogPane().setContent(authContent);
+        authDialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Button authOk = (Button) authDialog.getDialogPane().lookupButton(ButtonType.OK);
+        authOk.addEventFilter(javafx.event.ActionEvent.ACTION, ev -> {
+            if (!PasswordHasher.verify(pwField.getText(), librarian.getPasswordSalt(), librarian.getPasswordHash())) {
+                authError.setText("Incorrect password.");
+                ev.consume();
             }
         });
+
+        Optional<ButtonType> authResult = authDialog.showAndWait();
+        if (authResult.filter(bt -> bt == ButtonType.OK).isEmpty()) return;
+
+        // Confirmed — save changes
+        try {
+            String currentBio = UserDao.findById(librarian.getId())
+                    .map(User::getBio).orElse(librarian.getBio());
+            UserDao.updateProfile(librarian.getId(), trimmedName, trimmedEmpId, currentBio);
+            User refreshed = UserDao.findById(librarian.getId()).orElse(librarian);
+            Alert success = new Alert(Alert.AlertType.INFORMATION, "Personal details updated successfully.");
+            success.setTitle("Success");
+            success.setHeaderText(null);
+            success.showAndWait();
+            navigator.showLibrarianProfile(refreshed);
+        } catch (SQLException ex) {
+            System.err.println("[LibrarianProfileScreen] Failed to save details: " + ex.getMessage());
+            Alert err = new Alert(Alert.AlertType.ERROR, "Failed to save changes. Please try again.");
+            err.setTitle("Error");
+            err.setHeaderText(null);
+            err.showAndWait();
+        }
     }
 
     // ── Change password ───────────────────────────────────────────────────────
@@ -457,7 +473,8 @@ public final class LibrarianProfileScreen {
                 success.setTitle("Password Changed");
                 success.setHeaderText(null);
                 success.showAndWait();
-                navigator.showLibrarianPortal();
+                SessionService.clear();
+                navigator.showWelcome();
             } catch (SQLException ex) {
                 System.err.println("[LibrarianProfileScreen] Failed to update password: " + ex.getMessage());
                 Alert err = new Alert(Alert.AlertType.ERROR,
