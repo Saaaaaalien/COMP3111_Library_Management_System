@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.example.app.Navigator;
+import org.example.db.BookChangeLogDao;
 import org.example.db.BookDao;
 import org.example.db.PublishDraftDao;
 import org.example.domain.Book;
@@ -1073,16 +1074,67 @@ public final class PublishBookScreen {
         try {
             String storedBookPath = persistBookFileForLibrarian(bookFile, editingBookSnapshot == null ? null : editingBookSnapshot.getFilePath());
             String storedCoverPath = persistCoverFileForLibrarian(coverFile, editingBookSnapshot == null ? null : editingBookSnapshot.getCoverImagePath());
+            
+            // Log all changes BEFORE the update (while we still have the original values)
+            try {
+                if (editingBookSnapshot != null) {
+                    // Record title change
+                    if (title != null && !title.equals(editingBookSnapshot.getTitle())) {
+                        BookChangeLogDao.recordChange(
+                            bookId,
+                            librarian.getId(),
+                            librarian.getFullName(),
+                            "EDIT",
+                            "title",
+                            editingBookSnapshot.getTitle(),
+                            title,
+                            null
+                        );
+                    }
+                    
+                    // Record genre change
+                    if (genre != null && !genre.equals(editingBookSnapshot.getGenre())) {
+                        BookChangeLogDao.recordChange(
+                            bookId,
+                            librarian.getId(),
+                            librarian.getFullName(),
+                            "EDIT",
+                            "genre",
+                            editingBookSnapshot.getGenre(),
+                            genre,
+                            null
+                        );
+                    }
+                    
+                    // Record summary change
+                    if (description != null && !description.equals(editingBookSnapshot.getSummary())) {
+                        BookChangeLogDao.recordChange(
+                            bookId,
+                            librarian.getId(),
+                            librarian.getFullName(),
+                            "EDIT",
+                            "summary",
+                            editingBookSnapshot.getSummary(),
+                            description,
+                            null
+                        );
+                    }
+                }
+            } catch (SQLException ignored) {
+                // Non-fatal: keep edit successful even if change logging fails
+            }
+            
             BookDao.updatePublishedByLibrarian(
                     bookId,
                     title,
-                    librarian.getId(),
+                    editingBookSnapshot == null ? librarian.getId() : editingBookSnapshot.getAuthorUserId(),
                     authorName,
                     genre,
                     description,
                     storedBookPath,
                     storedCoverPath
             );
+            
             if (editingBookSnapshot != null
                     && editingBookSnapshot.getAuthorUserId() > 0
                     && editingBookSnapshot.getAuthorUserId() != librarian.getId()) {

@@ -14,6 +14,7 @@ import org.example.db.PendingDao;
 import org.example.domain.Book;
 import org.example.domain.PendingBook;
 import org.example.domain.User;
+import org.example.service.BulkBookOperationService;
 import org.example.util.BookPreviewUtil;
 
 import javafx.beans.binding.Bindings;
@@ -26,7 +27,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -467,6 +467,20 @@ public final class AuthorPublishedBooksScreen {
                                     bk.getFilePath(),
                                     newCover
                             );
+                            
+                            // Log all changes to version history
+                            try {
+                                BulkBookOperationService.updateBookWithHistory(
+                                        bk.getId(),
+                                        newTitle,
+                                        newGenre,
+                                        newSummary,
+                                        user
+                                );
+                            } catch (SQLException ignored) {
+                                // Non-fatal: keep edit successful even if change logging fails
+                            }
+                            
                             new Alert(Alert.AlertType.INFORMATION, "Book details updated successfully.").showAndWait();
                             refresh.run();
                         } catch (SQLException ex) {

@@ -54,7 +54,7 @@ public final class UserDao {
      * Finds a user by username.
      */
     public static Optional<User> findByUsername(String username) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE username = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users WHERE username = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
@@ -72,7 +72,7 @@ public final class UserDao {
      * Finds a user by id.
      */
     public static Optional<User> findById(long id) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE id = ?";
+        String sql = "SELECT id, username, full_name, role, password_hash, password_salt, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users WHERE id = ?";
         Connection conn = Database.getConnection();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
@@ -107,6 +107,8 @@ public final class UserDao {
                 active = isActiveVal != 0;
             }
         } catch (SQLException ignored) { }
+        String lastLogin = null;
+        try { lastLogin = rs.getString("last_login"); } catch (SQLException ignored) { }
         return new User(
             rs.getLong("id"),
             rs.getString("username"),
@@ -120,7 +122,8 @@ public final class UserDao {
             avatar,
             failed,
             locked,
-            active
+            active,
+            lastLogin
         );
     }
 
@@ -186,6 +189,8 @@ public final class UserDao {
             int isActiveVal = rs.getInt("is_active");
             if (!rs.wasNull()) active = isActiveVal != 0;
         } catch (SQLException ignored) { }
+        String lastLogin = null;
+        try { lastLogin = rs.getString("last_login"); } catch (SQLException ignored) { }
         return new User(
             rs.getLong("id"),
             rs.getString("username"),
@@ -199,7 +204,8 @@ public final class UserDao {
             avatar,
             failed,
             locked,
-            active
+            active,
+            lastLogin
         );
     }
 
@@ -208,7 +214,7 @@ public final class UserDao {
      * Does not fetch password credentials (not needed for admin listings).
      */
     public static List<User> findAll() throws SQLException {
-        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users ORDER BY role, username";
+        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users ORDER BY role, username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql);
@@ -225,7 +231,7 @@ public final class UserDao {
      * Does not fetch password credentials (not needed for admin listings).
      */
     public static List<User> findAllByRole(Role role) throws SQLException {
-        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE role = ? ORDER BY username";
+        String sql = "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users WHERE role = ? ORDER BY username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -247,8 +253,8 @@ public final class UserDao {
     public static List<User> search(String term, Role role) throws SQLException {
         String likeTerm = "%" + term + "%";
         String sql = role == null
-            ? "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) ORDER BY role, username"
-            : "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active FROM users WHERE (username LIKE ? OR full_name LIKE ?) AND role = ? ORDER BY username";
+            ? "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users WHERE (username LIKE ? OR full_name LIKE ?) ORDER BY role, username"
+            : "SELECT id, username, full_name, role, created_at, bio, employee_id, avatar_path, failed_login_attempts, locked_until, is_active, last_login FROM users WHERE (username LIKE ? OR full_name LIKE ?) AND role = ? ORDER BY username";
         Connection conn = Database.getConnection();
         List<User> users = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -326,10 +332,15 @@ public final class UserDao {
     }
 
     /**
-     * Resets failed_login_attempts and locked_until on successful login.
-     * Delegates to clearExpiredLockout for shared behavior.
+     * Resets failed_login_attempts and locked_until on successful login, and records the login timestamp.
      */
     public static void recordLoginSuccess(long userId) throws SQLException {
-        clearExpiredLockout(userId);
+        String sql = "UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = ? WHERE id = ?";
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, java.time.Instant.now().toString());
+            ps.setLong(2, userId);
+            ps.executeUpdate();
+        }
     }
 }
