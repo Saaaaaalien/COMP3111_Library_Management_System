@@ -10,6 +10,9 @@ public final class AppConfig {
 
     public static final String HF_API_TOKEN = env("HF_API_TOKEN", "");
     public static final String HF_MODEL_ID = env("HF_MODEL_ID", "facebook/bart-large-cnn");
+    public static final String SUMMARY_PROVIDER = env("SUMMARY_PROVIDER", "ollama").toLowerCase();
+    public static final String OLLAMA_BASE = env("OLLAMA_BASE", "http://localhost:11434");
+    public static final String OLLAMA_MODEL = env("OLLAMA_MODEL", "llama3.2:3b");
     /**
      * Hugging Face Inference API model id for text classification (review sentiment).
      * Override with env {@code HF_SENTIMENT_MODEL_ID}; default is a common 3-label RoBERTa classifier.
@@ -23,9 +26,29 @@ public final class AppConfig {
         return !HF_API_TOKEN.isBlank();
     }
 
+    public static boolean isOllamaConfigured() {
+        return !OLLAMA_BASE.isBlank() && !OLLAMA_MODEL.isBlank();
+    }
+
+    public static boolean preferOllamaSummary() {
+        return "ollama".equals(SUMMARY_PROVIDER);
+    }
+
+    public static boolean isSummaryRemoteConfigured() {
+        if (preferOllamaSummary()) {
+            return isOllamaConfigured() || isHfConfigured();
+        }
+        return isHfConfigured() || isOllamaConfigured();
+    }
+
     public static String getHfInferenceEndpoint() {
         String base = HF_API_BASE.endsWith("/") ? HF_API_BASE.substring(0, HF_API_BASE.length() - 1) : HF_API_BASE;
         return base + "/models/" + HF_MODEL_ID;
+    }
+
+    public static String getOllamaGenerateEndpoint() {
+        String base = OLLAMA_BASE.endsWith("/") ? OLLAMA_BASE.substring(0, OLLAMA_BASE.length() - 1) : OLLAMA_BASE;
+        return base + "/api/generate";
     }
 
     /** Inference endpoint for the sentiment classification model (separate from summarization {@link #HF_MODEL_ID}). */
