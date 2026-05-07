@@ -67,7 +67,42 @@ Use this checklist to verify all Task 1 features. **Reset the database first** s
 
 ---
 
-## Session / Inactivity
+## 1.5 My Borrowed Books + Return Book
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Borrow at least one book from Available Books | Borrow succeeds and the book is associated with the logged-in student |
+| 2 | Open **My Borrowed Books** | Borrowed list shows rows for current user only |
+| 3 | Check displayed fields | Each row shows title/author and a due date 14 days from borrow time |
+| 4 | Select a row and click **Return Selected Book** (or equivalent return action) | Confirmation appears (if implemented), then success message |
+| 5 | Re-open Available Books | Returned book appears as available again |
+| 6 | Return with no selection | Warning is shown (for example, "Please select a book to return.") |
+
+---
+
+## 1.6 Borrow Limit (Max 5)
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Ensure at least 6 books are available | Student has enough books to test the limit |
+| 2 | Borrow 5 different books as `student1` | All 5 borrows succeed |
+| 3 | Attempt to borrow the 6th book | Borrow is blocked with a limit warning/error (max 5 active borrows) |
+| 4 | Return one borrowed book, then borrow again | Borrow succeeds after active count goes below 5 |
+
+---
+
+## 1.7 Quick Review + Summary
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Login as a student and select a book row in Available Books | Action buttons relevant to preview/summary become usable |
+| 2 | Open **Quick Review** for a book with an uploaded PDF | Reader/preview opens to the first few pages only (not full unrestricted reading) |
+| 3 | Close preview and open **Read Summary** for the same or another book | A pop-up/dialog displays the stored abstract/summary text |
+| 4 | Try **Read Summary** on a book with empty summary (if any) | User sees empty-state text or a clear "no summary available" message |
+
+---
+
+## 1.8 Session / Inactivity
 
 | Step | Action | Expected result |
 |------|--------|-----------------|
@@ -78,12 +113,24 @@ Use this checklist to verify all Task 1 features. **Reset the database first** s
 
 ---
 
+## 1.9 Session Restore (Restart Recovery)
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Login as `student1`, open one of these screens: Available Books / My Borrowed Books / profile / notifications / reading history / book request | Current route is saved for session restore |
+| 2 | Quit app without logging out, then relaunch | App restores to the saved screen if snapshot is valid |
+| 3 | Restore from a pre-login page (Welcome, Student/Staff portal, login, register) by quitting there and relaunching | App returns to that same pre-login route |
+| 4 | Trigger an invalid restore snapshot scenario (e.g. missing borrow/role mismatch) and relaunch | User is redirected to Available Books with a short recovery notice |
+| 5 | Logout and relaunch app | No restoration to authenticated screens (session snapshot cleared) |
+
+---
+
 ## Quick smoke test (minimal path)
 
 1. **ResetDatabase** (app closed).
 2. Run app → **Student/Staff Portal** → **Register**: `testuser` / `First` / `Last` / `TestPass1!` / Student → **Register**.
 3. **Login**: `testuser` / `TestPass1!` → **Login** → see Available Books.
-4. **Logout**.
-5. (Optional) Add one book via Author + Librarian, then login again and **Borrow** it; confirm success and list update.
+4. (Optional) Add books via Author + Librarian and verify borrow, borrowed list, return, and borrow limit behavior.
+5. Quit while logged in on a Task 1 screen, relaunch to verify session restore, then logout and relaunch to verify restore is cleared.
 
 If all steps match the expected results, Task 1 (Student/Staff) is working end-to-end.

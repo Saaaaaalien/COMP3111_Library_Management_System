@@ -79,7 +79,13 @@ public final class PublishBookScreen {
     private static Label coverNameLabel;
     private static Label summaryStatusLabel;
     private static Button generateSummaryButton;
+    private static Button cancelSummaryButton;
+    private static Button finalizeSummaryButton;
     private static ComboBox<BookSummaryService.SummaryStyle> summaryStyleComboBox;
+    private static boolean summaryFinalized;
+    private static boolean internalSummaryProgrammaticUpdate;
+    private static Task<BookSummaryService.SummaryResult> activeSummaryTask;
+    private static Thread activeSummaryThread;
     private static final String LIBRARIAN_PUBLISHED_UPLOAD_DIR = System.getProperty("user.home")
             + File.separator + "library_uploads"
             + File.separator + "published";
@@ -120,6 +126,7 @@ public final class PublishBookScreen {
         editingBookId = editBookId;
         editingBookSnapshot = null;
         pendingBookRequestApproveId = bookRequestApproveId;
+        summaryFinalized = false;
 
         // Title
         Label title = new Label(screenTitleText());
@@ -155,6 +162,14 @@ public final class PublishBookScreen {
         submitBtn.setOnAction(e -> {
             if (!validateForm()) {
                 return;
+            }
+            if (!summaryFinalized && !librarianPublishMode) {
+                boolean continueWithoutFinalize = showConfirmation(
+                        "Summary not finalized",
+                        "Your summary is not finalized yet. Finalize now for Task 2.7 confirmation, or press Cancel to return.");
+                if (!continueWithoutFinalize) {
+                    return;
+                }
             }
 
             // Show confirmation dialog with full preview
@@ -337,9 +352,21 @@ public final class PublishBookScreen {
         Runnable bumpDraft = () -> draftDebounce.playFromStart();
         titleField.textProperty().addListener((a, b, c) -> bumpDraft.run());
         descriptionArea.textProperty().addListener((a, b, c) -> bumpDraft.run());
+        descriptionArea.textProperty().addListener((a, b, c) -> {
+            if (internalSummaryProgrammaticUpdate) {
+                return;
+            }
+            if (c != null && !c.isBlank()) {
+                markSummaryDraft("Summary status: Draft (edited)");
+            }
+        });
         genreListView.getSelectionModel().getSelectedItems().addListener(
                 (javafx.collections.ListChangeListener<String>) c -> bumpDraft.run());
-
+        summaryStyleComboBox.valueProperty().addListener((a, b, c) -> {
+            if (c != null && c != b) {
+                markSummaryDraft("Summary status: Draft (" + c.label() + " style selected)");
+            }
+        });
         return scene;
     }
 
@@ -457,7 +484,18 @@ public final class PublishBookScreen {
         generateSummaryButton = new Button("Generate Summary");
         generateSummaryButton.getStyleClass().add("secondary-button");
         generateSummaryButton.setPrefWidth(160);
-        generateSummaryButton.setOnAction(e -> onGenerateSummary());
+        generateSummaryButton.setOnAction(e -> onGenerateSummary(false));
+
+        cancelSummaryButton = new Button("Cancel Generation");
+        cancelSummaryButton.getStyleClass().add("secondary-button");
+        cancelSummaryButton.setPrefWidth(160);
+        cancelSummaryButton.setDisable(true);
+        cancelSummaryButton.setOnAction(e -> onCancelSummaryGeneration());
+
+        finalizeSummaryButton = new Button("Finalize Summary");
+        finalizeSummaryButton.getStyleClass().add("primary-button");
+        finalizeSummaryButton.setPrefWidth(160);
+        finalizeSummaryButton.setOnAction(e -> onFinalizeSummary());
 
         Label summaryStyleLabel = new Label("Summary style:");
         summaryStyleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
@@ -483,7 +521,13 @@ public final class PublishBookScreen {
         summaryStatusLabel = new Label("Summary status: Draft");
         summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
 
-        HBox summaryActionBox = new HBox(10, summaryStyleLabel, summaryStyleComboBox, generateSummaryButton);
+        HBox summaryActionBox = new HBox(
+                10,
+                summaryStyleLabel,
+                summaryStyleComboBox,
+                generateSummaryButton,
+                cancelSummaryButton,
+                finalizeSummaryButton);
         summaryActionBox.setAlignment(Pos.CENTER_LEFT);
         VBox summaryControlsBox = new VBox(8, summaryActionBox, summaryStatusLabel);
 
@@ -595,7 +639,11 @@ public final class PublishBookScreen {
                     fileDisplayLabel.setText(selectedFile.getName() + " (" +
                             formatFileSize(selectedFile.length()) + ")");
                     fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                    markSummaryDraft("Summary status: Draft (new file selected)");
                     persistDraftQuietly();
+                    if (!librarianPublishMode && BookPreviewUtil.isSupportedPreviewType(selectedBookFile.getAbsolutePath())) {
+                        onGenerateSummary(true);
+                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -938,6 +986,7 @@ public final class PublishBookScreen {
             summaryStatusLabel.setText("Summary status: Draft");
             summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
         }
+        summaryFinalized = false;
         if (bookRequestApproveNotesArea != null) {
             bookRequestApproveNotesArea.clear();
         }
@@ -1016,17 +1065,27 @@ public final class PublishBookScreen {
         return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
     }
 
-    private static void onGenerateSummary() {
+    private static void onGenerateSummary(boolean autoTriggered) {
         if (selectedBookFile == null) {
-            showError("No File Selected", "Please choose a book file before generating a summary.");
+            if (!autoTriggered) {
+                showError("No File Selected", "Please choose a book file before generating a summary.");
+            }
             return;
         }
         if (!BookPreviewUtil.isSupportedPreviewType(selectedBookFile.getAbsolutePath())) {
-            showError("Unsupported File", "Summary generation supports PDF, TXT, DOC, and DOCX files.");
+            if (!autoTriggered) {
+                showError("Unsupported File", "Summary generation supports PDF, TXT, DOC, and DOCX files.");
+            }
             return;
         }
 
         generateSummaryButton.setDisable(true);
+        if (cancelSummaryButton != null) {
+            cancelSummaryButton.setDisable(false);
+        }
+        if (finalizeSummaryButton != null) {
+            finalizeSummaryButton.setDisable(true);
+        }
         if (summaryStyleComboBox != null) {
             summaryStyleComboBox.setDisable(true);
         }
@@ -1042,46 +1101,144 @@ public final class PublishBookScreen {
             @Override
             protected BookSummaryService.SummaryResult call() {
                 BookSummaryService service = new BookSummaryService();
-                return service.generateSummaryFromBookFile(selectedBookFile.getAbsolutePath(), selectedStyle);
+                String title = titleField == null ? "" : titleField.getText();
+                String author = authorNameField == null ? "" : authorNameField.getText();
+                return service.generateSummaryFromBookFile(
+                        selectedBookFile.getAbsolutePath(),
+                        selectedStyle,
+                        title,
+                        author);
             }
         };
+        activeSummaryTask = task;
 
         task.setOnSucceeded(e -> {
             BookSummaryService.SummaryResult result = task.getValue();
             if (result.success()) {
+                internalSummaryProgrammaticUpdate = true;
                 descriptionArea.setText(result.summary());
-                summaryStatusLabel.setText("Summary status: Generated");
+                internalSummaryProgrammaticUpdate = false;
+                String provider = result.provider() == null ? "unknown" : result.provider();
+                if ("ollama".equalsIgnoreCase(provider)) {
+                    String model = result.modelUsed() == null || result.modelUsed().isBlank()
+                            ? ""
+                            : " (" + result.modelUsed() + ")";
+                    summaryStatusLabel.setText("Summary status: Generated by Ollama" + model + " (not finalized)");
+                } else if ("catalog".equalsIgnoreCase(provider)) {
+                    summaryStatusLabel.setText("Summary status: Generated from catalog metadata (not finalized)");
+                } else if ("hf".equalsIgnoreCase(provider)) {
+                    summaryStatusLabel.setText("Summary status: Generated by HF (not finalized)");
+                } else {
+                    String reason = result.fallbackReason() == null || result.fallbackReason().isBlank()
+                            ? ""
+                            : " - " + result.fallbackReason();
+                    summaryStatusLabel.setText("Summary status: Generated locally (fallback)" + reason + " (not finalized)");
+                }
                 summaryStatusLabel.setStyle("-fx-text-fill: #27ae60;");
-                showSuccess(result.message());
+                summaryFinalized = false;
+                if (!autoTriggered) {
+                    showSuccess(result.message());
+                }
                 persistDraftQuietly();
             } else {
-                summaryStatusLabel.setText("Summary status: Draft");
-                summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
-                showError("Summary Generation Failed", result.message());
+                String base = "Summary status: Generation failed";
+                if (result.message() != null && !result.message().isBlank()) {
+                    base += " - " + result.message();
+                }
+                summaryStatusLabel.setText(base);
+                summaryStatusLabel.setStyle("-fx-text-fill: #c0392b; -fx-font-style: italic;");
+                if (!autoTriggered) {
+                    showError("Summary Generation Failed", result.message());
+                }
             }
             generateSummaryButton.setText(originalText);
             generateSummaryButton.setDisable(false);
+            if (cancelSummaryButton != null) {
+                cancelSummaryButton.setDisable(true);
+            }
+            if (finalizeSummaryButton != null) {
+                finalizeSummaryButton.setDisable(false);
+            }
             if (summaryStyleComboBox != null) {
                 summaryStyleComboBox.setDisable(false);
             }
+            activeSummaryTask = null;
+            activeSummaryThread = null;
         });
 
         task.setOnFailed(e -> {
-            summaryStatusLabel.setText("Summary status: Draft");
-            summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+            summaryStatusLabel.setText("Summary status: Generation failed (unexpected error)");
+            summaryStatusLabel.setStyle("-fx-text-fill: #c0392b; -fx-font-style: italic;");
             generateSummaryButton.setText(originalText);
             generateSummaryButton.setDisable(false);
+            if (cancelSummaryButton != null) {
+                cancelSummaryButton.setDisable(true);
+            }
+            if (finalizeSummaryButton != null) {
+                finalizeSummaryButton.setDisable(false);
+            }
             if (summaryStyleComboBox != null) {
                 summaryStyleComboBox.setDisable(false);
             }
             Throwable ex = task.getException();
             String message = ex == null ? "Unexpected error during summary generation." : ex.getMessage();
-            showError("Summary Generation Failed", message);
+            if (!autoTriggered) {
+                showError("Summary Generation Failed", message);
+            }
+            activeSummaryTask = null;
+            activeSummaryThread = null;
         });
 
         Thread worker = new Thread(task, "summary-generation-worker");
         worker.setDaemon(true);
+        activeSummaryThread = worker;
         worker.start();
+    }
+
+    private static void onCancelSummaryGeneration() {
+        if (activeSummaryTask != null && activeSummaryTask.isRunning()) {
+            activeSummaryTask.cancel(true);
+        }
+        if (activeSummaryThread != null && activeSummaryThread.isAlive()) {
+            activeSummaryThread.interrupt();
+        }
+        summaryStatusLabel.setText("Summary status: Generation cancelled");
+        summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+        if (generateSummaryButton != null) {
+            generateSummaryButton.setText("Generate Summary");
+            generateSummaryButton.setDisable(false);
+        }
+        if (cancelSummaryButton != null) {
+            cancelSummaryButton.setDisable(true);
+        }
+        if (finalizeSummaryButton != null) {
+            finalizeSummaryButton.setDisable(false);
+        }
+        if (summaryStyleComboBox != null) {
+            summaryStyleComboBox.setDisable(false);
+        }
+        activeSummaryTask = null;
+        activeSummaryThread = null;
+    }
+
+    private static void onFinalizeSummary() {
+        String current = descriptionArea == null ? "" : descriptionArea.getText();
+        if (current == null || current.trim().isEmpty()) {
+            showError("Summary Empty", "Generate or enter a summary before finalizing.");
+            return;
+        }
+        summaryFinalized = true;
+        summaryStatusLabel.setText("Summary status: Finalized and ready for submission");
+        summaryStatusLabel.setStyle("-fx-text-fill: #1f8b4c; -fx-font-weight: bold;");
+        showSuccess("Summary finalized. You can still edit it before submitting.");
+    }
+
+    private static void markSummaryDraft(String statusText) {
+        summaryFinalized = false;
+        if (summaryStatusLabel != null) {
+            summaryStatusLabel.setText(statusText);
+            summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
+        }
     }
 
     private static String getFileExtension(File file) {

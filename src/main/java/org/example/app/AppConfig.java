@@ -12,7 +12,7 @@ public final class AppConfig {
     public static final String HF_MODEL_ID = env("HF_MODEL_ID", "facebook/bart-large-cnn");
     public static final String SUMMARY_PROVIDER = env("SUMMARY_PROVIDER", "ollama").toLowerCase();
     public static final String OLLAMA_BASE = env("OLLAMA_BASE", "http://localhost:11434");
-    public static final String OLLAMA_MODEL = env("OLLAMA_MODEL", "llama3.2:3b");
+    public static final String OLLAMA_MODEL = env("OLLAMA_MODEL", "llama3.2:latest");
     /**
      * Hugging Face Inference API model id for text classification (review sentiment).
      * Override with env {@code HF_SENTIMENT_MODEL_ID}; default is a common 3-label RoBERTa classifier.
@@ -21,6 +21,8 @@ public final class AppConfig {
             env("HF_SENTIMENT_MODEL_ID", "cardiffnlp/twitter-roberta-base-sentiment-latest");
     public static final String HF_API_BASE = env("HF_API_BASE", "https://router.huggingface.co/hf-inference");
     public static final int HF_API_TIMEOUT_SECONDS = envInt("HF_API_TIMEOUT_SECONDS", 120);
+    public static final int OLLAMA_API_TIMEOUT_SECONDS = envInt("OLLAMA_API_TIMEOUT_SECONDS", 45);
+    public static final int OLLAMA_MODEL_CACHE_SECONDS = envInt("OLLAMA_MODEL_CACHE_SECONDS", 300);
 
     public static boolean isHfConfigured() {
         return !HF_API_TOKEN.isBlank();
