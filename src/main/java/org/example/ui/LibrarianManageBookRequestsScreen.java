@@ -372,7 +372,10 @@ public final class LibrarianManageBookRequestsScreen {
                 showError("Failed to load requests", getException().getMessage());
             }
         };
-        new Thread(task).start();
+        Thread t = new Thread(task);
+        t.setName("book-requests-load");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ── View details ──────────────────────────────────────────────────────────
@@ -481,10 +484,9 @@ public final class LibrarianManageBookRequestsScreen {
                     searchStage.close();
                     BookDownloaderService.SearchResults results = getValue();
                     if (results.isEmpty()) {
-                        showError("No Results Found",
-                                "Could not find any public-domain edition of \"" + req.getTitle()
-                                + "\" online.\n\nOnly public-domain books (Project Gutenberg) "
-                                + "are available for automatic download.");
+                        showInfo("No Online Alternatives",
+                                "No online alternatives were found for \"" + req.getTitle() + "\" right now.\n\n"
+                                + "You can still click \"Approve & Publish\" to upload the book file manually.");
                         return;
                     }
                     showSelectionDialog(table, req, results);
@@ -496,7 +498,10 @@ public final class LibrarianManageBookRequestsScreen {
                     showError("Search Error", getException().getMessage());
                 }
             };
-            new Thread(searchTask).start();
+            Thread t = new Thread(searchTask);
+            t.setName("book-candidates-search");
+            t.setDaemon(true);
+            t.start();
 
         } catch (SQLException e) {
             showError("Database Error", e.getMessage());
@@ -567,7 +572,7 @@ public final class LibrarianManageBookRequestsScreen {
 
         // ── Top search result section ─────────────────────────────────────────
         if (results.topResult() != null) {
-            Label topLbl = new Label("Top search result:");
+            Label topLbl = new Label("Best match (same author/title):");
             topLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #1565c0; -fx-font-size: 12;");
             body.getChildren().add(topLbl);
             body.getChildren().add(makeCandidateCard(results.topResult(), selectedCandidate));
@@ -576,7 +581,7 @@ public final class LibrarianManageBookRequestsScreen {
         // ── Alternatives section ──────────────────────────────────────────────
         if (!results.alternatives().isEmpty()) {
             if (results.topResult() != null) body.getChildren().add(new Separator());
-            Label altLbl = new Label("Alternatives found:");
+            Label altLbl = new Label("Alternatives (same author or similar title):");
             altLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #1565c0; -fx-font-size: 12;");
             body.getChildren().add(altLbl);
             for (BookDownloaderService.BookCandidate c : results.alternatives()) {
@@ -734,7 +739,10 @@ public final class LibrarianManageBookRequestsScreen {
         };
         progressBar.progressProperty().bind(task.progressProperty());
         statusLabel.textProperty().bind(task.messageProperty());
-        new Thread(task).start();
+        Thread t = new Thread(task);
+        t.setName("book-candidate-download");
+        t.setDaemon(true);
+        t.start();
     }
 
     // ── Approve & publish ─────────────────────────────────────────────────────
@@ -743,25 +751,11 @@ public final class LibrarianManageBookRequestsScreen {
         RequestRow selected = table.getSelectionModel().getSelectedItem();
         if (selected == null) { showInfo("Approve Request", "Please select a request to approve"); return; }
 
-        if (!"DOWNLOADED".equals(selected.getStatus()) && !"PROCESSED".equals(selected.getStatus())) {
-            showInfo("Download Required",
-                    "Please download the book first (click \"Download Book\").\n"
-                    + "After a successful download the row turns green and you can approve it.");
-            return;
-        }
-
         try {
             Optional<BookRequest> reqOpt = BookRequestDao.findById(selected.getId());
             if (reqOpt.isEmpty()) { showError("Request not found", "The selected request could not be found"); return; }
 
             BookRequest req = reqOpt.get();
-
-            if (req.getDownloadedFilePath() == null || req.getDownloadedFilePath().isEmpty()) {
-                showInfo("Download Required",
-                        "No downloaded file is associated with this request. "
-                        + "Please use \"Download Book\" first.");
-                return;
-            }
 
             User librarian = (User) table.getScene().getUserData();
             if (activeNavigator == null || librarian == null) {

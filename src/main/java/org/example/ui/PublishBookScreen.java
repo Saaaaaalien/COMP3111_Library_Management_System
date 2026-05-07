@@ -1353,24 +1353,16 @@ public final class PublishBookScreen {
                 return;
             }
             BookRequest req = opt.get();
-            BookRequest.RequestStatus st = req.getStatus();
-            if (st != BookRequest.RequestStatus.DOWNLOADED && st != BookRequest.RequestStatus.PROCESSED) {
-                showInfo("Not ready",
-                        "Download the book for this request before publishing.");
-                navigator.showLibrarianManageBookRequests(currentUser);
-                return;
-            }
             String path = req.getDownloadedFilePath();
-            if (path == null || path.isBlank()) {
-                showInfo("Missing file", "Download the book file first, then approve again.");
-                navigator.showLibrarianManageBookRequests(currentUser);
-                return;
-            }
-            File f = new File(path);
-            if (!f.isFile() || !f.canRead()) {
-                showError("File not found", "The downloaded book file is missing or unreadable.");
-                navigator.showLibrarianManageBookRequests(currentUser);
-                return;
+            if (path != null && !path.isBlank()) {
+                File f = new File(path);
+                if (f.isFile() && f.canRead()) {
+                    selectedBookFile = f;
+                    fileNameLabel.setText(f.getName());
+                    fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    fileDisplayLabel.setText(f.getName() + " (" + formatFileSize(f.length()) + ")");
+                    fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+                }
             }
 
             titleField.setText(req.getTitle() == null ? "" : req.getTitle());
@@ -1403,12 +1395,6 @@ public final class PublishBookScreen {
                 genreListView.getSelectionModel().select(ix >= 0 ? ix : 0);
             }
             updateSelectedGenresDisplay();
-
-            selectedBookFile = f;
-            fileNameLabel.setText(f.getName());
-            fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
-            fileDisplayLabel.setText(f.getName() + " (" + formatFileSize(f.length()) + ")");
-            fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
         } catch (SQLException ex) {
             showError("Load failed", ex.getMessage());
             navigator.showLibrarianManageBookRequests(currentUser);

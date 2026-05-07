@@ -15,9 +15,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,9 +42,11 @@ import org.example.util.BookPreviewUtil;
 public final class BookDownloaderService {
 
     private static final String DOWNLOAD_DIR = "data/downloaded_books";
-    private static final int    TIMEOUT_SEC  = 30;
+    /** Timeout for search/metadata HTTP requests (Gutendex/IA/StandardEbooks HTML). */
+    private static final int    TIMEOUT_SEC  = 10;
     private static final int    DL_TIMEOUT   = 60;
-    private static final long   SEARCH_TIME_LIMIT_MS = 15_000L;
+    /** Overall budget across all candidate-search calls (sequential queries + browse pages). */
+    private static final long   SEARCH_TIME_LIMIT_MS = 45_000L;
 
     // Follow redirects so that Gutenberg CDN redirects resolve correctly.
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
@@ -103,6 +110,15 @@ public final class BookDownloaderService {
             return DownloadResult.failure("Book title and author cannot both be empty.");
         }
 
+        // If the user pasted a Gutenberg URL (or numeric ebook id), bypass Gutendex and download directly.
+        Integer gutenbergId = extractGutenbergEbookId(title);
+        if (gutenbergId == null) gutenbergId = extractGutenbergEbookId(author);
+        if (gutenbergId != null) {
+            String label = (titleBlank ? ("gutenberg-" + gutenbergId) : title);
+            DownloadResult direct = tryDirectGutenbergById(gutenbergId, label);
+            if (direct.success) return convertToPdfIfNeeded(direct);
+        }
+
         String ct = cleanForSearch(title);
         String ca = cleanForSearch(author);
 
@@ -161,6 +177,17 @@ public final class BookDownloaderService {
         String ca = cleanForSearch(author);
         long startedAtMs = System.currentTimeMillis();
 
+        // Gutenberg direct URL / id input: treat it as an explicit top candidate.
+        Integer gid = extractGutenbergEbookId(title);
+        if (gid == null) gid = extractGutenbergEbookId(author);
+        if (gid != null) {
+            String fallbackTitle = (title == null || title.isBlank()) ? ("Project Gutenberg #" + gid) : title.trim();
+            String epubUrl = "https://www.gutenberg.org/ebooks/" + gid + ".epub.noimages";
+            BookCandidate top = new BookCandidate(fallbackTitle, (author == null || author.isBlank()) ? "Unknown" : author.trim(), epubUrl,
+                    "Direct Project Gutenberg link (ebook #" + gid + ").");
+            return new SearchResults(top, List.of());
+        }
+
         Set<String> seenTitles = new HashSet<>();
         List<BookCandidate> candidates = new ArrayList<>();
         for (String q : buildQueries(ct, ca)) {
@@ -177,9 +204,48 @@ public final class BookDownloaderService {
         }
 
         if (candidates.isEmpty()) return new SearchResults(null, List.of());
+        candidates.sort(
+                Comparator.comparingInt((BookCandidate c) -> candidateRelevanceScore(c, ct, ca)).reversed()
+                        .thenComparing(BookCandidate::title, String.CASE_INSENSITIVE_ORDER));
         BookCandidate top = candidates.get(0);
         List<BookCandidate> alts = new ArrayList<>(candidates.subList(1, Math.min(candidates.size(), 6)));
         return new SearchResults(top, alts);
+    }
+
+    /**
+     * Scores alternative candidates so same-author and similar-title books appear first.
+     */
+    private static int candidateRelevanceScore(BookCandidate c, String requestedTitle, String requestedAuthor) {
+        int score = 0;
+        String candidateAuthor = cleanForSearch(c.author()).toLowerCase();
+        String candidateTitle = cleanForSearch(c.title()).toLowerCase();
+        String reqAuthor = requestedAuthor.toLowerCase();
+        String reqTitle = requestedTitle.toLowerCase();
+
+        if (!reqAuthor.isBlank() && !candidateAuthor.isBlank()) {
+            if (candidateAuthor.equals(reqAuthor)) score += 100;
+            else if (candidateAuthor.contains(reqAuthor) || reqAuthor.contains(candidateAuthor)) score += 70;
+            else {
+                for (String token : reqAuthor.split("\\s+")) {
+                    if (token.length() >= 3 && candidateAuthor.contains(token)) {
+                        score += 20;
+                    }
+                }
+            }
+        }
+
+        if (!reqTitle.isBlank() && !candidateTitle.isBlank()) {
+            if (candidateTitle.equals(reqTitle)) score += 80;
+            else if (isTitleSimilarEnough(reqTitle, candidateTitle)) score += 60;
+            else {
+                for (String token : reqTitle.split("\\s+")) {
+                    if (token.length() >= 4 && candidateTitle.contains(token)) {
+                        score += 10;
+                    }
+                }
+            }
+        }
+        return score;
     }
 
     /**
@@ -333,6 +399,64 @@ public final class BookDownloaderService {
             if (r.success) return r;
         }
         return DownloadResult.failure("Not found on Project Gutenberg");
+    }
+
+    /**
+     * Tries to download a Gutenberg ebook directly from gutenberg.org using its numeric id.
+     * This is a fallback when Gutendex is unavailable or when the user pasted a Gutenberg URL.
+     */
+    private static DownloadResult tryDirectGutenbergById(int ebookId, String displayTitle) {
+        String base = safeFilename(displayTitle == null || displayTitle.isBlank()
+                ? ("gutenberg-" + ebookId)
+                : displayTitle);
+
+        // Prefer EPUB (convertable to PDF). Gutenberg's ebooks endpoint serves redirects to actual files.
+        String[] urls = new String[] {
+                "https://www.gutenberg.org/ebooks/" + ebookId + ".epub.noimages",
+                "https://www.gutenberg.org/ebooks/" + ebookId + ".epub.images",
+                // Some titles only expose plain text reliably:
+                "https://www.gutenberg.org/ebooks/" + ebookId + ".txt.utf-8",
+                "https://www.gutenberg.org/ebooks/" + ebookId + ".txt"
+        };
+
+        for (String u : urls) {
+            String lower = u.toLowerCase();
+            String ext = lower.contains(".epub") ? ".epub" : ".txt";
+            DownloadResult r = downloadFile(u, base + ext);
+            if (r.success) return r;
+        }
+        return DownloadResult.failure("Gutenberg direct download failed for ebook #" + ebookId);
+    }
+
+    /**
+     * Extracts a Project Gutenberg numeric ebook id from a string that may be:
+     * - a Gutenberg URL like https://www.gutenberg.org/ebooks/1260
+     * - a partial path like /ebooks/1260
+     * - a plain number like 1260
+     */
+    private static Integer extractGutenbergEbookId(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.isEmpty()) return null;
+
+        Matcher m = Pattern.compile("(?i)gutenberg\\.org\\s*/\\s*ebooks\\s*/\\s*(\\d+)").matcher(t);
+        if (m.find()) return parsePositiveIntOrNull(m.group(1));
+
+        m = Pattern.compile("(?i)/\\s*ebooks\\s*/\\s*(\\d+)").matcher(t);
+        if (m.find()) return parsePositiveIntOrNull(m.group(1));
+
+        // Plain numeric id
+        if (t.matches("\\d{1,7}")) return parsePositiveIntOrNull(t);
+        return null;
+    }
+
+    private static Integer parsePositiveIntOrNull(String digits) {
+        try {
+            int v = Integer.parseInt(digits);
+            return v > 0 ? v : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static List<String> buildQueries(String title, String author) {
@@ -576,7 +700,23 @@ public final class BookDownloaderService {
                 .header("User-Agent", USER_AGENT)
                 .header("Accept", "application/json, text/html, */*")
                 .GET().build();
-        return HTTP_CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+        CompletableFuture<HttpResponse<String>> f =
+                HTTP_CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString());
+        try {
+            // Enforce an additional hard timeout and actively cancel the underlying request.
+            return f.get(TIMEOUT_SEC + 1L, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            f.cancel(true);
+            throw new IOException("HTTP request timed out", e);
+        } catch (ExecutionException e) {
+            Throwable c = e.getCause();
+            if (c instanceof InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw ie;
+            }
+            if (c instanceof IOException ioe) throw ioe;
+            throw new IOException(c == null ? e : c);
+        }
     }
 
     private static DownloadResult downloadFile(String urlStr, String fileName) {

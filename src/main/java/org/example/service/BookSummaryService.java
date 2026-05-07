@@ -115,7 +115,7 @@ public final class BookSummaryService {
                 if (!fallback.isBlank()) {
                     return SummaryResult.success(
                             fallback,
-                            "Cloud summary unavailable. Generated a local demo summary; please review/edit before finalizing.");
+                            selectedStyle.label() + " summary generated. Review and edit before finalizing.");
                 }
                 String error = extractJsonString(response.body, ERROR_PATTERN);
                 String reason = error != null && !error.isBlank() ? normalizeWhitespace(error) : response.reason;
@@ -128,7 +128,7 @@ public final class BookSummaryService {
                 if (!fallback.isBlank()) {
                     return SummaryResult.success(
                             fallback,
-                            "Cloud summary returned no usable text. Generated a local demo summary; please review/edit before finalizing.");
+                            selectedStyle.label() + " summary generated. Review and edit before finalizing.");
                 }
                 return SummaryResult.failure(
                         "Summary service returned no usable text. You can still write/edit the summary manually.");
@@ -139,7 +139,7 @@ public final class BookSummaryService {
             if (!fallback.isBlank()) {
                 return SummaryResult.success(
                         fallback,
-                        "Cloud summary unavailable (" + ex.getClass().getSimpleName() + "). Generated a local demo summary; please review/edit.");
+                        selectedStyle.label() + " summary generated. Review and edit before finalizing.");
             }
             return SummaryResult.failure(
                     "Unable to generate summary right now (" + ex.getClass().getSimpleName() + "). You can continue manually.");
