@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 import org.example.app.Navigator;
 import org.example.db.BookDao;
+import org.example.db.BookReviewDao;
 import org.example.domain.Book;
 import org.example.domain.BorrowWithBook;
 import org.example.domain.User;
@@ -109,7 +110,12 @@ public final class MyBorrowedBooksScreen {
         colStatus.setCellValueFactory(new PropertyValueFactory<>("status"));
         colStatus.setPrefWidth(80);
 
-        table.getColumns().addAll(List.of(colTitle, colAuthor, colGenre, colBorrowedAt, colReturnedAt, colDueAt, colStatus));
+        TableColumn<BorrowRow, String> colReview = new TableColumn<>("Review");
+        colReview.setCellValueFactory(new PropertyValueFactory<>("reviewStatus"));
+        colReview.setPrefWidth(140);
+
+        table.getColumns().addAll(List.of(
+                colTitle, colAuthor, colGenre, colBorrowedAt, colReturnedAt, colDueAt, colStatus, colReview));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.setRowFactory(tv -> {
             TableRow<BorrowRow> row = new TableRow<>();
@@ -216,7 +222,12 @@ public final class MyBorrowedBooksScreen {
                 Set<String> genres = new LinkedHashSet<>();
                 genres.add("All genres");
                 for (BorrowWithBook b : borrows) {
-                    items.add(new BorrowRow(b));
+                    boolean hasReview = false;
+                    try {
+                        hasReview = BookReviewDao.findReviewIdByBookAndReviewer(b.getBookId(), currentUser.getId()).isPresent();
+                    } catch (SQLException ignored) {
+                    }
+                    items.add(new BorrowRow(b, hasReview));
                     String g = b.getGenre();
                     if (g != null && !g.trim().isEmpty()) {
                         for (String part : g.split(",")) {
@@ -443,6 +454,7 @@ public final class MyBorrowedBooksScreen {
         private final String returnedAtDisplay;
         private final String dueAtDisplay;
         private final String status;
+        private final String reviewStatus;
         private final boolean active;
 
         private final long bookId;
@@ -450,7 +462,7 @@ public final class MyBorrowedBooksScreen {
         private final String genre;
         private final String dueAtIso;
 
-        public BorrowRow(BorrowWithBook b) {
+        public BorrowRow(BorrowWithBook b, boolean hasReview) {
             this.borrowId = b.getBorrowId();
             this.bookId = b.getBookId();
             this.title = b.getTitle();
@@ -464,6 +476,7 @@ public final class MyBorrowedBooksScreen {
                 ? formatIsoDate(b.getDueAt()) : "—";
             this.active = b.isActive();
             this.status = active ? "Borrowed" : "Returned";
+            this.reviewStatus = hasReview ? "Reviewed" : "Not reviewed";
             this.filePath = b.getFilePath();
         }
 
@@ -496,6 +509,7 @@ public final class MyBorrowedBooksScreen {
         public String getReturnedAtDisplay() { return returnedAtDisplay; }
         public String getDueAtDisplay() { return dueAtDisplay; }
         public String getStatus() { return status; }
+        public String getReviewStatus() { return reviewStatus; }
         public boolean isActive() { return active; }
     }
 }

@@ -399,6 +399,15 @@ public class Navigator {
                                 Long bookId,
                                 Integer pageIndex0Override,
                                 Integer zoomPercentOverride) {
+        showPdfReader(user, borrowId, bookId, pageIndex0Override, zoomPercentOverride, "MY_BORROWS");
+    }
+
+    public void showPdfReader(User user,
+                                Long borrowId,
+                                Long bookId,
+                                Integer pageIndex0Override,
+                                Integer zoomPercentOverride,
+                                String returnRoute) {
         // Crash recovery route: if state or DB rows are missing, fall back to home.
         try {
             if (borrowId == null || bookId == null) {
@@ -419,12 +428,17 @@ public class Navigator {
                 return;
             }
 
-            // Ensure the underlying screen is the user's "My Borrowed Books" so
-            // the PDF reader appears on top of it (both for normal and crash recovery restores).
-            // This does not overwrite session.json because we are not calling SessionService.save here.
-            Scene borrowedScene = org.example.ui.MyBorrowedBooksScreen.create(this, user);
-            borrowedScene.setUserData(user);
-            showScenePreservingWindowState(borrowedScene);
+            // Keep the reader stacked over the originating screen so closing it returns there.
+            String safeReturnRoute = (returnRoute == null || returnRoute.isBlank()) ? "MY_BORROWS" : returnRoute;
+            if ("READING_HISTORY".equals(safeReturnRoute)) {
+                Scene historyScene = org.example.ui.ReadingHistoryScreen.create(this, user);
+                historyScene.setUserData(user);
+                showScenePreservingWindowState(historyScene);
+            } else {
+                Scene borrowedScene = org.example.ui.MyBorrowedBooksScreen.create(this, user);
+                borrowedScene.setUserData(user);
+                showScenePreservingWindowState(borrowedScene);
+            }
 
             org.example.ui.PdfReaderScreen.open(
                     this,
@@ -434,7 +448,8 @@ public class Navigator {
                     book.getTitle(),
                     book.getFilePath(),
                     pageIndex0Override,
-                    zoomPercentOverride
+                    zoomPercentOverride,
+                    safeReturnRoute
             );
         } catch (Exception ignored) {
             showWelcome();

@@ -127,6 +127,51 @@ public final class ReadingProgressDao {
         upsert(borrowId, userId, bookId, lastPage, null, updatedAt, d);
     }
 
+    /**
+     * Adds open-reader time without creating/changing a bookmark (last_page stays NULL when inserted).
+     */
+    public static void addReadSecondsWithoutBookmark(long borrowId, long userId, long bookId,
+                                                     int deltaSeconds, String updatedAt) throws SQLException {
+        int d = Math.max(0, deltaSeconds);
+        if (d == 0) {
+            return;
+        }
+        String upd = """
+            UPDATE reading_progress
+            SET accumulated_read_seconds = COALESCE(accumulated_read_seconds, 0) + ?,
+                updated_at = ?
+            WHERE borrow_id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(upd)) {
+            ps.setInt(1, d);
+            ps.setString(2, updatedAt);
+            ps.setLong(3, borrowId);
+            int n = ps.executeUpdate();
+            if (n > 0) {
+                return;
+            }
+        }
+
+        String ins = """
+            INSERT INTO reading_progress (borrow_id, user_id, book_id, last_page, viewer_payload, updated_at, accumulated_read_seconds)
+            VALUES (?, ?, ?, NULL, NULL, ?, ?)
+            ON CONFLICT(borrow_id) DO UPDATE SET
+                user_id = excluded.user_id,
+                book_id = excluded.book_id,
+                updated_at = excluded.updated_at,
+                accumulated_read_seconds = COALESCE(reading_progress.accumulated_read_seconds, 0) + excluded.accumulated_read_seconds
+            """;
+        try (PreparedStatement ps = conn.prepareStatement(ins)) {
+            ps.setLong(1, borrowId);
+            ps.setLong(2, userId);
+            ps.setLong(3, bookId);
+            ps.setString(4, updatedAt);
+            ps.setInt(5, d);
+            ps.executeUpdate();
+        }
+    }
+
     public static void deleteForBorrow(long borrowId) throws SQLException {
         String sql = "DELETE FROM reading_progress WHERE borrow_id = ?";
         Connection conn = Database.getConnection();

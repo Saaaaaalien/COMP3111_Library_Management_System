@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
@@ -46,6 +48,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
@@ -88,11 +91,15 @@ public final class ReadingHistoryScreen {
         TableColumn<HistoryRow, String> colProg = new TableColumn<>("Bookmark page");
         colProg.setCellValueFactory(new PropertyValueFactory<>("progressDisplay"));
         TableColumn<HistoryRow, Void> colOpen = new TableColumn<>("Continue");
-        colOpen.setPrefWidth(150);
+        colOpen.setMinWidth(190);
+        colOpen.setPrefWidth(220);
         colOpen.setCellFactory(tc -> new TableCell<>() {
             private final Button btn = new Button();
             {
                 btn.getStyleClass().add("secondary-button");
+                btn.setMinWidth(Region.USE_PREF_SIZE);
+                btn.setPrefWidth(Region.USE_COMPUTED_SIZE);
+                btn.setMaxWidth(Region.USE_PREF_SIZE);
                 Tooltip tip = new Tooltip(
                         "Opens the PDF reader at your saved bookmark (active PDF loans only).");
                 btn.setTooltip(tip);
@@ -105,7 +112,14 @@ public final class ReadingHistoryScreen {
                     if (row == null || !row.canOpenReader()) {
                         return;
                     }
-                    navigator.showPdfReader(user, row.getBorrowId(), row.getBookId(), row.getLastPage0(), null);
+                    navigator.showPdfReader(
+                            user,
+                            row.getBorrowId(),
+                            row.getBookId(),
+                            row.getLastPage0(),
+                            null,
+                            "READING_HISTORY"
+                    );
                 });
             }
 
@@ -130,7 +144,7 @@ public final class ReadingHistoryScreen {
         });
 
         table.getColumns().addAll(List.of(colTitle, colAuthor, colGenre, colBorrowed, colReturned, colRead, colProg, colOpen));
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
         TextField search = new TextField();
         search.setPromptText("Search title or author...");
@@ -138,6 +152,10 @@ public final class ReadingHistoryScreen {
         statusFilter.getSelectionModel().selectFirst();
         ComboBox<String> genreFilter = new ComboBox<>(FXCollections.observableArrayList("All genres"));
         genreFilter.getSelectionModel().selectFirst();
+        DatePicker fromDateFilter = new DatePicker();
+        fromDateFilter.setPromptText("From");
+        DatePicker toDateFilter = new DatePicker();
+        toDateFilter.setPromptText("To");
 
         Label lifetimeHeading = new Label("Lifetime Achievements");
         lifetimeHeading.getStyleClass().add("section-heading");
@@ -246,7 +264,14 @@ public final class ReadingHistoryScreen {
                 sub.getStyleClass().add("reading-history-text");
                 Button go = new Button("Continue");
                 go.getStyleClass().add("primary-button");
-                go.setOnAction(e -> navigator.showPdfReader(user, h.getBorrowId(), h.getBookId(), h.getLastPage0(), null));
+                go.setOnAction(e -> navigator.showPdfReader(
+                        user,
+                        h.getBorrowId(),
+                        h.getBookId(),
+                        h.getLastPage0(),
+                        null,
+                        "READING_HISTORY"
+                ));
                 card.getChildren().addAll(t, sub, go);
                 continueCards.getChildren().add(card);
             }
@@ -273,6 +298,8 @@ public final class ReadingHistoryScreen {
             String q = search.getText() == null ? "" : search.getText().trim().toLowerCase(Locale.ROOT);
             String st = statusFilter.getSelectionModel().getSelectedItem();
             String g = genreFilter.getSelectionModel().getSelectedItem();
+            LocalDate fromDate = fromDateFilter.getValue();
+            LocalDate toDate = toDateFilter.getValue();
             filtered.setPredicate(h -> {
                 if (!q.isEmpty()) {
                     if (!h.getTitle().toLowerCase(Locale.ROOT).contains(q)
@@ -291,6 +318,13 @@ public final class ReadingHistoryScreen {
                     if (!gg.contains(g.toLowerCase(Locale.ROOT))) {
                         return false;
                     }
+                }
+                LocalDate borrowedDate = h.getBorrowedDate();
+                if (fromDate != null && (borrowedDate == null || borrowedDate.isBefore(fromDate))) {
+                    return false;
+                }
+                if (toDate != null && (borrowedDate == null || borrowedDate.isAfter(toDate))) {
+                    return false;
                 }
                 return true;
             });
@@ -335,11 +369,14 @@ public final class ReadingHistoryScreen {
         search.textProperty().addListener((a, b, c) -> applyFilter.run());
         statusFilter.setOnAction(e -> applyFilter.run());
         genreFilter.setOnAction(e -> applyFilter.run());
+        fromDateFilter.valueProperty().addListener((a, b, c) -> applyFilter.run());
+        toDateFilter.valueProperty().addListener((a, b, c) -> applyFilter.run());
 
         Runnable doExportPdf = () -> {
             FileChooser fc = new FileChooser();
             fc.setTitle("Save reading history (filtered rows)");
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF", "*.pdf"));
+            fc.setInitialFileName("reading-history-" + LocalDate.now() + ".pdf");
             java.io.File out = fc.showSaveDialog(navigator.getStage());
             if (out == null) {
                 return;
@@ -356,6 +393,7 @@ public final class ReadingHistoryScreen {
             FileChooser fc = new FileChooser();
             fc.setTitle("Save reading history (filtered rows)");
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV", "*.csv"));
+            fc.setInitialFileName("reading-history-" + LocalDate.now() + ".csv");
             java.io.File f = fc.showSaveDialog(navigator.getStage());
             if (f == null) {
                 return;
@@ -383,10 +421,13 @@ public final class ReadingHistoryScreen {
         loanLbl.getStyleClass().add("field-label");
         Label genreLbl = new Label("Genre");
         genreLbl.getStyleClass().add("field-label");
+        Label borrowedLbl = new Label("Borrowed date");
+        borrowedLbl.getStyleClass().add("field-label");
         HBox filterRow1 = new HBox(10,
                 searchLbl, search,
                 loanLbl, statusFilter,
-                genreLbl, genreFilter);
+                genreLbl, genreFilter,
+                borrowedLbl, fromDateFilter, new Label("to"), toDateFilter);
         filterRow1.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(search, Priority.ALWAYS);
         search.setMaxWidth(Double.MAX_VALUE);
@@ -581,6 +622,15 @@ public final class ReadingHistoryScreen {
         public String getAuthor() { return src.author(); }
         public String getGenre() { return src.genre(); }
         public String getBorrowedDisplay() { return shortDate(src.borrowedAt()); }
+        public LocalDate getBorrowedDate() {
+            String s = src.borrowedAt();
+            if (s == null || s.length() < 10) return null;
+            try {
+                return LocalDate.parse(s.substring(0, 10));
+            } catch (Exception e) {
+                return null;
+            }
+        }
         public String getReturnedDisplay() {
             return src.active() ? "—" : shortDate(src.returnedAt());
         }

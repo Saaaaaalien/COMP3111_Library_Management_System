@@ -23,7 +23,7 @@ import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+import javafx.stage.WindowEvent;
 import javafx.util.Duration;
 import org.example.app.Navigator;
 import org.example.app.SessionService;
@@ -47,6 +47,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.concurrent.Executors;
 import com.sun.net.httpserver.HttpServer;
@@ -106,12 +107,19 @@ public final class PdfReaderScreen {
     }
 
     public static void open(Navigator navigator, User user, long borrowId, long bookId, String title, String filePath) {
-        open(navigator, user, borrowId, bookId, title, filePath, null, null);
+        open(navigator, user, borrowId, bookId, title, filePath, null, null, "MY_BORROWS");
     }
 
     public static void open(Navigator navigator, User user, long borrowId, long bookId, String title, String filePath,
                              Integer startPageIndex0,
                              Integer startZoomPercent) {
+        open(navigator, user, borrowId, bookId, title, filePath, startPageIndex0, startZoomPercent, "MY_BORROWS");
+    }
+
+    public static void open(Navigator navigator, User user, long borrowId, long bookId, String title, String filePath,
+                             Integer startPageIndex0,
+                             Integer startZoomPercent,
+                             String returnRoute) {
         if (filePath == null || !filePath.toLowerCase().endsWith(".pdf")) {
             Alert a = new Alert(Alert.AlertType.INFORMATION);
             a.setContentText("Only PDF files can be opened in the reader.");
@@ -230,7 +238,8 @@ public final class PdfReaderScreen {
         readerStage.setTitle("Read: " + title);
         // Popup over the current window (not a fullscreen experience).
         readerStage.initModality(Modality.WINDOW_MODAL);
-        readerStage.initStyle(StageStyle.UTILITY);
+        // Use standard window decorations so OS min/max controls are available.
+        readerStage.setResizable(true);
         readerStage.setFullScreen(false);
         readerStage.setMaximized(false);
         readerStage.fullScreenProperty().addListener((obs, oldV, newV) -> {
@@ -246,19 +255,22 @@ public final class PdfReaderScreen {
         }
 
         int[] currentPage = {0};
+        Optional<Integer> existingBookmark = Optional.empty();
         if (startPageIndex0 != null) {
             currentPage[0] = Math.min(Math.max(0, startPageIndex0), pageCount - 1);
         } else {
             try {
-                ReadingProgressDao.getLastPage(borrowId, user.getId())
-                        .ifPresent(p -> currentPage[0] = Math.min(Math.max(0, p), pageCount - 1));
+                existingBookmark = ReadingProgressDao.getLastPage(borrowId, user.getId());
+                existingBookmark.ifPresent(p -> currentPage[0] = Math.min(Math.max(0, p), pageCount - 1));
             } catch (SQLException ignored) {
             }
         }
 
         // Resume point in this reader == the last page we persisted to reading_progress.
-        // We initialize it to the current page (which itself may come from last saved progress).
-        int[] bookmarkedPage = {currentPage[0]};
+        // Keep it null when the user has never set a bookmark.
+        Integer[] bookmarkedPage = {existingBookmark.orElse(null)};
+        final boolean hadBookmarkInitially = bookmarkedPage[0] != null;
+        final boolean[] bookmarkSetThisSession = {false};
 
         int initialZoom = startZoomPercent != null ? startZoomPercent : 100;
         initialZoom = Math.min(400, Math.max(25, initialZoom));
@@ -274,8 +286,24 @@ public final class PdfReaderScreen {
                 return;
             }
             try {
-                ReadingProgressDao.addReadSeconds(borrowId, user.getId(), bookId, bookmarkedPage[0], secs,
-                        Instant.now().toString());
+                if (bookmarkedPage[0] == null && !bookmarkSetThisSession[0] && !hadBookmarkInitially) {
+                    ReadingProgressDao.addReadSecondsWithoutBookmark(
+                            borrowId,
+                            user.getId(),
+                            bookId,
+                            secs,
+                            Instant.now().toString()
+                    );
+                } else {
+                    ReadingProgressDao.addReadSeconds(
+                            borrowId,
+                            user.getId(),
+                            bookId,
+                            bookmarkedPage[0],
+                            secs,
+                            Instant.now().toString()
+                    );
+                }
             } catch (SQLException ignored) {
             }
         };
@@ -283,9 +311,10 @@ public final class PdfReaderScreen {
         Runnable saveProgress = () -> {
             try {
                 flushReadSeconds.run();
-                // Persist the user's explicit resume point (the last page they clicked "Bookmark" on),
-                // without overwriting it with whatever page the user might be on when closing.
-                ReadingProgressDao.upsert(borrowId, user.getId(), bookId, bookmarkedPage[0], null, Instant.now().toString());
+                if (bookmarkedPage[0] != null && (bookmarkSetThisSession[0] || hadBookmarkInitially)) {
+                    // Persist explicit resume point; only write bookmark when user has one.
+                    ReadingProgressDao.upsert(borrowId, user.getId(), bookId, bookmarkedPage[0], null, Instant.now().toString());
+                }
             } catch (SQLException ignored) {
             }
         };
@@ -401,7 +430,11 @@ public final class PdfReaderScreen {
         Label bookmarkLabel = new Label();
         Runnable updatePageLabel = () -> {
             pageLabel.setText("Page " + (currentPage[0] + 1) + " / " + pageCount);
-            bookmarkLabel.setText("Saved bookmark: Page " + (bookmarkedPage[0] + 1));
+            if (bookmarkedPage[0] == null) {
+                bookmarkLabel.setText("Saved bookmark: none");
+            } else {
+                bookmarkLabel.setText("Saved bookmark: Page " + (bookmarkedPage[0] + 1));
+            }
         };
 
         Spinner<Integer> zoomSpinner = new Spinner<>();
@@ -444,10 +477,8 @@ public final class PdfReaderScreen {
 
         Button closeBtn = new Button("Close");
         closeBtn.getStyleClass().add("secondary-button");
-        closeBtn.setOnAction(e -> {
-            saveProgress.run();
-            readerStage.close();
-        });
+        closeBtn.setOnAction(e ->
+                readerStage.fireEvent(new WindowEvent(readerStage, WindowEvent.WINDOW_CLOSE_REQUEST)));
 
         Button saveHighlightBtn = new Button("Highlight");
         saveHighlightBtn.getStyleClass().add("primary-button");
@@ -523,6 +554,7 @@ public final class PdfReaderScreen {
         bookmarkBtn.setOnAction(e -> {
             // Persist the current page as the "saved bookmark" resume point.
             bookmarkedPage[0] = currentPage[0];
+            bookmarkSetThisSession[0] = true;
             saveProgress.run();
             updatePageLabel.run();
         });
@@ -530,6 +562,9 @@ public final class PdfReaderScreen {
         Button goToBookmarkBtn = new Button("Go to bookmark");
         goToBookmarkBtn.getStyleClass().add("secondary-button");
         goToBookmarkBtn.setOnAction(e -> {
+            if (bookmarkedPage[0] == null) {
+                return;
+            }
             if (bookmarkedPage[0] == currentPage[0]) {
                 return;
             }
@@ -649,6 +684,10 @@ public final class PdfReaderScreen {
         });
 
         readerStage.setOnCloseRequest(ev -> {
+            if (closingGuard[0]) {
+                return;
+            }
+            closingGuard[0] = true;
             if (dueWatchRef[0] != null) {
                 dueWatchRef[0].stop();
             }
@@ -656,8 +695,11 @@ public final class PdfReaderScreen {
             checkpointTimer.stop();
             checkpoint.run();
             saveProgress.run();
-            // Reader is opened as a modal/popup over "My Borrowed Books", so restore that screen after a normal close.
-            SessionService.save("MY_BORROWS", user.getId());
+            String safeReturnRoute = (returnRoute == null || returnRoute.isBlank()) ? "MY_BORROWS" : returnRoute;
+            SessionService.save(safeReturnRoute, user.getId());
+            if ("READING_HISTORY".equals(safeReturnRoute)) {
+                Platform.runLater(() -> navigator.showStudentReadingHistory(user));
+            }
             if (pdfServerRef != null) {
                 pdfServerRef.stop(0);
             }
