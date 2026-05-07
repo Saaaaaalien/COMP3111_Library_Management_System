@@ -80,9 +80,7 @@ public final class PublishBookScreen {
     private static Label summaryStatusLabel;
     private static Button generateSummaryButton;
     private static Button cancelSummaryButton;
-    private static Button finalizeSummaryButton;
     private static ComboBox<BookSummaryService.SummaryStyle> summaryStyleComboBox;
-    private static boolean summaryFinalized;
     private static boolean internalSummaryProgrammaticUpdate;
     private static Task<BookSummaryService.SummaryResult> activeSummaryTask;
     private static Thread activeSummaryThread;
@@ -126,7 +124,6 @@ public final class PublishBookScreen {
         editingBookId = editBookId;
         editingBookSnapshot = null;
         pendingBookRequestApproveId = bookRequestApproveId;
-        summaryFinalized = false;
 
         // Title
         Label title = new Label(screenTitleText());
@@ -163,15 +160,6 @@ public final class PublishBookScreen {
             if (!validateForm()) {
                 return;
             }
-            if (!summaryFinalized && !librarianPublishMode) {
-                boolean continueWithoutFinalize = showConfirmation(
-                        "Summary not finalized",
-                        "Your summary is not finalized yet. Finalize now for Task 2.7 confirmation, or press Cancel to return.");
-                if (!continueWithoutFinalize) {
-                    return;
-                }
-            }
-
             // Show confirmation dialog with full preview
             boolean confirmed = showPreviewDialog();
             if (!confirmed) {
@@ -492,11 +480,6 @@ public final class PublishBookScreen {
         cancelSummaryButton.setDisable(true);
         cancelSummaryButton.setOnAction(e -> onCancelSummaryGeneration());
 
-        finalizeSummaryButton = new Button("Finalize Summary");
-        finalizeSummaryButton.getStyleClass().add("primary-button");
-        finalizeSummaryButton.setPrefWidth(160);
-        finalizeSummaryButton.setOnAction(e -> onFinalizeSummary());
-
         Label summaryStyleLabel = new Label("Summary style:");
         summaryStyleLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
         summaryStyleComboBox = new ComboBox<>();
@@ -526,8 +509,7 @@ public final class PublishBookScreen {
                 summaryStyleLabel,
                 summaryStyleComboBox,
                 generateSummaryButton,
-                cancelSummaryButton,
-                finalizeSummaryButton);
+                cancelSummaryButton);
         summaryActionBox.setAlignment(Pos.CENTER_LEFT);
         VBox summaryControlsBox = new VBox(8, summaryActionBox, summaryStatusLabel);
 
@@ -986,7 +968,6 @@ public final class PublishBookScreen {
             summaryStatusLabel.setText("Summary status: Draft");
             summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
         }
-        summaryFinalized = false;
         if (bookRequestApproveNotesArea != null) {
             bookRequestApproveNotesArea.clear();
         }
@@ -1083,9 +1064,6 @@ public final class PublishBookScreen {
         if (cancelSummaryButton != null) {
             cancelSummaryButton.setDisable(false);
         }
-        if (finalizeSummaryButton != null) {
-            finalizeSummaryButton.setDisable(true);
-        }
         if (summaryStyleComboBox != null) {
             summaryStyleComboBox.setDisable(true);
         }
@@ -1135,7 +1113,6 @@ public final class PublishBookScreen {
                     summaryStatusLabel.setText("Summary status: Generated locally (fallback)" + reason + " (not finalized)");
                 }
                 summaryStatusLabel.setStyle("-fx-text-fill: #27ae60;");
-                summaryFinalized = false;
                 if (!autoTriggered) {
                     showSuccess(result.message());
                 }
@@ -1156,9 +1133,6 @@ public final class PublishBookScreen {
             if (cancelSummaryButton != null) {
                 cancelSummaryButton.setDisable(true);
             }
-            if (finalizeSummaryButton != null) {
-                finalizeSummaryButton.setDisable(false);
-            }
             if (summaryStyleComboBox != null) {
                 summaryStyleComboBox.setDisable(false);
             }
@@ -1173,9 +1147,6 @@ public final class PublishBookScreen {
             generateSummaryButton.setDisable(false);
             if (cancelSummaryButton != null) {
                 cancelSummaryButton.setDisable(true);
-            }
-            if (finalizeSummaryButton != null) {
-                finalizeSummaryButton.setDisable(false);
             }
             if (summaryStyleComboBox != null) {
                 summaryStyleComboBox.setDisable(false);
@@ -1211,9 +1182,6 @@ public final class PublishBookScreen {
         if (cancelSummaryButton != null) {
             cancelSummaryButton.setDisable(true);
         }
-        if (finalizeSummaryButton != null) {
-            finalizeSummaryButton.setDisable(false);
-        }
         if (summaryStyleComboBox != null) {
             summaryStyleComboBox.setDisable(false);
         }
@@ -1221,20 +1189,7 @@ public final class PublishBookScreen {
         activeSummaryThread = null;
     }
 
-    private static void onFinalizeSummary() {
-        String current = descriptionArea == null ? "" : descriptionArea.getText();
-        if (current == null || current.trim().isEmpty()) {
-            showError("Summary Empty", "Generate or enter a summary before finalizing.");
-            return;
-        }
-        summaryFinalized = true;
-        summaryStatusLabel.setText("Summary status: Finalized and ready for submission");
-        summaryStatusLabel.setStyle("-fx-text-fill: #1f8b4c; -fx-font-weight: bold;");
-        showSuccess("Summary finalized. You can still edit it before submitting.");
-    }
-
     private static void markSummaryDraft(String statusText) {
-        summaryFinalized = false;
         if (summaryStatusLabel != null) {
             summaryStatusLabel.setText(statusText);
             summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
