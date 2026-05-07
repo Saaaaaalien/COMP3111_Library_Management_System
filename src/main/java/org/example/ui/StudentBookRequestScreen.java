@@ -170,6 +170,8 @@ public final class StudentBookRequestScreen {
                         null,
                         null,
                         Instant.now().toString(),
+                        null,
+                        false,
                         null
                 );
                 long id = BookRequestDao.insert(br);

@@ -11,6 +11,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
@@ -32,13 +34,16 @@ import org.example.db.ReadingHighlightDao;
 import org.example.db.ReadingProgressDao;
 import org.example.domain.Borrow;
 import org.example.domain.User;
+import org.example.service.BookDownloaderService;
 import org.example.service.BorrowService;
 import org.example.util.BookPreviewUtil;
 
 import netscape.javascript.JSObject;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.util.Optional;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -49,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executors;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
@@ -57,7 +63,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Borrowed-book PDF reader using an embedded {@link WebView} so the platform PDF plug-in handles
+ * Borrowed-book reader using an embedded {@link WebView} so the platform PDF plug-in handles
  * rendering and native text selection (Preview-like). One page at a time: arrows / buttons only.
  * Zoom is a percentage passed via the PDF open fragment where supported. External navigations are blocked.
  * Reading progress is saved per borrow; PDF files are not modified. Apache PDFBox is not used here
@@ -120,13 +126,35 @@ public final class PdfReaderScreen {
                              Integer startPageIndex0,
                              Integer startZoomPercent,
                              String returnRoute) {
-        if (filePath == null || !filePath.toLowerCase().endsWith(".pdf")) {
+        if (filePath == null || filePath.isBlank()) {
             Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setContentText("Only PDF files can be opened in the reader.");
+            a.setContentText("No book file path was provided.");
             a.showAndWait();
             return;
         }
-        Path pdfPath = Path.of(filePath).toAbsolutePath().normalize();
+
+        String lowerPath = filePath.toLowerCase();
+        String resolvedPdfPath;
+        try {
+            if (lowerPath.endsWith(".epub")) {
+                resolvedPdfPath = BookDownloaderService.ensureReaderPdfFromEpub(filePath);
+            } else if (lowerPath.endsWith(".pdf")) {
+                resolvedPdfPath = filePath;
+            } else {
+                Alert a = new Alert(Alert.AlertType.INFORMATION);
+                a.setContentText("Only PDF and EPUB files can be opened in the reader.");
+                a.showAndWait();
+                return;
+            }
+        } catch (IOException ex) {
+            Alert a = new Alert(Alert.AlertType.ERROR);
+            a.setHeaderText("Could not prepare EPUB for reading.");
+            a.setContentText(ex.getMessage());
+            a.showAndWait();
+            return;
+        }
+
+        Path pdfPath = Path.of(resolvedPdfPath).toAbsolutePath().normalize();
         if (!java.nio.file.Files.isRegularFile(pdfPath)) {
             Alert a = new Alert(Alert.AlertType.ERROR);
             a.setContentText("Book file not found on disk.");
@@ -208,7 +236,11 @@ public final class PdfReaderScreen {
                     } catch (Exception ignored) {}
                 }
             });
-            httpExecutor = Executors.newSingleThreadExecutor();
+            httpExecutor = Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "pdf-reader-http-server");
+                t.setDaemon(true);
+                return t;
+            });
             pdfServer.setExecutor(httpExecutor);
             pdfServer.start();
             pdfHttpBase = "http://127.0.0.1:" + pdfServer.getAddress().getPort() + "/pdf";
@@ -334,6 +366,8 @@ public final class PdfReaderScreen {
 
         final boolean[] suppressNavGuard = {false};
         final boolean[] closingGuard = {false};
+        /** When true, skip the bookmark reminder (programmatic closes: due date, borrow invalid). */
+        final boolean[] suppressBookmarkClosePrompt = {false};
         final boolean[] highlightBridgeInjected = {false};
         final String[] lastPersistedHighlightKey = {null};
 
@@ -581,15 +615,68 @@ public final class PdfReaderScreen {
                 dueWatchRef[0] = null;
             }
         };
-        Consumer<String> closeReaderWithMessage = message -> {
-            if (closingGuard[0]) {
+
+        Timeline readAccumTimer = new Timeline(new KeyFrame(Duration.seconds(15), ev -> flushReadSeconds.run()));
+        readAccumTimer.setCycleCount(Timeline.INDEFINITE);
+        readAccumTimer.play();
+
+        Timeline checkpointTimer = new Timeline(new KeyFrame(Duration.seconds(10), ev -> checkpoint.run()));
+        checkpointTimer.setCycleCount(Timeline.INDEFINITE);
+        checkpointTimer.play();
+
+        final AtomicBoolean readerShutdownDone = new AtomicBoolean(false);
+
+        Runnable shutdownReaderInfrastructure = () -> {
+            if (!readerShutdownDone.compareAndSet(false, true)) {
                 return;
             }
             closingGuard[0] = true;
             stopDueWatch.run();
+            readAccumTimer.stop();
+            checkpointTimer.stop();
+            zoomDebounce.stop();
+            try {
+                webEngine.getLoadWorker().stateProperty().removeListener(loadListener);
+            } catch (Exception ignored) {
+            }
+            try {
+                webEngine.load("about:blank");
+            } catch (Exception ignored) {
+            }
             flushReadSeconds.run();
             checkpoint.run();
             saveProgress.run();
+            String safeReturnRoute = (returnRoute == null || returnRoute.isBlank()) ? "MY_BORROWS" : returnRoute;
+            SessionService.save(safeReturnRoute, user.getId());
+            if ("READING_HISTORY".equals(safeReturnRoute)) {
+                Platform.runLater(() -> navigator.showStudentReadingHistory(user));
+            }
+            if (pdfServerRef != null) {
+                try {
+                    pdfServerRef.stop(0);
+                } catch (Exception ignored) {
+                }
+            }
+            if (httpExecutorRef != null) {
+                httpExecutorRef.shutdown();
+                try {
+                    if (!httpExecutorRef.awaitTermination(2, TimeUnit.SECONDS)) {
+                        httpExecutorRef.shutdownNow();
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    httpExecutorRef.shutdownNow();
+                }
+            }
+        };
+        readerStage.setOnHidden(ev -> shutdownReaderInfrastructure.run());
+
+        Consumer<String> closeReaderWithMessage = message -> {
+            if (readerShutdownDone.get()) {
+                return;
+            }
+            suppressBookmarkClosePrompt[0] = true;
+            shutdownReaderInfrastructure.run();
             readerStage.close();
             if (message != null && !message.isBlank()) {
                 Alert.AlertType severity = message.contains("auto-returned") || message.contains("past its due")
@@ -669,14 +756,6 @@ public final class PdfReaderScreen {
         dueWatchRef[0].setCycleCount(Timeline.INDEFINITE);
         dueWatchRef[0].play();
 
-        Timeline readAccumTimer = new Timeline(new KeyFrame(Duration.seconds(15), ev -> flushReadSeconds.run()));
-        readAccumTimer.setCycleCount(Timeline.INDEFINITE);
-        readAccumTimer.play();
-
-        Timeline checkpointTimer = new Timeline(new KeyFrame(Duration.seconds(10), ev -> checkpoint.run()));
-        checkpointTimer.setCycleCount(Timeline.INDEFINITE);
-        checkpointTimer.play();
-
         readerStage.focusedProperty().addListener((o, was, focused) -> {
             if (Boolean.TRUE.equals(focused)) {
                 checkBorrowStillValid.run();
@@ -684,42 +763,52 @@ public final class PdfReaderScreen {
         });
 
         readerStage.setOnCloseRequest(ev -> {
-            if (closingGuard[0]) {
+            if (readerShutdownDone.get()) {
                 return;
             }
-            closingGuard[0] = true;
-            if (dueWatchRef[0] != null) {
-                dueWatchRef[0].stop();
-            }
-            readAccumTimer.stop();
-            checkpointTimer.stop();
-            checkpoint.run();
-            saveProgress.run();
-            String safeReturnRoute = (returnRoute == null || returnRoute.isBlank()) ? "MY_BORROWS" : returnRoute;
-            SessionService.save(safeReturnRoute, user.getId());
-            if ("READING_HISTORY".equals(safeReturnRoute)) {
-                Platform.runLater(() -> navigator.showStudentReadingHistory(user));
-            }
-            if (pdfServerRef != null) {
-                pdfServerRef.stop(0);
-            }
-            if (httpExecutorRef != null) {
-                // Shutdown policy: graceful first, then forced if needed.
-                httpExecutorRef.shutdown();
-                try {
-                    if (!httpExecutorRef.awaitTermination(2, TimeUnit.SECONDS)) {
-                        httpExecutorRef.shutdownNow();
-                    }
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    httpExecutorRef.shutdownNow();
+            boolean bookmarkMatchesCurrent =
+                    bookmarkedPage[0] != null && bookmarkedPage[0].equals(currentPage[0]);
+            boolean offerReminder =
+                    !suppressBookmarkClosePrompt[0] && !bookmarkMatchesCurrent;
+            if (offerReminder) {
+                ev.consume();
+                int humanPage = currentPage[0] + 1;
+                String bookmarkLine = bookmarkedPage[0] == null
+                        ? "You have no saved bookmark yet."
+                        : "Your saved bookmark is page " + (bookmarkedPage[0] + 1) + ".";
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                confirm.initOwner(readerStage);
+                confirm.setTitle("Bookmark this page?");
+                confirm.setHeaderText("Save your place before closing?");
+                confirm.setContentText("You are on page " + humanPage + ".\n"
+                        + bookmarkLine + "\n\n"
+                        + "Would you like to update your bookmark to page " + humanPage + " "
+                        + "so you can continue from here later?");
+                ButtonType yes = new ButtonType("Save bookmark", ButtonData.OK_DONE);
+                ButtonType no = new ButtonType("Close without saving", ButtonData.NO);
+                ButtonType cancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
+                confirm.getButtonTypes().setAll(yes, no, cancel);
+                Optional<ButtonType> pick = confirm.showAndWait();
+                if (pick.isEmpty() || pick.get().getButtonData() == ButtonData.CANCEL_CLOSE) {
+                    return;
                 }
+                if (pick.get() == yes) {
+                    bookmarkedPage[0] = currentPage[0];
+                    bookmarkSetThisSession[0] = true;
+                    flushReadSeconds.run();
+                    saveProgress.run();
+                }
+                suppressBookmarkClosePrompt[0] = true;
+                Platform.runLater(readerStage::close);
+                return;
             }
+            shutdownReaderInfrastructure.run();
         });
 
         Label hint = new Label("Select text with the mouse. Click 'Highlight' to persist it. "
-                + "Use 'Bookmark' to save a resume point. Closing also saves your current page. "
-                + "External links stay in the reader.");
+                + "Use 'Bookmark' to save a resume point (reading history uses this). "
+                + "When you close, you'll be prompted to bookmark if you've moved away from "
+                + "your saved page. Closing saves reading time; external links stay in the reader.");
         hint.setWrapText(true);
         hint.getStyleClass().add("login-hint");
 

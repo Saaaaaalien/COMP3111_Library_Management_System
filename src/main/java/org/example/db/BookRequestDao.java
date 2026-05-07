@@ -34,8 +34,8 @@ public final class BookRequestDao {
         String sql = """
             INSERT INTO book_requests (
                 requested_by_user_id, requested_by_name, title, author_name, description,
-                genre, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                genre, status, created_at, is_urgent, urgent_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         Connection conn = Database.getConnection();
@@ -48,6 +48,8 @@ public final class BookRequestDao {
             ps.setString(6, request.getGenre());
             ps.setString(7, request.getStatus().name());
             ps.setString(8, LocalDateTime.now().format(DATE_FORMATTER));
+            ps.setInt(9, request.isUrgent() ? 1 : 0);
+            ps.setString(10, request.getUrgentReason());
 
             ps.executeUpdate();
 
@@ -178,7 +180,7 @@ public final class BookRequestDao {
         String sql = """
             UPDATE book_requests
             SET status = ?, approval_notes = ?, downloaded_file_path = ?,
-                generated_summary = ?, processed_at = ?
+                generated_summary = ?, processed_at = ?, is_urgent = ?, urgent_reason = ?
             WHERE id = ?
             """;
 
@@ -194,8 +196,10 @@ public final class BookRequestDao {
             } else {
                 ps.setNull(5, java.sql.Types.VARCHAR);
             }
+            ps.setInt(6, request.isUrgent() ? 1 : 0);
+            ps.setString(7, request.getUrgentReason());
 
-            ps.setLong(6, request.getId());
+            ps.setLong(8, request.getId());
             ps.executeUpdate();
         }
     }
@@ -217,6 +221,38 @@ public final class BookRequestDao {
             ps.setString(3, LocalDateTime.now().format(DATE_FORMATTER));
             ps.setLong(4, requestId);
             ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Approves all active duplicate requests (same normalized title+author as the reference request).
+     * Active means PENDING, DOWNLOADED, or legacy PROCESSED.
+     *
+     * @return number of rows updated
+     */
+    public static int approveGroupedActiveByRequestId(long requestId, String notes) throws SQLException {
+        String sql = """
+            UPDATE book_requests
+            SET status = ?, approval_notes = ?, processed_at = ?
+            WHERE status IN (?, ?, ?)
+              AND LOWER(TRIM(title)) = (
+                  SELECT LOWER(TRIM(title)) FROM book_requests WHERE id = ?
+              )
+              AND LOWER(TRIM(author_name)) = (
+                  SELECT LOWER(TRIM(author_name)) FROM book_requests WHERE id = ?
+              )
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, RequestStatus.APPROVED.name());
+            ps.setString(2, notes);
+            ps.setString(3, LocalDateTime.now().format(DATE_FORMATTER));
+            ps.setString(4, RequestStatus.PENDING.name());
+            ps.setString(5, RequestStatus.DOWNLOADED.name());
+            ps.setString(6, RequestStatus.PROCESSED.name());
+            ps.setLong(7, requestId);
+            ps.setLong(8, requestId);
+            return ps.executeUpdate();
         }
     }
 
@@ -342,6 +378,33 @@ public final class BookRequestDao {
         }
     }
 
+    public static void markUrgent(long requestId, String urgentReason) throws SQLException {
+        String sql = """
+            UPDATE book_requests
+            SET is_urgent = 1, urgent_reason = ?
+            WHERE id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, urgentReason);
+            ps.setLong(2, requestId);
+            ps.executeUpdate();
+        }
+    }
+
+    public static void clearUrgent(long requestId) throws SQLException {
+        String sql = """
+            UPDATE book_requests
+            SET is_urgent = 0, urgent_reason = NULL
+            WHERE id = ?
+            """;
+        Connection conn = Database.getConnection();
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, requestId);
+            ps.executeUpdate();
+        }
+    }
+
     private static List<BookRequest> mapResultsToRequests(ResultSet rs) throws SQLException {
         List<BookRequest> requests = new ArrayList<>();
         while (rs.next()) {
@@ -365,9 +428,11 @@ public final class BookRequestDao {
         String summary = rs.getString("generated_summary");
         String createdAt = rs.getString("created_at");
         String processedAt = rs.getString("processed_at");
+        boolean isUrgent = rs.getInt("is_urgent") == 1;
+        String urgentReason = rs.getString("urgent_reason");
 
         RequestStatus status = RequestStatus.valueOf(statusStr);
         return new BookRequest(id, userId, userName, title, author, description, genre,
-                status, notes, filePath, summary, createdAt, processedAt);
+                status, notes, filePath, summary, createdAt, processedAt, isUrgent, urgentReason);
     }
 }

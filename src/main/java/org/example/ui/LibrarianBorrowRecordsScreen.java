@@ -254,16 +254,35 @@ public final class LibrarianBorrowRecordsScreen {
 
     // ── Individual record row ─────────────────────────────────────────────────
 
+    private static boolean isAutoReturned(BorrowRecord r) {
+        if (r == null || r.isActive()) {
+            return false;
+        }
+        if (r.dueAt() == null || r.dueAt().isBlank() || r.returnedAt() == null || r.returnedAt().isBlank()) {
+            return false;
+        }
+        try {
+            Instant due = Instant.parse(r.dueAt());
+            Instant returned = Instant.parse(r.returnedAt());
+            return !returned.isBefore(due);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static HBox buildRecordRow(BorrowRecord r, String nowIso) {
         boolean returned = !r.isActive();
         boolean overdue  = r.isOverdue(nowIso);
+        boolean autoReturned = isAutoReturned(r);
 
         // Status badge
-        String statusText  = returned ? "RETURNED" : (overdue ? "OVERDUE" : "ACTIVE");
-        String badgeColour = returned ? "#27ae60"  : (overdue ? "#e74c3c" : "#2980b9");
-        String rowBg       = overdue  ? "#ffeaea"  : (returned ? "#f9f9f9" : "#ffffff");
-        String rowBorder   = overdue  ? "#e74c3c"  : "#e8e8e8";
-        String rowBorderW  = overdue  ? "0 0 1 4"  : "0 0 1 0";
+        String statusText  = autoReturned ? "AUTO-RETURNED"
+                : (returned ? "RETURNED" : (overdue ? "OVERDUE" : "ACTIVE"));
+        String badgeColour = autoReturned ? "#c0392b"
+                : (returned ? "#27ae60" : (overdue ? "#e74c3c" : "#2980b9"));
+        String rowBg       = (overdue || autoReturned) ? "#ffeaea" : (returned ? "#f9f9f9" : "#ffffff");
+        String rowBorder   = (overdue || autoReturned) ? "#e74c3c" : "#e8e8e8";
+        String rowBorderW  = (overdue || autoReturned) ? "0 0 1 4" : "0 0 1 0";
 
         HBox row = new HBox();
         row.setAlignment(Pos.CENTER_LEFT);
@@ -280,7 +299,7 @@ public final class LibrarianBorrowRecordsScreen {
         titleBox.setPrefWidth(260);
         Label titleLbl = new Label(r.bookTitle());
         titleLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 12; -fx-wrap-text: true;"
-                + (overdue ? " -fx-text-fill: #c0392b;" : ""));
+                + ((overdue || autoReturned) ? " -fx-text-fill: #c0392b;" : ""));
         titleLbl.setWrapText(true);
         titleLbl.setMaxWidth(250);
         Label authorLbl = new Label("by " + r.bookAuthor());

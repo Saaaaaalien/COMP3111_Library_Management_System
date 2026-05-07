@@ -4,8 +4,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
@@ -16,6 +20,7 @@ public final class Database {
 
     private static final String DB_DIR = "data";
     private static final String DB_FILE = "library.db";
+    private static final DateTimeFormatter BOOK_REQUEST_CREATED_AT_FMT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static volatile Connection connection;
 
     private Database() {}
@@ -242,6 +247,8 @@ public final class Database {
                     approval_notes TEXT,
                     downloaded_file_path TEXT,
                     generated_summary TEXT,
+                    is_urgent INTEGER NOT NULL DEFAULT 0,
+                    urgent_reason TEXT,
                     created_at TEXT NOT NULL,
                     processed_at TEXT,
                     FOREIGN KEY (requested_by_user_id) REFERENCES users(id)
@@ -271,6 +278,65 @@ public final class Database {
             migrateBookReviewsStudentColumns(conn);
             migrateBookReviewsUniqueReviewer(conn);
             migrateReviewHelpfulMarksTable(conn);
+            migrateBookRequestsTable(conn);
+            seedDemoStalePendingBookRequest(conn);
+        }
+    }
+
+    /**
+     * Inserts a single demo PENDING book request backdated by several days so the librarian
+     * Manage Book Requests screen shows MEDIUM (age-based) priority without manual SQL.
+     * Skips insert if such a pending row already exists or if no student user exists.
+     */
+    private static void seedDemoStalePendingBookRequest(Connection conn) throws SQLException {
+        final String demoTitle = "romeo and juliet";
+        final String demoAuthor = "william shakespeare";
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM book_requests WHERE LOWER(TRIM(title)) = ? AND LOWER(TRIM(author_name)) = ? AND status = 'PENDING'")) {
+            ps.setString(1, demoTitle);
+            ps.setString(2, demoAuthor);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    return;
+                }
+            }
+        }
+        long studentId = -1;
+        String studentName = "";
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT id, full_name FROM users WHERE role = ? ORDER BY id LIMIT 1")) {
+            ps.setString(1, "STUDENT");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    studentId = rs.getLong(1);
+                    studentName = rs.getString("full_name");
+                    if (studentName == null) {
+                        studentName = "";
+                    }
+                }
+            }
+        }
+        if (studentId <= 0 || studentName.isBlank()) {
+            return;
+        }
+        String createdAt = LocalDateTime.now().minusDays(7).format(BOOK_REQUEST_CREATED_AT_FMT);
+        try (PreparedStatement ps = conn.prepareStatement("""
+                INSERT INTO book_requests (
+                    requested_by_user_id, requested_by_name, title, author_name, description,
+                    genre, status, created_at, is_urgent, urgent_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """)) {
+            ps.setLong(1, studentId);
+            ps.setString(2, studentName);
+            ps.setString(3, "Romeo and Juliet");
+            ps.setString(4, "William Shakespeare");
+            ps.setString(5, "Demo request seeded for librarian priority-queue demo.");
+            ps.setString(6, "fiction");
+            ps.setString(7, "PENDING");
+            ps.setString(8, createdAt);
+            ps.setInt(9, 0);
+            ps.setString(10, null);
+            ps.executeUpdate();
         }
     }
 
@@ -475,6 +541,19 @@ public final class Database {
         } catch (SQLException e) {
             String msg = e.getMessage();
             if (msg == null || !msg.contains("duplicate column")) throw e;
+        }
+    }
+
+    private static void migrateBookRequestsTable(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_requests ADD COLUMN is_urgent INTEGER NOT NULL DEFAULT 0");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE book_requests ADD COLUMN urgent_reason TEXT");
+        } catch (SQLException e) {
+            if (!isDuplicateColumnError(e)) throw e;
         }
     }
 

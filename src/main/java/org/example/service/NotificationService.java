@@ -192,6 +192,24 @@ public final class NotificationService {
         );
     }
 
+    /**
+     * Notifies borrower that a librarian force-closed an active loan by changing
+     * the book status back to AVAILABLE.
+     */
+    public static void notifyReturnByLibrarian(long borrowerUserId, String bookTitle, long borrowId) throws SQLException {
+        String now = Instant.now().toString();
+        String dedupe = "RETURN_USER:" + borrowerUserId + ":BORROW:" + borrowId + ":LIBRARIAN";
+        NotificationDao.insertOrIgnoreDeduped(
+                borrowerUserId,
+                CAT_RETURN_EVENT,
+                "Loan closed by librarian",
+                "A librarian marked \"" + bookTitle + "\" as available and your active loan was closed.",
+                now,
+                4,
+                dedupe
+        );
+    }
+
     /** Notifies a student/staff user about a book request status update from a librarian. */
     public static void notifyBookRequestUpdate(long userId, String title, String body) throws SQLException {
         NotificationDao.insert(

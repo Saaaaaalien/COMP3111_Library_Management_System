@@ -16,6 +16,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
 import javax.imageio.ImageIO;
 
 /**
@@ -77,6 +80,14 @@ public final class BookPreviewUtil {
         if (lower.endsWith(".doc")) {
             return readDocPreview(path);
         }
+        if (lower.endsWith(".epub")) {
+            try {
+                String t = readEpubAsPlainText(path, MAX_PREVIEW_CHARS);
+                return t == null || t.isBlank() ? null : t;
+            } catch (IOException e) {
+                return null;
+            }
+        }
         return null;
     }
 
@@ -107,6 +118,14 @@ public final class BookPreviewUtil {
         }
         if (lower.endsWith(".doc")) {
             return readDocContent(path);
+        }
+        if (lower.endsWith(".epub")) {
+            try {
+                String t = readEpubAsPlainText(path, Integer.MAX_VALUE);
+                return t == null || t.isBlank() ? null : t;
+            } catch (IOException e) {
+                return null;
+            }
         }
         return null;
     }
@@ -140,6 +159,12 @@ public final class BookPreviewUtil {
             fullText = readDocxContent(path);
         } else if (lower.endsWith(".doc")) {
             fullText = readDocContent(path);
+        } else if (lower.endsWith(".epub")) {
+            try {
+                fullText = readEpubAsPlainText(path, maxChars);
+            } catch (IOException e) {
+                return null;
+            }
         } else {
             return null;
         }
@@ -364,6 +389,55 @@ public final class BookPreviewUtil {
         if (filePath == null || filePath.isBlank()) return false;
         String lower = filePath.toLowerCase();
         return lower.endsWith(".txt") || lower.endsWith(".pdf")
-                || lower.endsWith(".doc") || lower.endsWith(".docx");
+                || lower.endsWith(".doc") || lower.endsWith(".docx")
+                || lower.endsWith(".epub");
+    }
+
+    /**
+     * Extracts readable plain text from XHTML/HTML inside an EPUB (ZIP).
+     *
+     * @param maxChars stop after roughly this many characters (use {@link Integer#MAX_VALUE} for full text)
+     */
+    public static String readEpubAsPlainText(Path epubPath, int maxChars) throws IOException {
+        if (epubPath == null || !Files.isRegularFile(epubPath) || !Files.isReadable(epubPath)) {
+            throw new IOException("EPUB not readable: " + epubPath);
+        }
+        StringBuilder sb = new StringBuilder();
+        try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(epubPath))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                String name = entry.getName().toLowerCase();
+                if ((name.endsWith(".html") || name.endsWith(".xhtml") || name.endsWith(".htm"))
+                        && !name.contains("toc") && !name.contains("nav")) {
+                    byte[] raw = zip.readAllBytes();
+                    String html = new String(raw, StandardCharsets.UTF_8);
+                    String text = stripHtmlTagsFromEpub(html);
+                    if (!text.isBlank()) {
+                        sb.append(text).append("\n\n");
+                        if (sb.length() >= maxChars) break;
+                    }
+                }
+                zip.closeEntry();
+            }
+        }
+        String out = sb.toString().trim();
+        if (out.isEmpty()) {
+            throw new IOException("EPUB yielded no readable chapter text.");
+        }
+        if (maxChars < Integer.MAX_VALUE && out.length() > maxChars) {
+            out = truncateAtBoundary(out.substring(0, maxChars).trim(), maxChars);
+        }
+        return out;
+    }
+
+    private static String stripHtmlTagsFromEpub(String html) {
+        String t = html.replaceAll("(?si)<(script|style)[^>]*>.*?</\\1>", "");
+        t = t.replaceAll("(?i)</(p|div|h[1-6]|tr|li)>", "\n");
+        t = t.replaceAll("(?i)<br\\s*/?>", "\n");
+        t = t.replaceAll("<[^>]+>", "");
+        t = t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&nbsp;", " ").replace("&quot;", "\"").replace("&#39;", "'")
+                .replace("&mdash;", "-").replace("&ndash;", "-").replace("&hellip;", "...");
+        return t.replaceAll("\\n{3,}", "\n\n").trim();
     }
 }

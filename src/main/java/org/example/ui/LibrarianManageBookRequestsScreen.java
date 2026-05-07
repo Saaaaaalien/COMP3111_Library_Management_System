@@ -4,13 +4,14 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.example.app.Navigator;
-import org.example.db.BookDao;
 import org.example.db.BookRequestDao;
 import org.example.domain.BookRequest;
 import org.example.domain.BookRequest.RequestStatus;
@@ -46,6 +47,7 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -69,6 +71,9 @@ public final class LibrarianManageBookRequestsScreen {
 
     private LibrarianManageBookRequestsScreen() {}
 
+    /** Navigator for the active manage-requests scene (used to open publish flow). */
+    private static Navigator activeNavigator;
+
     // ── Row model ─────────────────────────────────────────────────────────────
 
     public static final class RequestRow {
@@ -82,6 +87,7 @@ public final class LibrarianManageBookRequestsScreen {
         private final int priorityScore;
         private final String priority;
         private final String priorityLabel;
+        private final boolean urgent;
 
         public RequestRow(BookRequest req, int requestCount) {
             this.id          = req.getId();
@@ -92,6 +98,7 @@ public final class LibrarianManageBookRequestsScreen {
             this.createdAt   = req.getCreatedAt() != null && req.getCreatedAt().length() >= 10
                                ? req.getCreatedAt().substring(0, 10) : "";
             this.requestCount = requestCount;
+            this.urgent = req.isUrgent();
 
             int daysAgo = 0;
             try {
@@ -99,9 +106,13 @@ public final class LibrarianManageBookRequestsScreen {
                     daysAgo = (int) ChronoUnit.DAYS.between(LocalDate.parse(this.createdAt), LocalDate.now());
                 }
             } catch (Exception ignored) {}
-            this.priorityScore = (daysAgo / 3) + Math.max(0, requestCount - 1) * 3;
+            int computed = (daysAgo / 3) + Math.max(0, requestCount - 1) * 3;
+            this.priorityScore = urgent ? computed + 100 : computed;
 
-            if (priorityScore >= 6) {
+            if (urgent) {
+                this.priority = "URGENT";
+                this.priorityLabel = "URGENT !!!";
+            } else if (priorityScore >= 6) {
                 this.priority = "HIGH";
                 this.priorityLabel = "HIGH ★★★";
             } else if (priorityScore >= 2) {
@@ -125,17 +136,19 @@ public final class LibrarianManageBookRequestsScreen {
         public int    getPriorityScore() { return priorityScore; }
         public String getPriority()      { return priority; }
         public String getPriorityLabel() { return priorityLabel; }
+        public boolean isUrgent()        { return urgent; }
     }
 
     // ── Scene factory ─────────────────────────────────────────────────────────
 
     public static Scene create(Navigator navigator, User librarian) {
+        activeNavigator = navigator;
         Label titleLbl = new Label("Manage Book Requests");
         titleLbl.getStyleClass().add("screen-title");
 
         Label infoLbl = new Label(
                 "PENDING = new request  •  DOWNLOADED = ready for approval  "
-                + "(select a downloaded request, then click Approve to publish it)");
+                + "(select a downloaded request, then Approve & Publish opens the catalog form to edit title, genre, summary, …)");
         infoLbl.getStyleClass().add("info-label");
         infoLbl.setWrapText(true);
 
@@ -157,6 +170,14 @@ public final class LibrarianManageBookRequestsScreen {
         downloadBtn.getStyleClass().add("secondary-button");
         downloadBtn.setOnAction(e -> handleDownloadBook(table));
 
+        Button urgentBtn = new Button("Mark Urgent");
+        urgentBtn.getStyleClass().add("secondary-button");
+        urgentBtn.setOnAction(e -> handleMarkUrgent(table));
+
+        Button clearUrgentBtn = new Button("Clear Urgent");
+        clearUrgentBtn.getStyleClass().add("secondary-button");
+        clearUrgentBtn.setOnAction(e -> handleClearUrgent(table));
+
         Button viewDetailsBtn = new Button("View Details");
         viewDetailsBtn.getStyleClass().add("secondary-button");
         viewDetailsBtn.setOnAction(e -> handleViewDetails(table));
@@ -173,7 +194,7 @@ public final class LibrarianManageBookRequestsScreen {
         refreshBtn.getStyleClass().add("secondary-button");
         refreshBtn.setOnAction(e -> loadRequests(table, ""));
 
-        HBox buttonBox = new HBox(8, viewDetailsBtn, downloadBtn, approveBtn, rejectBtn,
+        HBox buttonBox = new HBox(8, viewDetailsBtn, downloadBtn, urgentBtn, clearUrgentBtn, approveBtn, rejectBtn,
                 analyticsBtn, statsBtn, refreshBtn);
         buttonBox.setPadding(new Insets(10));
         buttonBox.setAlignment(Pos.CENTER_LEFT);
@@ -229,6 +250,8 @@ public final class LibrarianManageBookRequestsScreen {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setStyle("");
+                } else if (item.isUrgent()) {
+                    setStyle("-fx-background-color: #ffebee;");
                 } else if ("DOWNLOADED".equals(item.getStatus()) || "PROCESSED".equals(item.getStatus())) {
                     setStyle("-fx-background-color: #e8f5e9;");
                 } else if ("PENDING".equals(item.getStatus())) {
@@ -256,7 +279,9 @@ public final class LibrarianManageBookRequestsScreen {
                     setText(null); setStyle("");
                 } else {
                     setText(item);
-                    if (item.startsWith("HIGH")) {
+                    if (item.startsWith("URGENT")) {
+                        setStyle("-fx-text-fill: #b71c1c; -fx-font-weight: bold;");
+                    } else if (item.startsWith("HIGH")) {
                         setStyle("-fx-text-fill: #e65100; -fx-font-weight: bold;");
                     } else if (item.startsWith("MED")) {
                         setStyle("-fx-text-fill: #f57f17; -fx-font-weight: bold;");
@@ -309,17 +334,27 @@ public final class LibrarianManageBookRequestsScreen {
             @Override
             protected void succeeded() {
                 List<BookRequest> reqs = getValue();
-                // Count duplicate requests per title+author for priority scoring.
-                Map<String, Long> countByKey = reqs.stream()
-                    .collect(Collectors.groupingBy(
-                        r -> r.getTitle().toLowerCase().trim() + "|||" + r.getAuthorName().toLowerCase().trim(),
-                        Collectors.counting()
-                    ));
-                List<RequestRow> rows = reqs.stream()
-                    .map(r -> {
-                        int count = (int)(long) countByKey.getOrDefault(
-                            r.getTitle().toLowerCase().trim() + "|||" + r.getAuthorName().toLowerCase().trim(), 1L);
-                        return new RequestRow(r, count);
+                // Collapse duplicate requests (same title+author) into one table row.
+                // Keep a per-key count so priority still reflects repeated demand.
+                Map<String, List<BookRequest>> grouped = reqs.stream()
+                        .collect(Collectors.groupingBy(
+                                r -> r.getTitle().toLowerCase().trim() + "|||" + r.getAuthorName().toLowerCase().trim(),
+                                LinkedHashMap::new,
+                                Collectors.toList()));
+
+                Comparator<BookRequest> representativeOrder = Comparator
+                        .comparingInt((BookRequest r) ->
+                                (r.getStatus() == RequestStatus.DOWNLOADED || r.getStatus() == RequestStatus.PROCESSED) ? 0 : 1)
+                        .thenComparing((BookRequest r) -> !r.isUrgent())
+                        .thenComparing(BookRequest::getCreatedAt, Comparator.nullsLast(String::compareTo))
+                        .thenComparingLong(BookRequest::getId);
+
+                List<RequestRow> rows = grouped.values().stream()
+                    .map(group -> {
+                        BookRequest representative = group.stream()
+                                .min(representativeOrder)
+                                .orElse(group.get(0));
+                        return new RequestRow(representative, group.size());
                     })
                     .sorted((a, b) -> {
                         // DOWNLOADED rows first, then PENDING sorted by priority score descending.
@@ -382,7 +417,8 @@ public final class LibrarianManageBookRequestsScreen {
         if (req.getGeneratedSummary() != null && !req.getGeneratedSummary().isEmpty()) {
             TextArea summaryArea = new TextArea(req.getGeneratedSummary());
             summaryArea.setWrapText(true); summaryArea.setPrefRowCount(4); summaryArea.setEditable(false);
-            content.add(new Label("Generated Summary:"), 0, 8); content.add(summaryArea, 1, 8);
+            content.add(new Label("Summary (catalog or auto-generated):"), 0, 8);
+            content.add(summaryArea, 1, 8);
         }
 
         if (req.getApprovalNotes() != null && !req.getApprovalNotes().isEmpty()) {
@@ -462,6 +498,49 @@ public final class LibrarianManageBookRequestsScreen {
             };
             new Thread(searchTask).start();
 
+        } catch (SQLException e) {
+            showError("Database Error", e.getMessage());
+        }
+    }
+
+    private static void handleMarkUrgent(TableView<RequestRow> table) {
+        RequestRow selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showInfo("Mark Urgent", "Please select a request first.");
+            return;
+        }
+        if ("APPROVED".equals(selected.getStatus()) || "REJECTED".equals(selected.getStatus())) {
+            showInfo("Mark Urgent", "Only active requests can be marked urgent.");
+            return;
+        }
+        TextInputDialog reasonDialog = new TextInputDialog();
+        reasonDialog.setTitle("Mark Request Urgent");
+        reasonDialog.setHeaderText("Provide optional urgent reason");
+        reasonDialog.setContentText("Reason:");
+        Optional<String> reasonResult = reasonDialog.showAndWait();
+        if (reasonResult.isEmpty()) {
+            return;
+        }
+        String reason = reasonResult.get().trim();
+        try {
+            BookRequestDao.markUrgent(selected.getId(), reason.isEmpty() ? null : reason);
+            loadRequests(table, "");
+            showInfo("Urgent Updated", "Request marked as urgent.");
+        } catch (SQLException e) {
+            showError("Database Error", e.getMessage());
+        }
+    }
+
+    private static void handleClearUrgent(TableView<RequestRow> table) {
+        RequestRow selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showInfo("Clear Urgent", "Please select a request first.");
+            return;
+        }
+        try {
+            BookRequestDao.clearUrgent(selected.getId());
+            loadRequests(table, "");
+            showInfo("Urgent Updated", "Urgent mark cleared.");
         } catch (SQLException e) {
             showError("Database Error", e.getMessage());
         }
@@ -586,8 +665,13 @@ public final class LibrarianManageBookRequestsScreen {
                 updateMessage("Downloading \"" + candidate.title() + "\"…");
                 BookDownloaderService.DownloadResult dlResult =
                         BookDownloaderService.downloadCandidate(candidate);
-                if (!dlResult.success) return new DownloadOutcome(dlResult, null);
+                if (!dlResult.success) return new DownloadOutcome(dlResult, null, false);
                 updateProgress(0.7, 1.0);
+                String catalogSummary = candidate.catalogSummary();
+                if (catalogSummary != null && !catalogSummary.isBlank()) {
+                    updateProgress(1.0, 1.0);
+                    return new DownloadOutcome(dlResult, catalogSummary.trim(), true);
+                }
                 String summary = null;
                 try {
                     updateMessage("Generating summary…");
@@ -597,7 +681,7 @@ public final class LibrarianManageBookRequestsScreen {
                     if (sr.success()) summary = sr.summary();
                 } catch (Exception ignored) {}
                 updateProgress(1.0, 1.0);
-                return new DownloadOutcome(dlResult, summary);
+                return new DownloadOutcome(dlResult, summary, false);
             }
 
             @Override
@@ -616,11 +700,11 @@ public final class LibrarianManageBookRequestsScreen {
                         || req.getTitle().toLowerCase().contains(candidate.title().toLowerCase());
                     if (titleMatches) {
                         BookRequestDao.markAsDownloaded(req.getId(),
-                                outcome.downloadResult.filePath, outcome.generatedSummary);
+                                outcome.downloadResult.filePath, outcome.summaryStored);
                     } else {
                         BookRequestDao.markAsDownloadedAlternative(req.getId(),
                                 candidate.title(), candidate.author(),
-                                outcome.downloadResult.filePath, outcome.generatedSummary);
+                                outcome.downloadResult.filePath, outcome.summaryStored);
                     }
                 } catch (SQLException e) {
                     showError("Database Error", e.getMessage());
@@ -628,8 +712,12 @@ public final class LibrarianManageBookRequestsScreen {
 
                 String msg = "\"" + candidate.title() + "\" downloaded successfully!"
                         + "\nFile: " + outcome.downloadResult.fileName
-                        + "\n\nThe row is now green. Click \"Approve & Publish\" to publish it.";
-                if (outcome.generatedSummary != null) msg += "\n\nA summary was generated automatically.";
+                        + "\n\nThe row is now green. Click \"Approve & Publish\" to open the publish form and add it to the catalog.";
+                if (outcome.fromCatalogSummary) {
+                    msg += "\n\nThe book summary from Project Gutenberg (catalog) was saved for publishing.";
+                } else if (outcome.summaryStored != null) {
+                    msg += "\n\nA summary was generated automatically from the downloaded file.";
+                }
                 showInfo("Download Complete", msg);
 
                 createNotificationForRequester(req, "Book Downloaded",
@@ -675,52 +763,13 @@ public final class LibrarianManageBookRequestsScreen {
                 return;
             }
 
-            Dialog<ButtonType> dialog = new Dialog<>();
-            dialog.setTitle("Approve & Publish");
-            dialog.setHeaderText("Publishing \"" + req.getTitle() + "\" to the catalog");
-
-            TextArea notesArea = new TextArea();
-            notesArea.setPromptText("Optional notes (shown in the request record)");
-            notesArea.setWrapText(true);
-            notesArea.setPrefRowCount(4);
-
-            Label hint = new Label(
-                    "The book will be added to the available-books catalog immediately.\n"
-                    + "Author displayed: " + req.getAuthorName()
-                    + (req.getGenre() != null ? "  |  Genre: " + req.getGenre() : ""));
-            hint.setWrapText(true);
-            hint.setStyle("-fx-font-size: 11; -fx-text-fill: #555;");
-
-            VBox content = new VBox(8, hint, notesArea);
-            content.setPadding(new Insets(4));
-            dialog.getDialogPane().setContent(content);
-            dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-
-            Optional<ButtonType> result = dialog.showAndWait();
-            if (result.filter(bt -> bt == ButtonType.OK).isEmpty()) return;
-
-            String notes = notesArea.getText().trim();
             User librarian = (User) table.getScene().getUserData();
+            if (activeNavigator == null || librarian == null) {
+                showError("Navigation Error", "Could not open the publish screen. Try reopening this page from the menu.");
+                return;
+            }
 
-            String summary = req.getGeneratedSummary() != null && !req.getGeneratedSummary().isEmpty()
-                    ? req.getGeneratedSummary()
-                    : (req.getDescription() != null ? req.getDescription() : "");
-            String genre = req.getGenre() != null && !req.getGenre().isEmpty()
-                    ? req.getGenre() : "General";
-
-            BookDao.insert(req.getTitle(), librarian.getId(), req.getAuthorName(),
-                    genre, summary, req.getDownloadedFilePath(), LocalDate.now().toString());
-
-            BookRequestDao.approve(req.getId(), notes);
-
-            createNotificationForRequester(req, "Book Request Approved & Published",
-                    "Your request for \"" + req.getTitle()
-                    + "\" has been approved! The book is now available in the catalog for borrowing.");
-
-            showInfo("Published",
-                    "\"" + req.getTitle() + "\" by " + req.getAuthorName()
-                    + " is now available in the student/staff catalog.");
-            loadRequests(table, "");
+            activeNavigator.showLibrarianPublishFromBookRequest(librarian, req.getId());
 
         } catch (SQLException e) {
             showError("Database Error", e.getMessage());
@@ -904,10 +953,14 @@ public final class LibrarianManageBookRequestsScreen {
 
     private static final class DownloadOutcome {
         final BookDownloaderService.DownloadResult downloadResult;
-        final String generatedSummary;
-        DownloadOutcome(BookDownloaderService.DownloadResult dr, String gs) {
-            this.downloadResult   = dr;
-            this.generatedSummary = gs;
+        /** Stored in {@code book_requests.generated_summary} (catalog blurb and/or AI). */
+        final String summaryStored;
+        final boolean fromCatalogSummary;
+
+        DownloadOutcome(BookDownloaderService.DownloadResult dr, String summaryStored, boolean fromCatalog) {
+            this.downloadResult = dr;
+            this.summaryStored = summaryStored;
+            this.fromCatalogSummary = fromCatalog;
         }
     }
 }

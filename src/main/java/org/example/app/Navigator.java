@@ -527,6 +527,17 @@ public class Navigator {
         showScenePreservingWindowState(scene);
     }
 
+    /**
+     * Opens the librarian publish form prefilled from a downloaded book request.
+     * Completing publish inserts the catalog row, approves the request, and notifies the requester.
+     */
+    public void showLibrarianPublishFromBookRequest(User librarian, long bookRequestId) {
+        SessionService.save("LIBRARIAN_REQ_PUBLISH", librarian.getId());
+        Scene scene = org.example.ui.PublishBookScreen.create(this, librarian, true, null, bookRequestId);
+        scene.setUserData(librarian);
+        showScenePreservingWindowState(scene);
+    }
+
     public void showLibrarianEditPublishedBook(User librarian, long bookId) {
         SessionService.save("LIBRARIAN_EDIT_PUBLISH", librarian.getId());
         Scene scene = org.example.ui.PublishBookScreen.create(this, librarian, true, bookId);

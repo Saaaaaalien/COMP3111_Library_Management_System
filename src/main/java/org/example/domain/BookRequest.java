@@ -26,11 +26,14 @@ public class BookRequest {
     private String generatedSummary;
     private final String createdAt;
     private String processedAt;
+    private boolean urgent;
+    private String urgentReason;
 
     public BookRequest(long id, long requestedByUserId, String requestedByName,
                       String title, String authorName, String description, String genre,
                       RequestStatus status, String approvalNotes, String downloadedFilePath,
-                      String generatedSummary, String createdAt, String processedAt) {
+                      String generatedSummary, String createdAt, String processedAt,
+                      boolean urgent, String urgentReason) {
         this.id = id;
         this.requestedByUserId = requestedByUserId;
         this.requestedByName = requestedByName;
@@ -44,6 +47,8 @@ public class BookRequest {
         this.generatedSummary = generatedSummary;
         this.createdAt = createdAt;
         this.processedAt = processedAt;
+        this.urgent = urgent;
+        this.urgentReason = urgentReason;
     }
 
     // Getters
@@ -60,10 +65,14 @@ public class BookRequest {
     public String getGeneratedSummary() { return generatedSummary; }
     public String getCreatedAt() { return createdAt; }
     public String getProcessedAt() { return processedAt; }
+    public boolean isUrgent() { return urgent; }
+    public String getUrgentReason() { return urgentReason; }
 
     // Setters
     public void setStatus(RequestStatus status) { this.status = status; }
     public void setApprovalNotes(String approvalNotes) { this.approvalNotes = approvalNotes; }
     public void setDownloadedFilePath(String downloadedFilePath) { this.downloadedFilePath = downloadedFilePath; }
     public void setGeneratedSummary(String generatedSummary) { this.generatedSummary = generatedSummary; }
+    public void setUrgent(boolean urgent) { this.urgent = urgent; }
+    public void setUrgentReason(String urgentReason) { this.urgentReason = urgentReason; }
 }

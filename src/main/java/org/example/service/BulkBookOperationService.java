@@ -1,12 +1,14 @@
 package org.example.service;
 
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import org.example.db.BookChangeLogDao;
 import org.example.db.BookDao;
+import org.example.db.BorrowDao;
 import org.example.domain.Availability;
 import org.example.domain.Book;
 import org.example.domain.User;
@@ -30,7 +32,21 @@ public final class BulkBookOperationService {
                 Book book = existing.get();
                 String oldStatus = book.getAvailability().name();
                 String newStatus = newAvailability.name();
-                
+
+                // Keep borrow records consistent when librarians force-available a borrowed title.
+                if (book.getAvailability() == Availability.BORROWED && newAvailability == Availability.AVAILABLE) {
+                    Optional<org.example.domain.Borrow> activeBorrow = BorrowDao.findActiveByBookId(bookId);
+                    if (activeBorrow.isPresent()) {
+                        org.example.domain.Borrow borrow = activeBorrow.get();
+                        BorrowDao.updateReturnedAt(borrow.getId(), Instant.now().toString());
+                        NotificationService.notifyReturnByLibrarian(
+                                borrow.getBorrowerUserId(),
+                                book.getTitle(),
+                                borrow.getId()
+                        );
+                    }
+                }
+
                 BookDao.updateAvailability(bookId, newAvailability);
                 BookChangeLogDao.recordChange(
                     bookId,

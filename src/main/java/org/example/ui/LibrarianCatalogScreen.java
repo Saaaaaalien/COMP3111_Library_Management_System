@@ -263,7 +263,7 @@ public final class LibrarianCatalogScreen {
         authorCombo.setPrefWidth(150);
         
         ComboBox<String> statusCombo = new ComboBox<>();
-        statusCombo.setItems(FXCollections.observableArrayList("All Statuses", "AVAILABLE", "BORROWED", "RESERVED"));
+        statusCombo.setItems(FXCollections.observableArrayList("All Statuses", "AVAILABLE", "BORROWED"));
         statusCombo.setPromptText("All Statuses");
         statusCombo.setPrefWidth(150);
         
@@ -346,7 +346,7 @@ public final class LibrarianCatalogScreen {
         dialog.getDialogPane().getButtonTypes().addAll(applyButtonType, ButtonType.CANCEL);
         
         ComboBox<String> statusCombo = new ComboBox<>();
-        statusCombo.setItems(FXCollections.observableArrayList("No Change", "AVAILABLE", "BORROWED", "RESERVED"));
+        statusCombo.setItems(FXCollections.observableArrayList("No Change", "AVAILABLE", "BORROWED"));
         statusCombo.setValue("No Change");
         statusCombo.setPrefWidth(150);
         

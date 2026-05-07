@@ -624,7 +624,8 @@ public final class AuthorPublishedBooksScreen {
         }
         if (filePath != null && !filePath.isBlank()) {
             String lower = filePath.toLowerCase();
-            if (lower.endsWith(".txt") || lower.endsWith(".pdf") || lower.endsWith(".docx") || lower.endsWith(".doc")) {
+            if (lower.endsWith(".txt") || lower.endsWith(".pdf") || lower.endsWith(".docx") || lower.endsWith(".doc")
+                    || lower.endsWith(".epub")) {
                 return new ReadPreviewData(fb, "Showing extracted file preview.");
             }
         }

@@ -48,9 +48,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.util.Duration;
 
 /**
  * Task 1.8 reading history, filters, exports, charts, badges, and reader deep-link.
@@ -58,6 +58,46 @@ import javafx.stage.FileChooser;
 public final class ReadingHistoryScreen {
 
     private ReadingHistoryScreen() {}
+
+    /**
+     * Text column: wraps within the column width and shows the full value in a multi-line tooltip
+     * so very long strings are always reachable.
+     */
+    private static TableColumn<HistoryRow, String> historyWrappedTextColumn(String header, String beanProperty,
+            double minW, double prefW) {
+        TableColumn<HistoryRow, String> col = new TableColumn<>(header);
+        col.setCellValueFactory(new PropertyValueFactory<>(beanProperty));
+        col.setMinWidth(minW);
+        col.setPrefWidth(prefW);
+        col.setCellFactory(tc -> new TableCell<>() {
+            private final Label wrap = new Label();
+            {
+                wrap.setWrapText(true);
+                setPadding(new Insets(6, 8, 6, 8));
+                wrap.prefWidthProperty().bind(tc.widthProperty().subtract(16));
+                wrap.setMaxWidth(Double.MAX_VALUE);
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    wrap.setText(null);
+                    wrap.setTooltip(null);
+                    setGraphic(null);
+                } else {
+                    wrap.setText(item);
+                    Tooltip tip = new Tooltip(item);
+                    tip.setWrapText(true);
+                    tip.setMaxWidth(560);
+                    tip.setShowDuration(Duration.seconds(90));
+                    wrap.setTooltip(tip);
+                    setGraphic(wrap);
+                }
+            }
+        });
+        return col;
+    }
 
     public static Scene create(Navigator navigator, User user) {
         Label title = new Label("Reading History");
@@ -71,38 +111,27 @@ public final class ReadingHistoryScreen {
         FilteredList<HistoryRow> filtered = new FilteredList<>(all, x -> true);
         TableView<HistoryRow> table = new TableView<>(filtered);
 
-        TableColumn<HistoryRow, String> colTitle = new TableColumn<>("Title");
-        colTitle.setCellValueFactory(new PropertyValueFactory<>("title"));
-        colTitle.setPrefWidth(140);
-        TableColumn<HistoryRow, String> colAuthor = new TableColumn<>("Author");
-        colAuthor.setCellValueFactory(new PropertyValueFactory<>("author"));
-        TableColumn<HistoryRow, String> colGenre = new TableColumn<>("Genre");
-        colGenre.setCellValueFactory(new PropertyValueFactory<>("genre"));
-        colGenre.setMinWidth(100);
-        colGenre.setPrefWidth(130);
-        TableColumn<HistoryRow, String> colBorrowed = new TableColumn<>("Borrowed");
-        colBorrowed.setCellValueFactory(new PropertyValueFactory<>("borrowedDisplay"));
-        TableColumn<HistoryRow, String> colReturned = new TableColumn<>("Returned");
-        colReturned.setCellValueFactory(new PropertyValueFactory<>("returnedDisplay"));
-        TableColumn<HistoryRow, String> colRead = new TableColumn<>("Reading Time");
-        colRead.setCellValueFactory(new PropertyValueFactory<>("readTimeDisplay"));
-        colRead.setMinWidth(95);
-        colRead.setPrefWidth(110);
-        TableColumn<HistoryRow, String> colProg = new TableColumn<>("Bookmark page");
-        colProg.setCellValueFactory(new PropertyValueFactory<>("progressDisplay"));
+        TableColumn<HistoryRow, String> colTitle = historyWrappedTextColumn("Title", "title", 220, 300);
+        TableColumn<HistoryRow, String> colAuthor = historyWrappedTextColumn("Author", "author", 168, 220);
+        TableColumn<HistoryRow, String> colGenre = historyWrappedTextColumn("Genre", "genre", 148, 200);
+        TableColumn<HistoryRow, String> colBorrowed = historyWrappedTextColumn("Borrowed", "borrowedDisplay",
+                104, 124);
+        TableColumn<HistoryRow, String> colReturned = historyWrappedTextColumn("Returned", "returnedDisplay",
+                104, 124);
+        TableColumn<HistoryRow, String> colRead = historyWrappedTextColumn("Reading Time", "readTimeDisplay",
+                100, 118);
+        TableColumn<HistoryRow, String> colProg = historyWrappedTextColumn("Bookmark page", "progressDisplay",
+                112, 140);
         TableColumn<HistoryRow, Void> colOpen = new TableColumn<>("Continue");
-        colOpen.setMinWidth(190);
-        colOpen.setPrefWidth(220);
+        colOpen.setMinWidth(200);
+        colOpen.setPrefWidth(260);
         colOpen.setCellFactory(tc -> new TableCell<>() {
             private final Button btn = new Button();
             {
                 btn.getStyleClass().add("secondary-button");
-                btn.setMinWidth(Region.USE_PREF_SIZE);
-                btn.setPrefWidth(Region.USE_COMPUTED_SIZE);
-                btn.setMaxWidth(Region.USE_PREF_SIZE);
-                Tooltip tip = new Tooltip(
-                        "Opens the PDF reader at your saved bookmark (active PDF loans only).");
-                btn.setTooltip(tip);
+                btn.setWrapText(true);
+                btn.setAlignment(Pos.CENTER);
+                btn.prefWidthProperty().bind(tc.widthProperty().subtract(12));
                 btn.setOnAction(ev -> {
                     TableRow<HistoryRow> tr = getTableRow();
                     if (tr == null) {
@@ -139,12 +168,29 @@ public final class ReadingHistoryScreen {
                 } else {
                     btn.setText("Continue reading");
                 }
+                String tipBody = row.canOpenReader()
+                        ? btn.getText() + "\n\nOpens the in-app reader at your bookmark (PDF or EPUB)."
+                        : "Reader not available for this loan.";
+                Tooltip rowTip = new Tooltip(tipBody);
+                rowTip.setWrapText(true);
+                rowTip.setMaxWidth(420);
+                rowTip.setShowDuration(Duration.seconds(90));
+                btn.setTooltip(rowTip);
                 setGraphic(btn);
             }
         });
 
         table.getColumns().addAll(List.of(colTitle, colAuthor, colGenre, colBorrowed, colReturned, colRead, colProg, colOpen));
         table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        table.setFixedCellSize(-1);
+
+        ScrollPane loanTableScroll = new ScrollPane(table);
+        loanTableScroll.setFitToWidth(false);
+        loanTableScroll.setFitToHeight(true);
+        loanTableScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        loanTableScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        loanTableScroll.setMinHeight(300);
+        loanTableScroll.setStyle("-fx-background-color: transparent;");
 
         TextField search = new TextField();
         search.setPromptText("Search title or author...");
@@ -458,12 +504,13 @@ public final class ReadingHistoryScreen {
         Label historyHeading = new Label("Loan History");
         historyHeading.getStyleClass().add("section-heading");
         Label tableHint = new Label(
-                "Adjust search or filters to narrow the table; charts and exports follow the same view.");
+                "Adjust search or filters to narrow the table; charts and exports follow the same view.\n"
+                + "Scroll horizontally if needed; hover a cell to see the full text for very long values.");
         tableHint.setWrapText(true);
         tableHint.getStyleClass().add("reading-history-text");
-        VBox tableCard = new VBox(10, table);
+        VBox tableCard = new VBox(10, loanTableScroll);
         tableCard.getStyleClass().add("table-container");
-        VBox.setVgrow(table, Priority.ALWAYS);
+        VBox.setVgrow(loanTableScroll, Priority.ALWAYS);
         VBox historyCard = new VBox(10, historyHeading, tableHint, filterBlock, tableCard);
         historyCard.getStyleClass().add("content-card");
         VBox center = new VBox(12, historyCard);
@@ -651,7 +698,9 @@ public final class ReadingHistoryScreen {
         }
 
         public boolean canOpenReader() {
-            return src.active() && src.filePath() != null && src.filePath().toLowerCase(Locale.ROOT).endsWith(".pdf");
+            if (!src.active() || src.filePath() == null) return false;
+            String l = src.filePath().toLowerCase(Locale.ROOT);
+            return l.endsWith(".pdf") || l.endsWith(".epub");
         }
     }
 }

@@ -1,7 +1,6 @@
 package org.example.service;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,8 +20,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+
+import org.example.util.BookPreviewUtil;
 
 /**
  * Downloads public-domain books from online repositories.
@@ -40,6 +39,7 @@ public final class BookDownloaderService {
     private static final String DOWNLOAD_DIR = "data/downloaded_books";
     private static final int    TIMEOUT_SEC  = 30;
     private static final int    DL_TIMEOUT   = 60;
+    private static final long   SEARCH_TIME_LIMIT_MS = 15_000L;
 
     // Follow redirects so that Gutenberg CDN redirects resolve correctly.
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
@@ -78,7 +78,12 @@ public final class BookDownloaderService {
     }
 
     /** A downloadable public-domain book candidate. */
-    public record BookCandidate(String title, String author, String epubUrl) {}
+    public record BookCandidate(String title, String author, String epubUrl, String catalogSummary) {
+        /** @param catalogSummary short description from the catalog API (e.g. Gutendex), if any */
+        public BookCandidate(String title, String author, String epubUrl) {
+            this(title, author, epubUrl, null);
+        }
+    }
 
     /** Holds search results split into a top match and a list of alternatives. */
     public record SearchResults(BookCandidate topResult, List<BookCandidate> alternatives) {
@@ -154,14 +159,21 @@ public final class BookDownloaderService {
     public static SearchResults searchForCandidates(String title, String author) {
         String ct = cleanForSearch(title);
         String ca = cleanForSearch(author);
+        long startedAtMs = System.currentTimeMillis();
 
         Set<String> seenTitles = new HashSet<>();
         List<BookCandidate> candidates = new ArrayList<>();
         for (String q : buildQueries(ct, ca)) {
+            if (isSearchTimedOut(startedAtMs)) break;
             for (BookCandidate c : extractGutendexCandidates(q)) {
                 if (seenTitles.add(c.title().toLowerCase())) candidates.add(c);
             }
             if (candidates.size() >= 6) break;
+        }
+
+        // Librarian flow expects a primary pick plus at least one distinct alternative.
+        if (candidates.size() < 2 && !isSearchTimedOut(startedAtMs)) {
+            fillUntilMinCandidateCount(seenTitles, candidates, ct, ca, 2, 6, startedAtMs);
         }
 
         if (candidates.isEmpty()) return new SearchResults(null, List.of());
@@ -170,11 +182,117 @@ public final class BookDownloaderService {
         return new SearchResults(top, alts);
     }
 
+    /**
+     * Adds Gutendex hits (broad search terms, then paginated browse) until
+     * {@code targetCount} unique EPUB candidates are collected or sources are exhausted.
+     */
+    private static void fillUntilMinCandidateCount(
+            Set<String> seenTitles,
+            List<BookCandidate> candidates,
+            String titleHint,
+            String authorHint,
+            int targetCount,
+            int maxTotal,
+            long startedAtMs) {
+        if (candidates.size() >= targetCount || candidates.size() >= maxTotal) return;
+
+        for (String q : broadGutendexQueries(titleHint, authorHint)) {
+            if (isSearchTimedOut(startedAtMs)) return;
+            for (BookCandidate c : extractGutendexCandidates(q)) {
+                if (seenTitles.add(c.title().toLowerCase())) {
+                    candidates.add(c);
+                    if (candidates.size() >= targetCount || candidates.size() >= maxTotal) return;
+                }
+            }
+        }
+
+        for (int page = 1; page <= 5 && candidates.size() < targetCount && candidates.size() < maxTotal; page++) {
+            if (isSearchTimedOut(startedAtMs)) return;
+            for (BookCandidate c : gutendexBrowsePageCandidates(page)) {
+                if (seenTitles.add(c.title().toLowerCase())) {
+                    candidates.add(c);
+                    if (candidates.size() >= targetCount || candidates.size() >= maxTotal) return;
+                }
+            }
+        }
+    }
+
+    private static boolean isSearchTimedOut(long startedAtMs) {
+        return System.currentTimeMillis() - startedAtMs >= SEARCH_TIME_LIMIT_MS;
+    }
+
+    /** Extra search strings beyond {@link #buildQueries} — single tokens and author parts. */
+    private static List<String> broadGutendexQueries(String title, String author) {
+        List<String> qs = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (!title.isBlank()) {
+            for (String w : title.split("\\s+")) {
+                if (w.length() >= 3 && seen.add(w.toLowerCase())) qs.add(w);
+            }
+        }
+        if (!author.isBlank()) {
+            for (String w : author.split("\\s+")) {
+                if (w.length() >= 3 && seen.add(w.toLowerCase())) qs.add(w);
+            }
+        }
+        return qs;
+    }
+
+    /** One page of the default Gutendex listing (popular works), EPUB-ready entries only. */
+    private static List<BookCandidate> gutendexBrowsePageCandidates(int page) {
+        try {
+            String url = "https://gutendex.com/books/?page=" + page;
+            HttpResponse<String> resp = sendGet(url);
+            if (resp == null || resp.statusCode() != 200) return List.of();
+            return parseGutendexResultsJson(resp.body(), 40);
+        } catch (Exception e) {
+            System.err.println("[Gutendex browse] " + e.getMessage());
+            return List.of();
+        }
+    }
+
     /** Downloads a specific candidate book chosen by the librarian. */
     public static DownloadResult downloadCandidate(BookCandidate candidate) {
         ensureDownloadDir();
-        DownloadResult r = downloadFile(candidate.epubUrl(), safeFilename(candidate.title()) + ".epub");
-        return convertToPdfIfNeeded(r);
+        if (candidate == null || candidate.epubUrl() == null || candidate.epubUrl().isBlank()) {
+            return DownloadResult.failure("Invalid candidate download URL.");
+        }
+        String url = candidate.epubUrl();
+        String lowerUrl = url.toLowerCase();
+        String ext = lowerUrl.contains(".pdf") ? ".pdf" : ".epub";
+        DownloadResult downloaded = downloadFile(url, safeFilename(candidate.title()) + ext);
+        if (!downloaded.success) {
+            return downloaded;
+        }
+        DownloadResult asPdf = convertToPdfIfNeeded(downloaded);
+        if (!asPdf.success || asPdf.filePath == null || !asPdf.filePath.toLowerCase().endsWith(".pdf")) {
+            return DownloadResult.failure(
+                    "Downloaded file is not publishable: only PDF is supported. "
+                            + "Please choose another source/title.");
+        }
+        return asPdf;
+    }
+
+    /**
+     * Ensures there is a PDF next to {@code epubPathStr} for the in-app reader ({@code <name>.reader.pdf}).
+     * Regenerates when the EPUB changes.
+     */
+    public static String ensureReaderPdfFromEpub(String epubPathStr) throws IOException {
+        Path epub = Paths.get(epubPathStr).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(epub) || !epub.getFileName().toString().toLowerCase().endsWith(".epub")) {
+            throw new IOException("Not a readable EPUB file: " + epubPathStr);
+        }
+        String stem = epub.getFileName().toString().replaceFirst("(?i)\\.epub$", "");
+        Path pdfOut = epub.getParent().resolve(stem + ".reader.pdf").toAbsolutePath().normalize();
+
+        boolean need = !Files.isRegularFile(pdfOut);
+        if (!need) {
+            need = Files.getLastModifiedTime(epub).toMillis() > Files.getLastModifiedTime(pdfOut).toMillis();
+        }
+        if (need) {
+            convertEpubToPdf(epub.toString(), pdfOut.toString());
+        }
+        return pdfOut.toString();
     }
 
     public static List<String> getDownloadedBooks() {
@@ -571,26 +689,19 @@ public final class BookDownloaderService {
         }
     }
 
-    /** Extracts text from every HTML/XHTML chapter inside an EPUB ZIP and writes a PDF. */
+    /** Extracts EPUB chapter text via {@link BookPreviewUtil} and writes a PDF. */
     private static String convertEpubToPdf(String epubPath) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        try (ZipInputStream zip = new ZipInputStream(new FileInputStream(epubPath))) {
-            ZipEntry entry;
-            while ((entry = zip.getNextEntry()) != null) {
-                String name = entry.getName().toLowerCase();
-                if ((name.endsWith(".html") || name.endsWith(".xhtml") || name.endsWith(".htm"))
-                        && !name.contains("toc") && !name.contains("nav")) {
-                    String html = new String(zip.readAllBytes(), StandardCharsets.UTF_8);
-                    String text = stripHtmlTags(html);
-                    if (!text.isBlank()) sb.append(text).append("\n\n");
-                }
-                zip.closeEntry();
-            }
+        String pdfOut = epubPath.replaceFirst("(?i)\\.epub$", ".pdf");
+        return convertEpubToPdf(epubPath, pdfOut);
+    }
+
+    private static String convertEpubToPdf(String epubPath, String pdfOutputPath) throws IOException {
+        String text = BookPreviewUtil.readEpubAsPlainText(Paths.get(epubPath), Integer.MAX_VALUE);
+        if (text == null || text.length() < 50) {
+            throw new IOException("EPUB yielded insufficient text");
         }
-        if (sb.length() < 50) throw new IOException("EPUB yielded insufficient text");
-        String pdfPath = epubPath.replaceFirst("\\.epub$", ".pdf");
-        writeToPdf(sb.toString(), pdfPath);
-        return pdfPath;
+        writeToPdf(text, pdfOutputPath);
+        return pdfOutputPath;
     }
 
     /** Reads a plain-text file and writes a PDF from its content. */
@@ -677,18 +788,6 @@ public final class BookDownloaderService {
         return lines;
     }
 
-    /** Strips HTML tags and decodes common entities from EPUB chapter content. */
-    private static String stripHtmlTags(String html) {
-        String t = html.replaceAll("(?si)<(script|style)[^>]*>.*?</\\1>", "");
-        t = t.replaceAll("(?i)</(p|div|h[1-6]|tr|li)>", "\n");
-        t = t.replaceAll("(?i)<br\\s*/?>", "\n");
-        t = t.replaceAll("<[^>]+>", "");
-        t = t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-             .replace("&nbsp;", " ").replace("&quot;", "\"").replace("&#39;", "'")
-             .replace("&mdash;", "-").replace("&ndash;", "-").replace("&hellip;", "...");
-        return t.replaceAll("\\n{3,}", "\n\n").trim();
-    }
-
     // ── Title verification & alternatives ────────────────────────────────────
 
     /**
@@ -724,36 +823,118 @@ public final class BookDownloaderService {
      * No title-similarity filter is applied — the goal is a broad set of alternatives.
      */
     private static List<BookCandidate> extractGutendexCandidates(String query) {
-        List<BookCandidate> list = new ArrayList<>();
         try {
             String url = "https://gutendex.com/books?search=" +
                     URLEncoder.encode(query, StandardCharsets.UTF_8);
             HttpResponse<String> resp = sendGet(url);
-            if (resp == null || resp.statusCode() != 200) return list;
-            String json = resp.body();
-            if (!json.contains("\"results\"") ||
-                    Pattern.compile("\"count\"\\s*:\\s*0").matcher(json).find()) return list;
-
-            // Split on result-object boundaries (each result starts with "id":<number>).
-            String[] blocks = json.split("\"id\"\\s*:\\s*\\d+");
-            Pattern titlePat  = Pattern.compile("\"title\"\\s*:\\s*\"([^\"]+)\"");
-            Pattern authorPat = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"");
-            Pattern epubPat   = Pattern.compile("\"application/epub\\+zip\"\\s*:\\s*\"([^\"]+)\"");
-            for (int i = 1; i < blocks.length && list.size() < 8; i++) {
-                String block = blocks[i];
-                Matcher tm = titlePat.matcher(block);
-                if (!tm.find()) continue;
-                String title  = tm.group(1);
-                Matcher am = authorPat.matcher(block);
-                String author = am.find() ? am.group(1) : "Unknown";
-                Matcher em = epubPat.matcher(block);
-                if (!em.find()) continue;
-                list.add(new BookCandidate(title, author, em.group(1)));
-            }
+            if (resp == null || resp.statusCode() != 200) return List.of();
+            return parseGutendexResultsJson(resp.body(), 8);
         } catch (Exception e) {
             System.err.println("[Alternatives] " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Parses Gutendex /books JSON: keeps only volumes that expose an EPUB URL in {@code formats}. */
+    private static List<BookCandidate> parseGutendexResultsJson(String json, int max) {
+        List<BookCandidate> list = new ArrayList<>();
+        if (json == null || !json.contains("\"results\"")) return list;
+        if (Pattern.compile("\"count\"\\s*:\\s*0").matcher(json).find()) return list;
+
+        String[] blocks = json.split("\"id\"\\s*:\\s*\\d+");
+        Pattern titlePat  = Pattern.compile("\"title\"\\s*:\\s*\"([^\"]+)\"");
+        Pattern authorPat = Pattern.compile("\"name\"\\s*:\\s*\"([^\"]+)\"");
+        Pattern epubPat   = Pattern.compile("\"application/epub\\+zip\"\\s*:\\s*\"([^\"]+)\"");
+        for (int i = 1; i < blocks.length && list.size() < max; i++) {
+            String block = blocks[i];
+            Matcher tm = titlePat.matcher(block);
+            if (!tm.find()) continue;
+            String tit = tm.group(1);
+            Matcher am = authorPat.matcher(block);
+            String au = am.find() ? am.group(1) : "Unknown";
+            Matcher em = epubPat.matcher(block);
+            if (!em.find()) continue;
+            String gist = summarizeFromGutendexBlock(block);
+            list.add(new BookCandidate(tit, au, em.group(1), gist));
         }
         return list;
+    }
+
+    /**
+     * Parses the {@code summaries} JSON array inside one Gutendex result object fragment.
+     * Gutendex provides Gutenberg-style blurbs (often one string starting with quoted title…).
+     */
+    private static String summarizeFromGutendexBlock(String block) {
+        String raw = extractFirstJsonSummariesString(block);
+        return normalizeCatalogSummary(raw);
+    }
+
+    private static String normalizeCatalogSummary(String raw) {
+        if (raw == null) return null;
+        String t = raw.replace('\r', ' ').replace('\n', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+        String suffix = "(This is an automatically generated summary.)";
+        if (t.endsWith(suffix)) {
+            t = t.substring(0, t.length() - suffix.length()).trim();
+        }
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * After {@code "summaries": }, reads the first JSON string literal in the array, if present.
+     */
+    private static String extractFirstJsonSummariesString(String block) {
+        int key = block.indexOf("\"summaries\"");
+        if (key < 0) return null;
+        int bracket = block.indexOf('[', key);
+        if (bracket < 0) return null;
+        int i = bracket + 1;
+        int n = block.length();
+        while (i < n && Character.isWhitespace(block.charAt(i))) {
+            i++;
+        }
+        if (i >= n || block.charAt(i) != '"') return null;
+        i++;
+        StringBuilder sb = new StringBuilder();
+        while (i < n) {
+            char c = block.charAt(i);
+            if (c == '"') {
+                break;
+            }
+            if (c == '\\' && i + 1 < n) {
+                char e = block.charAt(i + 1);
+                switch (e) {
+                    case '"', '\\', '/' -> sb.append(e);
+                    case 'b' -> sb.append('\b');
+                    case 'f' -> sb.append('\f');
+                    case 'n' -> sb.append('\n');
+                    case 'r' -> sb.append('\r');
+                    case 't' -> sb.append('\t');
+                    case 'u' -> {
+                        if (i + 6 <= n) {
+                            try {
+                                int cp = Integer.parseInt(block.substring(i + 2, i + 6), 16);
+                                sb.append((char) cp);
+                                i += 6;
+                                continue;
+                            } catch (NumberFormatException ignored) {
+                                sb.append(e);
+                            }
+                        } else {
+                            sb.append(e);
+                        }
+                    }
+                    default -> sb.append(e);
+                }
+                i += 2;
+                continue;
+            }
+            sb.append(c);
+            i++;
+        }
+        String s = sb.toString().trim();
+        return s.isEmpty() ? null : s;
     }
 
     // ── Filesystem ────────────────────────────────────────────────────────────

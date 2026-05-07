@@ -9,12 +9,15 @@ import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.example.app.Navigator;
 import org.example.db.BookChangeLogDao;
 import org.example.db.BookDao;
+import org.example.db.BookRequestDao;
 import org.example.db.PublishDraftDao;
 import org.example.domain.Book;
+import org.example.domain.BookRequest;
 import org.example.domain.User;
 import org.example.service.BookSummaryService;
 import org.example.service.NotificationService;
@@ -65,6 +68,9 @@ public final class PublishBookScreen {
     private static boolean librarianPublishMode;
     private static Long editingBookId;
     private static Book editingBookSnapshot;
+    /** When set, publishing completes a book request (catalog insert + approve + notify). */
+    private static Long pendingBookRequestApproveId;
+    private static TextArea bookRequestApproveNotesArea;
 
     // Display components for selections
     private static Label selectedGenresLabel;
@@ -91,22 +97,32 @@ public final class PublishBookScreen {
     private PublishBookScreen() {}
 
     public static Scene create(Navigator nav, User user) {
-        return create(nav, user, false);
+        return create(nav, user, false, null, null);
     }
 
     public static Scene create(Navigator nav, User user, boolean librarianMode) {
-        return create(nav, user, librarianMode, null);
+        return create(nav, user, librarianMode, null, null);
     }
 
     public static Scene create(Navigator nav, User user, boolean librarianMode, Long editBookId) {
+        return create(nav, user, librarianMode, editBookId, null);
+    }
+
+    /**
+     * @param bookRequestApproveId when non-null (librarian flow), form is prefilled from that request
+     *                             and publish approves the request after adding the book to the catalog.
+     */
+    public static Scene create(Navigator nav, User user, boolean librarianMode, Long editBookId,
+                               Long bookRequestApproveId) {
         navigator = nav;
         currentUser = user;
         librarianPublishMode = librarianMode;
         editingBookId = editBookId;
         editingBookSnapshot = null;
+        pendingBookRequestApproveId = bookRequestApproveId;
 
         // Title
-        Label title = new Label(isEditingLibrarianBook() ? "Edit Published Book" : "Publish New Book");
+        Label title = new Label(screenTitleText());
         title.getStyleClass().add("screen-title");
         title.setFont(Font.font("System", FontWeight.BOLD, 24));
 
@@ -119,14 +135,21 @@ public final class PublishBookScreen {
         buttonBox.setPadding(new Insets(20, 0, 30, 0));
         buttonBox.getStyleClass().add("button-bar");
 
-        Button submitBtn = new Button(isEditingLibrarianBook()
-                ? "Save Changes"
-                : (librarianPublishMode ? "Publish Book" : "Submit for Approval"));
+        Button submitBtn = new Button(primarySubmitButtonText());
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setPrefWidth(200);
 
+        Button clearFormBtn = new Button("Clear Form");
+        clearFormBtn.getStyleClass().add("secondary-button");
+        clearFormBtn.setPrefWidth(140);
+        clearFormBtn.setOnAction(e -> {
+            if (showConfirmation("Clear Form", "Clear all fields in this publishing form?")) {
+                clearForm();
+            }
+        });
+
         // Navigation is handled by global menu; remove per-screen Back button.
-        buttonBox.getChildren().addAll(submitBtn);
+        buttonBox.getChildren().addAll(submitBtn, clearFormBtn);
 
         // Submit action
         submitBtn.setOnAction(e -> {
@@ -143,40 +166,60 @@ public final class PublishBookScreen {
             // Convert selected genres to comma-separated string
             String genres = String.join(", ", genreListView.getSelectionModel().getSelectedItems());
 
-            PublishService.PublishResult result = isEditingLibrarianBook()
-                    ? updateBookAsLibrarian(
-                    currentUser,
-                    editingBookId,
-                    titleField.getText().trim(),
-                    authorNameField == null ? "" : authorNameField.getText().trim(),
-                    genres,
-                    descriptionArea.getText().trim(),
-                    selectedBookFile,
-                    selectedCoverFile
-            )
-                    : librarianPublishMode
-                    ? submitBookAsLibrarian(
-                    currentUser,
-                    titleField.getText().trim(),
-                    authorNameField == null ? "" : authorNameField.getText().trim(),
-                    genres,
-                    descriptionArea.getText().trim(),
-                    selectedBookFile,
-                    selectedCoverFile
-            )
-                    : PublishService.submitBook(
-                    currentUser,
-                    titleField.getText().trim(),
-                    genres,
-                    descriptionArea.getText().trim(),
-                    selectedBookFile,
-                    selectedCoverFile
-            );
+            PublishService.PublishResult result;
+            if (isEditingLibrarianBook()) {
+                result = updateBookAsLibrarian(
+                        currentUser,
+                        editingBookId,
+                        titleField.getText().trim(),
+                        authorNameField == null ? "" : authorNameField.getText().trim(),
+                        genres,
+                        descriptionArea.getText().trim(),
+                        selectedBookFile,
+                        selectedCoverFile
+                );
+            } else if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+                String notes = bookRequestApproveNotesArea == null
+                        ? "" : bookRequestApproveNotesArea.getText().trim();
+                result = publishFromBookRequest(
+                        currentUser,
+                        pendingBookRequestApproveId,
+                        notes,
+                        titleField.getText().trim(),
+                        authorNameField == null ? "" : authorNameField.getText().trim(),
+                        genres,
+                        descriptionArea.getText().trim(),
+                        selectedBookFile,
+                        selectedCoverFile
+                );
+            } else if (librarianPublishMode) {
+                result = submitBookAsLibrarian(
+                        currentUser,
+                        titleField.getText().trim(),
+                        authorNameField == null ? "" : authorNameField.getText().trim(),
+                        genres,
+                        descriptionArea.getText().trim(),
+                        selectedBookFile,
+                        selectedCoverFile
+                );
+            } else {
+                result = PublishService.submitBook(
+                        currentUser,
+                        titleField.getText().trim(),
+                        genres,
+                        descriptionArea.getText().trim(),
+                        selectedBookFile,
+                        selectedCoverFile
+                );
+            }
 
             if (result.success()) {
                 showSuccess(result.message());
                 if (isEditingLibrarianBook()) {
                     navigator.showLibrarianCatalog(currentUser);
+                } else if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+                    pendingBookRequestApproveId = null;
+                    navigator.showLibrarianManageBookRequests(currentUser);
                 } else {
                     clearForm();
                 }
@@ -283,6 +326,8 @@ public final class PublishBookScreen {
         }
         if (isEditingLibrarianBook()) {
             preloadForLibrarianEdit();
+        } else if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+            preloadFromBookRequest(pendingBookRequestApproveId);
         }
 
         PauseTransition draftDebounce = new PauseTransition(Duration.seconds(1.2));
@@ -510,10 +555,18 @@ public final class PublishBookScreen {
                         new FileChooser.ExtensionFilter("Text Files (*.txt)", "*.txt");
                 FileChooser.ExtensionFilter docFilter =
                         new FileChooser.ExtensionFilter("Word Documents (*.doc, *.docx)", "*.doc", "*.docx");
-                FileChooser.ExtensionFilter allFilter =
-                        new FileChooser.ExtensionFilter("All Supported Files", "*.pdf", "*.txt", "*.doc", "*.docx");
-
-                fileChooser.getExtensionFilters().addAll(pdfFilter, txtFilter, docFilter, allFilter);
+                FileChooser.ExtensionFilter allFilter = librarianPublishMode
+                        ? new FileChooser.ExtensionFilter("All Supported Files",
+                                "*.pdf", "*.txt", "*.doc", "*.docx", "*.epub")
+                        : new FileChooser.ExtensionFilter("All Supported Files",
+                                "*.pdf", "*.txt", "*.doc", "*.docx");
+                if (librarianPublishMode) {
+                    FileChooser.ExtensionFilter epubFilter =
+                            new FileChooser.ExtensionFilter("EPUB (*.epub)", "*.epub");
+                    fileChooser.getExtensionFilters().addAll(pdfFilter, txtFilter, docFilter, epubFilter, allFilter);
+                } else {
+                    fileChooser.getExtensionFilters().addAll(pdfFilter, txtFilter, docFilter, allFilter);
+                }
 
                 // Show the file chooser dialog with owner
                 File selectedFile = fileChooser.showOpenDialog(ownerStage);
@@ -632,6 +685,7 @@ public final class PublishBookScreen {
         requiredNote.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 11px;");
         requiredNote.setPadding(new Insets(10, 0, 0, 0));
 
+        bookRequestApproveNotesArea = null;
         formBox.getChildren().addAll(
                 formTitle,
                 titleLabel, titleField,
@@ -640,9 +694,20 @@ public final class PublishBookScreen {
                 fileLabel, fileSelectionBox,
                 descriptionLabel, descriptionArea,
                 summaryControlsBox,
-                coverBox,
-                requiredNote
+                coverBox
         );
+        if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+            Label reqNotesLabel = new Label("Request approval notes (optional)");
+            reqNotesLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+            bookRequestApproveNotesArea = new TextArea();
+            bookRequestApproveNotesArea.setPromptText("Stored on the book request when you publish…");
+            bookRequestApproveNotesArea.setWrapText(true);
+            bookRequestApproveNotesArea.setPrefRowCount(3);
+            bookRequestApproveNotesArea.setPrefWidth(550);
+            bookRequestApproveNotesArea.getStyleClass().add("text-area");
+            formBox.getChildren().addAll(reqNotesLabel, bookRequestApproveNotesArea);
+        }
+        formBox.getChildren().add(requiredNote);
 
         return formBox;
     }
@@ -690,6 +755,11 @@ public final class PublishBookScreen {
 
         if (selectedBookFile == null) {
             errors.add("Please select a book file");
+        } else {
+            String ext = getFileExtension(selectedBookFile);
+            if (!isValidFileType(ext)) {
+                errors.add("Unsupported book file type: ." + ext);
+            }
         }
 
         if (!errors.isEmpty()) {
@@ -793,6 +863,8 @@ public final class PublishBookScreen {
 
         Label confirmMsg = new Label(isEditingLibrarianBook()
                 ? "Are you sure you want to save these published book changes?"
+                : (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0)
+                ? "Publish this book to the catalog and mark the book request as approved?"
                 : librarianPublishMode
                 ? "Are you sure you want to publish this book to the catalog?"
                 : "Are you sure you want to submit this book for approval?");
@@ -805,6 +877,8 @@ public final class PublishBookScreen {
 
         Button submitBtn = new Button(isEditingLibrarianBook()
                 ? "Yes, Save Changes"
+                : (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0)
+                ? "Yes, publish & approve"
                 : (librarianPublishMode ? "Yes, Publish" : "✅ Yes, Submit"));
         submitBtn.getStyleClass().add("primary-button");
         submitBtn.setOnAction(e -> {
@@ -864,6 +938,9 @@ public final class PublishBookScreen {
             summaryStatusLabel.setText("Summary status: Draft");
             summaryStatusLabel.setStyle("-fx-text-fill: #7f8c8d; -fx-font-style: italic;");
         }
+        if (bookRequestApproveNotesArea != null) {
+            bookRequestApproveNotesArea.clear();
+        }
     }
 
     private static void persistDraftQuietly() {
@@ -910,6 +987,14 @@ public final class PublishBookScreen {
     private static void showSuccess(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Success");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private static void showInfo(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
@@ -1012,7 +1097,8 @@ public final class PublishBookScreen {
         return extension.equals("pdf") ||
                 extension.equals("txt") ||
                 extension.equals("doc") ||
-                extension.equals("docx");
+                extension.equals("docx") ||
+                (librarianPublishMode && extension.equals("epub"));
     }
 
     private static PublishService.PublishResult submitBookAsLibrarian(User librarian,
@@ -1236,6 +1322,141 @@ public final class PublishBookScreen {
             showError("Load Failed", ex.getMessage());
             navigator.showLibrarianCatalog(currentUser);
         }
+    }
+
+    private static String screenTitleText() {
+        if (isEditingLibrarianBook()) {
+            return "Edit Published Book";
+        }
+        if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+            return "Approve & publish request";
+        }
+        return "Publish New Book";
+    }
+
+    private static String primarySubmitButtonText() {
+        if (isEditingLibrarianBook()) {
+            return "Save Changes";
+        }
+        if (pendingBookRequestApproveId != null && pendingBookRequestApproveId > 0) {
+            return "Publish to catalog";
+        }
+        return librarianPublishMode ? "Publish Book" : "Submit for Approval";
+    }
+
+    private static void preloadFromBookRequest(long requestId) {
+        try {
+            Optional<BookRequest> opt = BookRequestDao.findById(requestId);
+            if (opt.isEmpty()) {
+                showError("Request not found", "This book request is no longer available.");
+                navigator.showLibrarianManageBookRequests(currentUser);
+                return;
+            }
+            BookRequest req = opt.get();
+            BookRequest.RequestStatus st = req.getStatus();
+            if (st != BookRequest.RequestStatus.DOWNLOADED && st != BookRequest.RequestStatus.PROCESSED) {
+                showInfo("Not ready",
+                        "Download the book for this request before publishing.");
+                navigator.showLibrarianManageBookRequests(currentUser);
+                return;
+            }
+            String path = req.getDownloadedFilePath();
+            if (path == null || path.isBlank()) {
+                showInfo("Missing file", "Download the book file first, then approve again.");
+                navigator.showLibrarianManageBookRequests(currentUser);
+                return;
+            }
+            File f = new File(path);
+            if (!f.isFile() || !f.canRead()) {
+                showError("File not found", "The downloaded book file is missing or unreadable.");
+                navigator.showLibrarianManageBookRequests(currentUser);
+                return;
+            }
+
+            titleField.setText(req.getTitle() == null ? "" : req.getTitle());
+            if (authorNameField != null) {
+                authorNameField.setText(req.getAuthorName() == null ? "" : req.getAuthorName());
+            }
+            String summary = req.getGeneratedSummary() != null && !req.getGeneratedSummary().isEmpty()
+                    ? req.getGeneratedSummary()
+                    : (req.getDescription() != null ? req.getDescription() : "");
+            descriptionArea.setText(summary);
+            if (!summary.isBlank()) {
+                summaryStatusLabel.setText("Summary status: Ready (from request)");
+                summaryStatusLabel.setStyle("-fx-text-fill: #27ae60;");
+            }
+
+            genreListView.getSelectionModel().clearSelection();
+            boolean anyGenre = false;
+            if (req.getGenre() != null && !req.getGenre().isBlank()) {
+                for (String part : req.getGenre().split(",")) {
+                    String g = part.trim();
+                    int idx = AVAILABLE_GENRES.indexOf(g);
+                    if (idx >= 0) {
+                        genreListView.getSelectionModel().select(idx);
+                        anyGenre = true;
+                    }
+                }
+            }
+            if (!anyGenre) {
+                int ix = AVAILABLE_GENRES.indexOf("Classic");
+                genreListView.getSelectionModel().select(ix >= 0 ? ix : 0);
+            }
+            updateSelectedGenresDisplay();
+
+            selectedBookFile = f;
+            fileNameLabel.setText(f.getName());
+            fileNameLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+            fileDisplayLabel.setText(f.getName() + " (" + formatFileSize(f.length()) + ")");
+            fileDisplayLabel.setStyle("-fx-text-fill: #27ae60;");
+        } catch (SQLException ex) {
+            showError("Load failed", ex.getMessage());
+            navigator.showLibrarianManageBookRequests(currentUser);
+        }
+    }
+
+    private static PublishService.PublishResult publishFromBookRequest(
+            User librarian,
+            long requestId,
+            String approvalNotes,
+            String title,
+            String authorName,
+            String genres,
+            String description,
+            File bookFile,
+            File coverFile) {
+        PublishService.PublishResult published = submitBookAsLibrarian(
+                librarian, title, authorName, genres, description, bookFile, coverFile);
+        if (!published.success()) {
+            return published;
+        }
+        int approvedGroupCount = 0;
+        try {
+            approvedGroupCount = BookRequestDao.approveGroupedActiveByRequestId(
+                    requestId,
+                    approvalNotes == null ? "" : approvalNotes
+            );
+        } catch (SQLException ex) {
+            return new PublishService.PublishResult(false,
+                    "Book was published, but updating the request failed: " + ex.getMessage());
+        }
+        try {
+            Optional<BookRequest> refreshed = BookRequestDao.findById(requestId);
+            if (refreshed.isPresent()) {
+                BookRequest req = refreshed.get();
+                NotificationService.notifyBookRequestUpdate(
+                        req.getRequestedByUserId(),
+                        "Book Request Approved & Published",
+                        "Your request for \"" + req.getTitle()
+                                + "\" has been approved! The book is now available in the catalog for borrowing.");
+            }
+        } catch (SQLException ignored) {
+        }
+        String suffix = approvedGroupCount > 1
+                ? " (" + approvedGroupCount + " grouped requests were approved together)."
+                : ".";
+        return new PublishService.PublishResult(true,
+                "Book published and the request was approved" + suffix);
     }
 
     private static boolean isEditingLibrarianBook() {

@@ -24,8 +24,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class BookSummaryService {
-    private static final int SUMMARY_SOURCE_MAX_PAGES = 10;
-    private static final int MAX_PROMPT_CHARS = 3500;
+    private static final int SUMMARY_SOURCE_MAX_PAGES = 25;
+    private static final int MAX_PROMPT_CHARS = 7000;
     private static final int FALLBACK_MAX_CHARS = 900;
     private static final int FALLBACK_MIN_SENTENCES = 2;
     private static final int FALLBACK_MAX_SENTENCES = 4;
@@ -162,8 +162,8 @@ public final class BookSummaryService {
             case DETAILED -> "eight to ten sentences";
         };
         return "Summarize the following book content in " + targetRange + ". " +
-                "The summary may include time, characters, settings, venue, events happened and other useful information for future readers." +
-                "Return only the summary text without bullets or headers.\n\n" + clean;
+                "The summary should include time, characters, settings, venue, events happened." +
+                "Return only the summarized text without bullets or headers.\n\n" + clean;
     }
 
     static String parseSummary(String jsonBody) {

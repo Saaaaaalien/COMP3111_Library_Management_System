@@ -152,7 +152,7 @@ public final class MyBorrowedBooksScreen {
                 "Any due date", "Active — overdue", "Active — due within 7 days"));
         dueQuick.getSelectionModel().selectFirst();
 
-        CheckBox pdfOnly = new CheckBox("PDF loans only");
+        CheckBox pdfOnly = new CheckBox("PDF / EPUB loans (in-app reader)");
 
         Runnable applyFilter = () -> {
             String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase(Locale.ROOT);
@@ -166,7 +166,7 @@ public final class MyBorrowedBooksScreen {
                 } else if (!row.isActive()) {
                     return false;
                 }
-                if (pdfOnly.isSelected() && !row.isPdf()) {
+                if (pdfOnly.isSelected() && !row.canOpenInReader()) {
                     return false;
                 }
                 if (!q.isEmpty()) {
@@ -315,9 +315,10 @@ public final class MyBorrowedBooksScreen {
                     () -> showAlert(Alert.AlertType.INFORMATION, "Returned", "Only active loans can be opened in the reader."));
                 return;
             }
-            if (!selected.isPdf()) {
+            if (!selected.canOpenInReader()) {
                 runWithTimerPaused(inactivityTimer,
-                    () -> showAlert(Alert.AlertType.INFORMATION, "Not a PDF", "The reader opens PDF files only for this build."));
+                    () -> showAlert(Alert.AlertType.INFORMATION, "Unsupported format",
+                            "The in-app reader supports PDF and EPUB files."));
                 return;
             }
             PdfReaderScreen.open(navigator, currentUser, selected.getBorrowId(), selected.getBookId(),
@@ -499,6 +500,13 @@ public final class MyBorrowedBooksScreen {
         public String getFilePath() { return filePath; }
         public boolean isPdf() {
             return filePath != null && filePath.toLowerCase().endsWith(".pdf");
+        }
+
+        /** PDF or EPUB — formats the bundled reader can open (EPUB uses a cached PDF internally). */
+        public boolean canOpenInReader() {
+            if (filePath == null) return false;
+            String l = filePath.toLowerCase();
+            return l.endsWith(".pdf") || l.endsWith(".epub");
         }
         public String getTitle() { return title; }
         public String getAuthor() { return author; }
